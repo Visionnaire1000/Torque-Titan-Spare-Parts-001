@@ -13,7 +13,7 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <FaInstagram size={24} />
+            <FaInstagram size={18} />
           </a>
 
           <a
@@ -21,7 +21,7 @@ const Footer = () => {
             target="_blank"
             rel="noopener noreferrer"
           >
-            <FaFacebook size={24} />
+            <FaFacebook size={18} />
           </a>
         </div>
 

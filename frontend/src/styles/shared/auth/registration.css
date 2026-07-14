@@ -1,0 +1,93 @@
+ body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+
+.register-container {
+  max-width: 500px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0,);
+  margin-top: 110px;
+}
+
+.register-card{
+  padding: 40px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.register-card h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+  color: rgb(0, 64, 128);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  margin-top: -10px;
+}
+
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.register-form label {
+  font-weight: 600;
+  color: #555;
+}
+
+.register-form input,
+.register-form select {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+}
+
+.register-form input:focus,
+.register-form select:focus {
+  border-color: rgb(0, 64, 128);
+  outline: none;
+}
+
+.register-form .password-error {
+  display: block;           /* ensures it takes its own line */
+  margin-top: 5px;          /* spacing from the input */
+  font-size: 0.9rem;        /* slightly smaller than input text */
+  color: #d9534f;           /* red to indicate requirement not met */
+  background-color: #f8d7da; /* light red background for emphasis */
+  padding: 5px 10px;        /* some padding for readability */
+  border-radius: 5px;       /* rounded corners */
+  border: 1px solid #f5c2c7; /* subtle border */
+  font-weight: 500;   
+}
+
+.register-form button {
+  padding: 0.75rem;
+  background-color: rgb(0, 64, 128);
+  color: #fff;
+  font-weight: bold;
+  font-size: 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+
+.register-form button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+
