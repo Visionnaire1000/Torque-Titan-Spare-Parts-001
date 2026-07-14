@@ -1,0 +1,508 @@
+/* ---------- BASE RESET ---------- */
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- NAVBAR (DEFAULT = LAPTOP)---------- */
+.navbar {
+  width: 100vw;
+  position: fixed;
+  background-color: rgb(0,64,128);
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1.5rem;
+  color: white;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+/* ---------- LINKS ---------- */
+.navLinks {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.navLinks li a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* ---------- CART ---------- */
+.cart {
+  position: relative;
+  display: inline-block;
+  color: white;
+  font-size: medium;
+  margin-right: 10px;
+}
+
+.cart-count {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background-color: #dc2626;
+  color: white;
+  border-radius: 9999px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px white;
+}
+
+/* ---------- CATEGORIES ---------- */
+.categories {
+  display: flex;
+  justify-content: left;
+  gap: 20px;
+  margin-right: 40px;
+}
+
+.categories select {
+  background-color: rgb(0,64,128);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  outline: none;
+  font-size: 14px;
+  flex: 0 0 auto;
+  height: 30px;           
+  appearance: none; 
+  padding: 4px 28px 4px 8px;
+}
+
+.categories option {
+  background-color: rgba(8, 18, 30, 0.856);
+  font-size: 14px;
+  color: white;
+}
+
+/* ---------- RIGHT SECTION ---------- */
+.right-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  position: relative;
+  margin-left: 20px;
+}
+
+.login, .register {
+  color: white;
+  text-decoration: none;
+}
+
+/* ---------- LOGO ---------- */
+.logo img {
+  width: 80%;
+  height: 30%;
+  display: flex;
+  justify-content: left;
+  margin-left: -10px;
+  margin-top: -10px;
+  margin-right: 10px;
+}
+
+.navbar.logged-out .logo img,
+.navbar.logged-in .logo img {
+  width: 60%;
+  height: 30%;
+  margin-right: -300px;
+}
+
+/* ---------- DROPDOWN ---------- */
+.dashboard-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dashboard-button {
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ---------- DROPDOWN MENU ---------- */
+.navbar.logged-in .dropdown-menu,
+.navbar.logged-out .dropdown-menu {
+  position: absolute;
+  transform: translateX(-100%);
+  min-width: 230px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 8px 0;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  animation: slideInLeft 0.25s ease forwards;
+}
+
+.navbar.logged-in .dropdown-menu {
+  margin-top: 24px;
+  margin-left: -38px;
+}
+
+.navbar.logged-out .dropdown-menu {
+  margin-top: 24px;
+  margin-left: -3px;
+}
+
+/* ---------- ANIMATION ---------- */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-85%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-100%);
+  }
+}
+
+/* ---------- TABS ---------- */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  font-size: 14px;
+  color: #374151;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: #f3f4f6;
+}
+
+.active-tab {
+  background: #eef2ff;
+  color: rgb(0,64,128);
+  font-weight: 600;
+  border-right: 4px solid rgb(0,64,128);
+}
+
+/* ---------- SEARCH ---------- */
+.navbar-search-icon {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+}
+
+.navbar-search-icon:hover {
+  background-color: rgba(255,255,255,0.15);
+}
+
+/* ---------- INPUT ---------- */
+.input-container input {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* ---------- BADGES ---------- */
+.orders-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #ff3b30;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+.navbar {
+  min-width: 100vw;
+  max-width: 100vw;
+  position: fixed;
+  background-color: rgb(0,64,128);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.8rem 1.5rem;
+  align-items: center;
+}
+
+/* ---------- LINKS ---------- */
+.navLinks {
+  list-style: none;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.navLinks li a {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* ---------- CART ---------- */
+.cart {
+  position: relative;
+  display: inline-block;
+  color: white;
+  font-size: medium;
+  margin-right: 2px;
+}
+
+.cart-count {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  background-color: #dc2626;
+  color: white;
+  border-radius: 9999px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px white;
+}
+
+/* ---------- CATEGORIES ---------- */
+.categories {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;           /* allows horizontal scroll */
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.categories select {
+  height: 36px;    
+  flex: 0 0 auto;          
+  border-radius: 8px;
+  background-color: rgb(0,64,128);
+  color: white;
+  cursor: pointer;
+  position: relative;
+  font-size: 12px;
+  padding: 2px 14px 2px 4px;
+}
+
+.categories option {
+  background-color: rgba(8, 18, 30, 0.856);
+  font-size: xx-small;
+  color: white;
+}
+
+/* ---------- RIGHT SECTION ---------- */
+.right-section {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  position: relative;
+  margin-left: 10px;
+  margin-right: 0;
+}
+
+
+.login, .register {
+  color: white;
+  text-decoration: none;
+}
+
+.navbar.logged-out .login, .register {
+  color: white;
+  text-decoration: none;
+  font-size: medium;
+  margin-left: 20px;
+  margin-right: -18px;
+}
+
+/* ---------- LOGO ---------- */
+.logo img {
+  display: flex;
+  justify-content: left;
+  margin-left: -20px;
+  margin-top: -10px;
+  margin-right: 15px;
+}
+
+.navbar.logged-in .logo img {
+  width: 180%;
+  height: 30%;
+  margin-left: -40px;
+}
+
+.navbar.logged-out .logo img {
+  width: 360%;
+  height: 30%;
+  display: none;
+  margin-left: -40px;
+}
+
+
+/* ---------- DROPDOWN ---------- */
+.dashboard-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dashboard-button {
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.navbar.logged-out .dashboard-button {
+   margin-left: -30px;
+}
+
+.dashboard-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+
+/* ---------- DROPDOWN MENU ---------- */
+.navbar.logged-in .dropdown-menu,
+.navbar.logged-out .dropdown-menu {
+  position: absolute;
+  transform: translateX(-100%);
+  min-width: 174px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 8px 0;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  animation: slideInLeft 0.25s ease forwards;
+}
+
+.navbar.logged-in .dropdown-menu {
+  margin-top: 23px;
+  margin-left: 88px;
+}
+
+.navbar.logged-out .dropdown-menu {
+  margin-top: 18px;
+  margin-left: 134px;
+}
+
+/* ---------- ANIMATION ---------- */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-85%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-100%);
+  }
+}
+
+/* ---------- TABS ---------- */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  font-size: 14px;
+  color: #374151;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: #f3f4f6;
+}
+
+.active-tab {
+  background: #eef2ff;
+  color: rgb(0,64,128);
+  font-weight: 600;
+  border-right: 4px solid rgb(0,64,128);
+  border-left: white;
+}
+
+/* ---------- SEARCH ---------- */
+.navbar-search-icon {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+}
+
+.navbar-search-icon:hover {
+  background-color: rgba(255,255,255,0.15);
+}
+
+/* ---------- INPUT ---------- */
+.input-container input {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* ---------- BADGES ---------- */
+.orders-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #ff3b30;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+}
+
+
+
+

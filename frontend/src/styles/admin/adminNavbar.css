@@ -1,0 +1,230 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+/* ================================
+   Navbar
+================================ */
+.navbar {
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background-color: rgb(0,64,128);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1.5rem;
+  color: white;
+  z-index: 1000;
+  box-sizing: border-box;
+}
+
+/* ================================
+   Logo
+================================ */
+.logo img {
+  width: 20%;
+  height: auto;
+}
+
+/* ================================
+   Dashboard Dropdown Wrapper
+================================ */
+.dashboard-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+/* ================================
+   Menu Button
+================================ */
+.dashboard-button {
+  background: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* ================================
+   Dropdown Menu
+================================ */
+.dropdown-menu {
+  position: absolute;
+  margin-top: 20px;
+  margin-left: 52px;
+  justify-content: right;
+  transform: translateX(-100%);
+  min-width: 230px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 8px 0;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  animation: slideInLeft 0.25s ease forwards;
+}
+
+/* ================================
+   Slide Animation
+================================ */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-85%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-100%);
+  }
+}
+
+/* ================================
+   Tabs
+================================ */
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  font-size: 14px;
+  color: #374151;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.tab:hover {
+  background: #f3f4f6;
+}
+
+/* ================================
+   Active Tab
+================================ */
+.active-tab {
+  background: #eef2ff;
+  color: rgb(0, 64, 128);
+  font-weight: 600;
+  border-left: 4px solid rgb(0,64,128);
+}
+
+/* ================================
+   Icons
+================================ */
+.tab svg,
+.tab .icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* ================================
+   Logout Button
+================================ */
+.dropdown-menu button {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  color: #dc2626;
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-menu button:hover {
+  background: #fee2e2;
+}
+
+/* ---------- Notification Badges ---------- */
+.icon-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #e03e2d; 
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 0 1px white;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/*slight bounce on update */
+.notification-badge.animate {
+  transform: scale(1.2);
+  opacity: 0.9;
+}
+
+/* Adjust for big numbers */
+.notification-badge::after {
+  content: attr(data-count);
+}
+
+/* ---------- Tabs Badges ---------- */
+.orders-tabs .notification-badge {
+  top: 0;
+  right: 0;
+  transform: translate(50%, -50%);
+  font-size: 10px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+}
+
+
+
+/*----------------------------------RESPONSIVE BREAKPOINTS--------------------------------------------*/
+@media (max-width: 480px) {
+
+/* ================================
+   Logo
+================================ */
+.logo img {
+  width: 40%;
+  height: auto;
+}
+
+.dropdown-menu {
+  position: absolute;
+  margin-top: 30px;
+  margin-left: 98px;
+  justify-content: right;
+  transform: translateX(-100%);
+  min-width: 230px;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 8px 0;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 999;
+  animation: slideInLeft 0.25s ease forwards;
+}
+
+}

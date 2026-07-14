@@ -1,0 +1,113 @@
+html, body {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* ---------- FOOTER BASE (LAPTOP DEFAULT - KEEP AS IS) ---------- */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background-color: rgb(0,64,128);
+  padding: 0.8rem 1.5rem;
+  color: white;
+  z-index: 1000;
+  box-sizing: border-box;
+  transition: transform 0.3s ease-in-out;
+  transform: translateY(100%);
+  bottom: 0;
+  margin-left: -20px;
+  margin-right: -20px;
+}
+
+/* ---------- LISTS ---------- */
+ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* ---------- SOCIALS ---------- */
+.socials p {
+  font-size: medium;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.socials i {
+  margin-right: 20px;
+}
+
+.socials i:hover {
+  color: rgb(0,255,80);
+}
+
+/* ---------- COLUMNS ---------- */
+.columns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 100px;
+}
+
+/* ---------- CONTACTS ---------- */
+.contacts h5 {
+  font-size: medium;
+}
+
+.contacts li {
+  list-style-type: none;
+}
+
+/* ---------- POLICIES ---------- */
+.policies p {
+  cursor: pointer;
+}
+
+.policies p:hover {
+  color: rgb(0,255,80);
+}
+
+/* ---------- LINKS ---------- */
+.footer a {
+  color: white;
+  margin-right: 2px;
+}
+
+/* ---------- BOTTOM BAR ---------- */
+.bottomBar {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  font-size: 0.9rem;
+  color: #e0e0e0;
+}
+
+/*----------------------- RESPONSIVE BREAKPOINT----------------------------*/
+  @media (max-width: 480px) {
+  .footer {
+    min-width: 100vw;
+    margin-left: -15px;
+    margin-right: -15px;
+  }
+
+  .columns {
+    gap: 20px;
+  }
+
+  .socials i {
+    margin-right: 10px;
+    font-size: 1rem;
+  }
+
+  .socials p,
+  .contacts h5 {
+    font-size: 0.9rem;
+  }
+
+  .bottomBar {
+    font-size: 0.8rem;
+  }
+}
