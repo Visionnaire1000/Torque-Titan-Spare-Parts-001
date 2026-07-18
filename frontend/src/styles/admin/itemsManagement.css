@@ -1,0 +1,236 @@
+/* ===============================
+   Admin SpareParts Card
+================================ */
+.admin-spareparts {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.admin-spareparts h2 {
+  margin-bottom: 20px;
+  margin-top: 40px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* ===============================
+   Smart Search (react-select)
+================================ */
+.admin-spareparts .search-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.css-1wa3eu0-control {
+  background-color: #fff;
+  border-radius: 10px;
+  min-height: 42px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.css-1wa3eu0-control:focus-within {
+  border-color: rgb(0,64,128);
+  box-shadow: 0 0 0 2px rgba(0,64,128,0.15);
+}
+
+.css-1uccc91-singleValue {
+  color: #000;
+}
+
+.css-1okebmr-placeholder {
+  color: #888;
+}
+
+.css-1d8n9bt-input {
+  color: #000;
+}
+
+.css-1n7v3ny-menu {
+  background-color: #1b1b1b;
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  z-index: 1000;
+}
+
+.css-1n7v3ny-option {
+  padding: 12px 15px;
+  cursor: pointer;
+  color: #ddd;
+}
+
+.css-1n7v3ny-option:hover,
+.css-1n7v3ny-option--is-focused {
+  background-color: rgb(0, 64, 128);
+  color: #fff;
+}
+
+/* Option Label Styling */
+.search-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-option strong {
+  font-size: 14px;
+  color: #fff;
+}
+
+.search-option small {
+  font-size: 12px;
+  color: #aaa;
+}
+
+/* ===============================
+   SpareParts Form
+================================ */
+.spare-form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.spare-form input,
+.spare-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  transition: 0.2s ease;
+}
+
+.spare-form textarea {
+  grid-column: span 2;
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Focus */
+.spare-form input:focus,
+.spare-form textarea:focus {
+  outline: none;
+  border-color: rgb(0, 64, 128);
+  box-shadow: 0 0 0 2px rgba(0, 64, 128, 0.15);
+}
+
+/* ===============================
+   Form Actions
+================================ */
+.actions {
+  grid-column: span 2;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 10px;
+}
+
+.actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s ease;
+  color: white;
+  background-color: rgb(0,64,128);
+}
+
+#create {
+  color: white;
+  background-color: rgb(0, 64, 128);
+}
+
+#create:hover {
+  color: white;
+  background-color: rgba(0, 64, 128, 0.361);
+}
+
+#edit {
+  color: white;
+  background-color: rgb(0,64,128);
+}
+
+#edit:hover {
+  color: white;
+  background-color: rgba(0, 64, 128, 0.361);
+}
+
+#delete {
+  color: white;
+  background-color: red;
+  transition: 0.2s ease;
+}
+
+#delete:hover {
+  color: white;
+  background-color: rgba(188, 11, 11, 0.626);
+}
+
+
+/* ===============================
+   Toast Confirmation
+================================ */
+.toast-confirm {
+  padding: 16px 20px;
+  background-color: #fff3cd; /* light yellow warning */
+  color: #856404; /* dark warning text */
+  border-left: 6px solid #ffc107; /* accent */
+  border-radius: 8px;
+  font-family: system-ui, sans-serif;
+}
+
+.toast-confirm button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-right: 8px;
+  transition: all 0.2s ease;
+}
+
+.toast-confirm button:first-child {
+  background-color: #ffc107; /* Yes */
+  color: #212529;
+}
+
+.toast-confirm button:first-child:hover {
+  background-color: #e0a800;
+}
+
+.toast-confirm button:last-child {
+  background-color: #6c757d; /* No */
+  color: #fff;
+}
+
+.toast-confirm button:last-child:hover {
+  background-color: #5a6268;
+}
+
+.spare-image-preview {
+  text-align: center;
+  margin-bottom: 20px;
+  margin-top: 20px;
+}
+
+.spare-image-preview img {
+  max-width: 200px;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+
+
+
+

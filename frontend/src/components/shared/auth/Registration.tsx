@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import "../../../styles/shared/auth/registration.css";
 
 interface FormData {
   email: string;
@@ -121,136 +120,283 @@ const Registration = () => {
     await resendOtp(formData.email);
   };
 
-  return (
-    <div className="register-container">
-      <div className="register-card">
-        <h2>Create Account</h2>
+ return (
+  <div
+    className="
+      mx-auto
+      mt-[110px]
+      mb-12
+      max-w-[500px]
+      rounded-xl
+      bg-white
+      p-8
+      shadow-[0_4px_12px_rgba(0,0,0,0)]
+    "
+  >
+    <div
+      className="
+        rounded-xl
+        bg-white
+        p-10
+        shadow-[0_4px_12px_rgba(0,0,0,0.1)]
+      "
+    >
+      <h2
+        className="
+          -mt-[10px]
+          mb-6
+          flex
+          items-start
+          justify-center
+          text-[1.8rem]
+          font-semibold
+          text-[rgb(0,64,128)]
+        "
+      >
+        Create Account
+      </h2>
 
-        {/* Step 1 */}
-        {step === 1 && (
-          <form
-            className="register-form"
-            onSubmit={handleSendOtp}
-          >
-            <input
-              type="email"
-              name="email"
-              placeholder="Email address"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
+      {/* Step 1 */}
+      {step === 1 && (
+        <form
+          onSubmit={handleSendOtp}
+          className="flex flex-col gap-[10px]"
+        >
+          <input
+            type="email"
+            name="email"
+            placeholder="Email address"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className="
+              rounded-md
+              border
+              border-[#ccc]
+              px-[0.8rem]
+              py-[0.6rem]
+              text-base
+              transition-colors
+              duration-300
+              focus:border-[rgb(0,64,128)]
+              focus:outline-none
+            "
+          />
 
-            {emailError && (
-              <p className="password-error">
-                {emailError}
-              </p>
-            )}
-
-            <div className="input-wrapper">
-              <input
-                type={
-                  showPassword ? "text" : "password"
-                }
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() =>
-                  setShowPassword((prev) => !prev)
-                }
-              >
-                {showPassword ? (
-                  <EyeOff size={20} />
-                ) : (
-                  <Eye size={20} />
-                )}
-              </button>
-            </div>
-
-            {passwordError && (
-              <p className="password-error">
-                {passwordError}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={
-                isLoading ||
-                Boolean(passwordError) ||
-                Boolean(emailError)
-              }
+          {emailError && (
+            <p
+              className="
+                mt-[5px]
+                block
+                rounded-[5px]
+                border
+                border-[#f5c2c7]
+                bg-[#f8d7da]
+                px-[10px]
+                py-[5px]
+                text-[0.9rem]
+                font-medium
+                text-[#d9534f]
+              "
             >
-              {isLoading
-                ? "Sending OTP..."
-                : "Register"}
-            </button>
-          </form>
-        )}
-
-        {/* Step 2 */}
-        {step === 2 && (
-          <form
-            className="register-form"
-            onSubmit={handleVerifyOtp}
-          >
-            <p>
-              Enter the OTP sent to{" "}
-              <strong>{formData.email}</strong>
+              {emailError}
             </p>
+          )}
 
+          <div className="relative">
             <input
-              type="text"
-              name="otp"
-              placeholder="Enter OTP"
-              value={formData.otp}
+              type={showPassword ? "text" : "password"}
+              name="password"
+              placeholder="Password"
+              value={formData.password}
               onChange={handleChange}
               required
+              className="
+                w-full
+                rounded-md
+                border
+                border-[#ccc]
+                px-[0.8rem]
+                py-[0.6rem]
+                pr-12
+                text-base
+                transition-colors
+                duration-300
+                focus:border-[rgb(0,64,128)]
+                focus:outline-none
+              "
             />
 
-            <div className="otp-info">
-              {otpSent && otpCountdown > 0 && (
-                <span>
-                  Resend OTP in {otpCountdown}s
-                </span>
+            <button
+              type="button"
+              onClick={() =>
+                setShowPassword((prev) => !prev)
+              }
+              className="
+                absolute
+                right-3
+                top-1/2
+                -translate-y-1/2
+                text-gray-500
+                transition-colors
+                hover:text-[rgb(0,64,128)]
+              "
+            >
+              {showPassword ? (
+                <EyeOff size={20} />
+              ) : (
+                <Eye size={20} />
               )}
+            </button>
+          </div>
 
-              <button
-                type="button"
-                onClick={handleResendOtp}
-                disabled={
-                  otpCountdown > 0 || resendLoading
-                }
-              >
-                {resendLoading
-                  ? "Resending..."
-                  : otpCountdown > 0
-                  ? `Resend in ${otpCountdown}s`
-                  : "Resend OTP"}
-              </button>
-            </div>
+          {passwordError && (
+            <p
+              className="
+                mt-[5px]
+                block
+                rounded-[5px]
+                border
+                border-[#f5c2c7]
+                bg-[#f8d7da]
+                px-[10px]
+                py-[5px]
+                text-[0.9rem]
+                font-medium
+                text-[#d9534f]
+              "
+            >
+              {passwordError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={
+              isLoading ||
+              Boolean(passwordError) ||
+              Boolean(emailError)
+            }
+            className="
+              rounded-md
+              bg-[rgb(0,64,128)]
+              py-3
+              text-base
+              font-bold
+              text-white
+              transition-colors
+              duration-300
+              hover:bg-[rgba(13,54,95,0.831)]
+              disabled:cursor-not-allowed
+              disabled:bg-[#ccc]
+            "
+          >
+            {isLoading
+              ? "Sending OTP..."
+              : "Register"}
+          </button>
+        </form>
+      )}
+
+      {/* Step 2 */}
+      {step === 2 && (
+        <form
+          onSubmit={handleVerifyOtp}
+          className="flex flex-col gap-[10px]"
+        >
+          <p className="text-center">
+            Enter the OTP sent to{" "}
+            <strong>{formData.email}</strong>
+          </p>
+
+          <input
+            type="text"
+            name="otp"
+            placeholder="Enter OTP"
+            value={formData.otp}
+            onChange={handleChange}
+            required
+            className="
+              rounded-md
+              border
+              border-[#ccc]
+              px-[0.8rem]
+              py-[0.6rem]
+              text-base
+              transition-colors
+              duration-300
+              focus:border-[rgb(0,64,128)]
+              focus:outline-none
+            "
+          />
+
+          <div
+            className="
+              flex
+              flex-col
+              gap-2
+              sm:flex-row
+              sm:items-center
+              sm:justify-between
+            "
+          >
+            {otpSent && otpCountdown > 0 && (
+              <span className="text-sm text-gray-600">
+                Resend OTP in {otpCountdown}s
+              </span>
+            )}
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleResendOtp}
               disabled={
-                isLoading || !formData.otp
+                otpCountdown > 0 ||
+                resendLoading
               }
+              className="
+                font-semibold
+                text-[rgb(0,64,128)]
+                transition-colors
+                hover:text-[rgba(13,54,95,0.831)]
+                disabled:cursor-not-allowed
+                disabled:text-gray-400
+              "
             >
-              {isLoading
-                ? "Verifying..."
-                : "Verify OTP"}
+              {resendLoading
+                ? "Resending..."
+                : otpCountdown > 0
+                ? `Resend in ${otpCountdown}s`
+                : "Resend OTP"}
             </button>
-          </form>
-        )}
-      </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={
+              isLoading || !formData.otp
+            }
+            className="
+              rounded-md
+              bg-[rgb(0,64,128)]
+              py-3
+              text-base
+              font-bold
+              text-white
+              transition-colors
+              duration-300
+              hover:bg-[rgba(13,54,95,0.831)]
+              disabled:cursor-not-allowed
+              disabled:bg-[#ccc]
+            "
+          >
+            {isLoading
+              ? "Verifying..."
+              : "Verify OTP"}
+          </button>
+        </form>
+      )}
     </div>
+  </div>
   );
 };
 

@@ -8,13 +8,14 @@ import 'react-toastify/dist/ReactToastify.css';
 import { CartProvider } from "./contexts/CartContext";
 
 //protected routes component
-//import RoleProtectedRoutes from "./components/shared/auth/RoleProtectedRoutes"; 
+import RoleProtectedRoutes from "./components/shared/auth/RoleProtectedRoutes"; 
 
 //pages
 import Navbar from "./components/shared/layout/Navbar";
-import Footer from "./components/shared/layout/Footer";
 import Registration from "./components/shared/auth/Registration";
 import Login from "./components/shared/auth/Login";
+import Homepage from "./components/shared/Homepage";
+import Cart from "./components/buyer/Cart";
 
 
 function App() {
@@ -22,26 +23,34 @@ function App() {
     <CartProvider>
         <Router>
            <Navbar />
-           <div className="min-h-screen flex flex-col font-sans">
-              <main className="flex-1">
+           <div>
+              <main>
              <Routes>
                 <Route path="/register" element={<Registration />} /> 
                 <Route path="/login" element={<Login />} /> 
+                <Route path="/" element={<Homepage />} /> 
+                <Route 
+                  path="/cart" 
+                  element={
+                     <RoleProtectedRoutes allowedRoles={['buyer']}>
+                        <Cart />
+                    </RoleProtectedRoutes>
+                  } 
+              />
              </Routes>
-           <Footer />
               </main>
            </div>
         </Router>
         <ToastContainer
-        position="top-right"
-        autoClose={2000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        pauseOnHover
-        draggable
-        theme="colored"
-      />
+           position="top-right"
+           autoClose={2000}
+           hideProgressBar={false}
+           newestOnTop={false}
+           closeOnClick
+           pauseOnHover
+           draggable
+           theme="colored"
+        />
     </CartProvider>
     )
 }

@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/*body {
+  margin: 0;
+  padding: 0;
+  width: 100%; 
+  height: 100%; 
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+
+.content-wrapper {
+  min-height: 100vh; 
+  padding-bottom: 70px; 
+}
+*/
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
