@@ -1,0 +1,402 @@
+/* ---------------- Page Layout ---------------- */
+.search-results-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #222;
+  margin-top: 70px;
+}
+
+.search-results-page h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+/* ---------------- Grid ---------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 30px;
+}
+
+/* ---------------- Item Card ---------------- */
+.item-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  text-decoration: none;
+  color: #222;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
+  margin-right: 30px;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* ---------------- Image ---------------- */
+.item-card img {
+  width: 70%;
+  height: auto;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+/* ---------------- Text ---------------- */
+.item-card h4 {
+  font-size: 0.95rem;
+  margin: 5px 0;
+  font-weight: 600;
+}
+
+.item-card p {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+/* ---------------- Tag ---------------- */
+.vehicle-tag {
+  align-self: flex-start;
+  background: rgba(0, 64, 128, 0.1);
+  color: rgb(0, 64, 128);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 20px;
+  margin-top: auto;
+}
+
+/* ---------------- No Results ---------------- */
+.no-results {
+  text-align: center;
+  margin-top: 3rem;
+  font-size: 1rem;
+  color: #888;
+}
+
+/* ---------------- Skeleton Loader ---------------- */
+.skeleton {
+  pointer-events: none;
+}
+
+.skeleton .img {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    #eee 25%,
+    #f5f5f5 37%,
+    #eee 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+  margin-bottom: 10px;
+}
+
+.skeleton .text {
+  width: 80%;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #eee 25%,
+    #f5f5f5 37%,
+    #eee 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* ---------------- Animation ---------------- */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.item-card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.price {
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.discount {
+  color: #e41a139b;
+  font-size: small;
+  margin-left: 5px;
+}
+
+.add-to-cart {
+  margin-top: auto;
+  padding: 8px;
+  border: none;
+  background: rgb(0, 64, 128);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.add-to-cart:hover {
+  background: rgb(0, 90, 180);
+}
+
+
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+.search-results-page h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+/* ---------------- Grid ---------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 20px;
+}
+
+/* ---------------- Item Card ---------------- */
+.item-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  text-decoration: none;
+  color: #222;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* ---------------- Image ---------------- */
+.item-card img {
+  width: 70%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+}
+/* ---------------- Page Layout ---------------- */
+.search-results-page {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: #222;
+  margin-top: 70px;
+}
+
+.search-results-page h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+/* ---------------- Grid ---------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 30px;
+}
+
+/* ---------------- Item Card ---------------- */
+.item-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  text-decoration: none;
+  color: #222;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
+  margin-right: 30px;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* ---------------- Image ---------------- */
+.item-card img {
+  width: 70%;
+  height: auto;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+/* ---------------- Text ---------------- */
+.item-card h4 {
+  font-size: 0.95rem;
+  margin: 5px 0;
+  font-weight: 600;
+}
+
+.item-card p {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+/* ---------------- Tag ---------------- */
+.vehicle-tag {
+  align-self: flex-start;
+  background: rgba(0, 64, 128, 0.1);
+  color: rgb(0, 64, 128);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 20px;
+  margin-top: auto;
+}
+
+/* ---------------- No Results ---------------- */
+.no-results {
+  text-align: center;
+  margin-top: 3rem;
+  font-size: 1rem;
+  color: #888;
+}
+
+/* ---------------- Skeleton Loader ---------------- */
+.skeleton {
+  pointer-events: none;
+}
+
+.skeleton .img {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    #eee 25%,
+    #f5f5f5 37%,
+    #eee 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+  margin-bottom: 10px;
+}
+
+.skeleton .text {
+  width: 80%;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #eee 25%,
+    #f5f5f5 37%,
+    #eee 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+/* ---------------- Animation ---------------- */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.item-card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.price {
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.discount {
+  color: #e41a139b;
+  font-size: small;
+  margin-left: 5px;
+}
+
+.add-to-cart {
+  margin-top: auto;
+  padding: 8px;
+  border: none;
+  background: rgb(0, 64, 128);
+  color: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.add-to-cart:hover {
+  background: rgb(0, 90, 180);
+}
+
+
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+.search-results-page h2 {
+  margin-bottom: 1.5rem;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+/* ---------------- Grid ---------------- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 20px;
+}
+
+/* ---------------- Item Card ---------------- */
+.item-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 12px;
+  text-decoration: none;
+  color: #222;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+/* ---------------- Image ---------------- */
+.item-card img {
+  width: 70%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+}

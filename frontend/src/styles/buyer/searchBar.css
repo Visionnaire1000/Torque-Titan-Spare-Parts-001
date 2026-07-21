@@ -1,0 +1,217 @@
+.search-page {
+  position: relative;
+  max-width: 500px;
+  margin: 50px auto;
+  font-family: Arial, sans-serif;
+  z-index: 1;
+}
+
+.search-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('https://i.imgur.com/6R1dsG5.jpeg'); 
+  background-size: cover;       
+  background-position: center;   
+  background-repeat: no-repeat;                    
+  overflow: hidden;              
+}
+
+.search-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 15px;
+  color: #fff;
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; 
+  gap: 8px; 
+}
+
+.option-main {
+  display: flex;
+  flex-direction: column; 
+  flex: 1;
+}
+
+.clock-icon {
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.item-link {
+  text-decoration: none;
+  color: #fff;
+}
+
+.item-link:hover {
+  text-decoration: underline;
+}
+
+.remove-history-item {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.remove-history-item:hover {
+  color: #fff;
+}
+
+.history-tag {
+  background-color: rgb(0,64,128);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 4px;
+  margin-left: 8px;
+  border-radius: 4px;
+}
+
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remove-history-item {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.remove-history-item:hover {
+  color: red;
+}
+
+
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+.search-page {
+  position: relative;
+  max-width: 480px;
+  width: 88%;
+}
+
+}.search-page {
+  position: relative;
+  max-width: 500px;
+  margin: 50px auto;
+  font-family: Arial, sans-serif;
+  z-index: 1;
+}
+
+.search-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('https://i.imgur.com/6R1dsG5.jpeg'); 
+  background-size: cover;       
+  background-position: center;   
+  background-repeat: no-repeat;                    
+  overflow: hidden;              
+}
+
+.search-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 15px;
+  color: #fff;
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; 
+  gap: 8px; 
+}
+
+.option-main {
+  display: flex;
+  flex-direction: column; 
+  flex: 1;
+}
+
+.clock-icon {
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.item-link {
+  text-decoration: none;
+  color: #fff;
+}
+
+.item-link:hover {
+  text-decoration: underline;
+}
+
+.remove-history-item {
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.remove-history-item:hover {
+  color: #fff;
+}
+
+.history-tag {
+  background-color: rgb(0,64,128);
+  color: #fff;
+  font-size: 10px;
+  padding: 2px 4px;
+  margin-left: 8px;
+  border-radius: 4px;
+}
+
+.recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remove-history-item {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.remove-history-item:hover {
+  color: red;
+}
+
+
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+.search-page {
+  position: relative;
+  max-width: 480px;
+  width: 88%;
+}
+
+}

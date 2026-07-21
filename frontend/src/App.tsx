@@ -16,6 +16,8 @@ import Registration from "./components/shared/auth/Registration";
 import Login from "./components/shared/auth/Login";
 import Homepage from "./components/shared/Homepage";
 import Cart from "./components/buyer/Cart";
+import SearchBar from "./components/buyer/search/SearchBar"; 
+import SearchResults from "./components/buyer/search/SearchResults";
 
 
 function App() {
@@ -37,6 +39,8 @@ function App() {
                     </RoleProtectedRoutes>
                   } 
               />
+             <Route path="/search" element={<SearchBar />} />
+             <Route path="/search-results" element={<SearchResults />} />
              </Routes>
               </main>
            </div>
