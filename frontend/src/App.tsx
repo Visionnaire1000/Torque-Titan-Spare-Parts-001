@@ -18,6 +18,7 @@ import Homepage from "./components/shared/Homepage";
 import Cart from "./components/buyer/Cart";
 import SearchBar from "./components/buyer/search/SearchBar"; 
 import SearchResults from "./components/buyer/search/SearchResults";
+import ItemDetails from "./components/shared/ItemDetails";
 
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
               />
              <Route path="/search" element={<SearchBar />} />
              <Route path="/search-results" element={<SearchResults />} />
+             <Route path="/items/:id" element={<ItemDetails />} /> 
              </Routes>
               </main>
            </div>
