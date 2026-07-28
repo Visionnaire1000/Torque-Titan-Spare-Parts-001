@@ -158,7 +158,7 @@ const SearchBar = () => {
   ) => {
     const { data } = props;
 
-    return (
+  return (
       <components.Option {...props}>
         <div className="flex items-center justify-between gap-2">
 
@@ -301,7 +301,7 @@ const SearchBar = () => {
     }),
   };
 
-    return (
+  return (
     <div
       className="
         relative

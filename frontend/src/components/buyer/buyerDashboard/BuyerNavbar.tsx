@@ -1,6 +1,7 @@
-import { useState, useEffect, type ChangeEvent } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {useLocation, useNavigate, Link, NavLink,} from "react-router-dom";
-import {ShoppingCart, Menu, Home, User, Package, MapPin, Search,} from "lucide-react";
+import {ShoppingCart, Menu, Home, User, Package, MapPin, Search, ChevronDown } from "lucide-react";
 import { useCart } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import "../../../styles/buyer/buyerNavbar.css";
@@ -44,6 +45,13 @@ const BuyerNavbar = () => {
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
   const [ordersCount, setOrdersCount] = useState<number>(0);
 
+  const [openDropdown, setOpenDropdown] =
+  useState<keyof SelectedCategory | null>(null);
+
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0,});
+
+  const [menuWidth, setMenuWidth] = useState(150);
+
   const [selectedCategory, setSelectedCategory] =
     useState<SelectedCategory>({
       tyres: "",
@@ -76,6 +84,19 @@ const BuyerNavbar = () => {
 
     if (!type || !category) return;
 
+  useEffect(() => {
+    const handleClickOutside = () => {
+    setOpenDropdown(null);
+   };
+     document.addEventListener("click", handleClickOutside);
+
+   return () =>
+    document.removeEventListener(
+      "click",
+      handleClickOutside
+    );
+   }, []);
+
     setSelectedCategory((prev) => {
       const newState = {} as SelectedCategory;
 
@@ -87,27 +108,27 @@ const BuyerNavbar = () => {
     });
   }, [location.pathname]);
 
-  const handleSelectNavigate = (
-    e: ChangeEvent<HTMLSelectElement>,
-    path: keyof SelectedCategory
-  ): void => {
-    const value = e.target.value;
+ const handleCategorySelect = (
+  value: string,
+  path: keyof SelectedCategory
+ ): void => {
+  navigate(`/${value}`);
 
-    if (!value) return;
+  setSelectedCategory((prev) => {
+    const newState = {} as SelectedCategory;
 
-    navigate(`/${value}`);
-
-    setSelectedCategory((prev) => {
-      const newState = {} as SelectedCategory;
-
-      (Object.keys(prev) as (keyof SelectedCategory)[]).forEach((key) => {
-        newState[key] = key === path ? value : "";
-      });
-
-      return newState;
+    (
+      Object.keys(prev) as (keyof SelectedCategory)[]
+    ).forEach((key) => {
+      newState[key] = key === path ? value : "";
     });
-  };
 
+    return newState;
+  });
+
+  setOpenDropdown(null);
+ };
+ 
    const calculateNotifications = (): void => {
     const seenOrderIds: Partial<SeenOrderIds> = JSON.parse(
       localStorage.getItem("buyer_seen_order_ids") || "{}"
@@ -301,30 +322,88 @@ const BuyerNavbar = () => {
           </div>
         )}
       </div>
+      <div className="categories-wrapper">
+       <div className="categories">
+       {categories.map(({ label, path }) => (
+       <div
+        key={path}
+        className="category-dropdown"
+       >
+        <button
+          type="button"
+          className="category-button"
+         onClick={(e) => {
+          e.stopPropagation();
+           if (openDropdown === path) {
+             setOpenDropdown(null);
+            return;
+           }
+           const rect =
+            e.currentTarget.getBoundingClientRect();
+            setMenuPosition({
+            top: rect.bottom + window.scrollY + 4,
+            left: rect.left + window.scrollX,
+          });
+           setMenuWidth(rect.width);
+           setOpenDropdown(path);
+        }}
+       >
+        {selectedCategory[path]
+          ? selectedCategory[path]
+              .replace("-", " ")
+              .toUpperCase()
+          : label}
 
-      <div className="categories">
-        {categories.map(({ label, path }) => (
-          <select
-            key={label}
-            value={selectedCategory[path]}
-            onChange={(e) => handleSelectNavigate(e, path)}
-          >
-            <option value="" disabled>
-              {label}
-            </option>
+       <ChevronDown
+         size={18}
+         className={`dropdown-arrow ${
+         openDropdown === path ? "open" : ""
+       }`}
+       />
+      </button>
 
-            {["sedan", "suv", "truck", "bus"].map((type) => (
-              <option
-                key={type}
-                value={`${type}-${path}`}
-              >
-                {type.toUpperCase()} {label}
-              </option>
-            ))}
-          </select>
+     
+        </div>
         ))}
+       </div>
       </div>
-
+      {openDropdown &&
+  createPortal(
+    <div
+      className="category-menu"
+      style={{
+        position: "absolute",
+        top: menuPosition.top,
+        left: menuPosition.left,
+        width: menuWidth,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {["sedan", "suv", "truck", "bus"].map(
+        (type) => (
+          <button
+            key={type}
+            type="button"
+            className="category-option"
+            onClick={() =>
+              handleCategorySelect(
+                `${type}-${openDropdown}`,
+                openDropdown
+              )
+            }
+          >
+            {type.toUpperCase()}{" "}
+            {
+              categories.find(
+                (c) => c.path === openDropdown
+              )?.label
+            }
+          </button>
+        )
+      )}
+      </div>,
+      document.body
+     )}
       <div className="navbar-smart-search">
         <button
           className="navbar-search-icon"

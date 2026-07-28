@@ -86,7 +86,7 @@ const SearchResults = () => {
       });
   }, [keyword, brand, vehicle, category]);
 
-    return (
+   return (
     <div className="mx-auto mt-[70px] max-w-[1200px] p-8 text-[#222]">
       <h2 className="mb-6 text-[1.6rem] font-semibold">
         {keyword && `Results for "${keyword}"`}
