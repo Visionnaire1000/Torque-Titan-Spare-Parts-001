@@ -5,7 +5,6 @@ import { toast } from "react-toastify";
 import Cart from "../../../components/buyer/Cart";
 
 /* ---------------- Router ---------------- */
-
 const navigateMock = vi.fn();
 
 vi.mock("react-router-dom", async () => {
@@ -18,7 +17,6 @@ vi.mock("react-router-dom", async () => {
 });
 
 /* ---------------- Toast ---------------- */
-
 vi.mock("react-toastify", () => ({
   toast: {
     success: vi.fn(),
@@ -83,7 +81,6 @@ const cartItem: MockCartItem = {
 };
 
 /* ---------------- Helpers ---------------- */
-
 const renderComponent = () =>
   render(
     <MemoryRouter>
@@ -101,7 +98,6 @@ const loadCart = () => {
 };
 
 /* ---------------- Setup ---------------- */
-
 beforeEach(() => {
   vi.resetAllMocks();
 

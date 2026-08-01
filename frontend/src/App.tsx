@@ -20,6 +20,24 @@ import SearchBar from "./components/buyer/search/SearchBar";
 import SearchResults from "./components/buyer/search/SearchResults";
 import ItemDetails from "./components/shared/ItemDetails";
 
+//pages(categories)
+import SedanTyres from "./components/buyer/categories/tyres/SedanTyres";
+import SUVTyres from "./components/buyer/categories/tyres/SUVTyres";
+import TruckTyres from "./components/buyer/categories/tyres/TruckTyres";
+import BusTyres from "./components/buyer/categories/tyres/BusTyres";
+import SedanRims from "./components/buyer/categories/rims/SedanRims";
+import SUVRims from "./components/buyer/categories/rims/SUVRims";
+import TruckRims from "./components/buyer/categories/rims/TruckRims";
+import BusRims from "./components/buyer/categories/rims/BusRims";
+import SedanBatteries from "./components/buyer/categories/batteries/SedanBatteries";
+import SUVBatteries from "./components/buyer/categories/batteries/SUVBatteries";
+import TruckBatteries from "./components/buyer/categories/batteries/TruckBatteries";
+import BusBatteries from "./components/buyer/categories/batteries/BusBatteries";
+import SedanFilters from "./components/buyer/categories/filters/SedanFilters";
+import SUVFilters from "./components/buyer/categories/filters/SUVFilters";
+import TruckFilters from "./components/buyer/categories/filters/TruckFilters";
+import BusFilters from "./components/buyer/categories/filters/BusFilters";  
+
 
 function App() {
   return (
@@ -27,7 +45,7 @@ function App() {
         <Router>
            <Navbar />
            <div>
-              <main>
+            <main>
              <Routes>
                 <Route path="/register" element={<Registration />} /> 
                 <Route path="/login" element={<Login />} /> 
@@ -43,8 +61,26 @@ function App() {
              <Route path="/search" element={<SearchBar />} />
              <Route path="/search-results" element={<SearchResults />} />
              <Route path="/items/:id" element={<ItemDetails />} /> 
+             
+              {/*categories */}
+              <Route path="/sedan-tyres" element={<SedanTyres />} />
+              <Route path="/suv-tyres" element={<SUVTyres />} />
+              <Route path="/truck-tyres" element={<TruckTyres />} />
+              <Route path="/bus-tyres" element={<BusTyres />} />
+              <Route path="/sedan-rims" element={<SedanRims />} />
+              <Route path="/suv-rims" element={<SUVRims />} />
+              <Route path="/truck-rims" element={<TruckRims />} />
+              <Route path="/bus-rims" element={<BusRims />} />
+              <Route path="/sedan-batteries" element={<SedanBatteries />} />
+              <Route path="/suv-batteries" element={<SUVBatteries />} />
+              <Route path="/truck-batteries" element={<TruckBatteries />} />
+              <Route path="/bus-batteries" element={<BusBatteries />} />
+              <Route path="/sedan-filters" element={<SedanFilters />} />
+              <Route path="/suv-filters" element={<SUVFilters />} />
+              <Route path="/truck-filters" element={<TruckFilters />} />
+              <Route path="/bus-filters" element={<BusFilters />} />  
              </Routes>
-              </main>
+            </main>
            </div>
         </Router>
         <ToastContainer

@@ -349,11 +349,11 @@ const BuyerHomepage = () => {
                   {item.brand} {item.category} for {item.vehicle_type}
                 </h4>
 
-                <p className="mb-[10px] text-base font-semibold text-[rgb(255,0,0)] sm:text-lg">
+                 <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
                   KES {item.buying_price.toLocaleString()}
 
                   {item.discount_percentage > 0 && (
-                    <span className="ml-[5px] text-xs text-[rgba(228,26,19,0.61)]">
+                    <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
                       (-{item.discount_percentage.toFixed(0)}%)
                     </span>
                   )}
@@ -361,9 +361,9 @@ const BuyerHomepage = () => {
 
                 <button
                   onClick={(e) => handleAddToCart(item, e)}
-                className="rounded-md bg-[rgb(0,64,128)] px-2 py-2.5 text-sm font-bold 
-                           text-white hover:bg-[rgb(4,37,71)] 
-                           transition-colors duration-200"
+                  className="rounded-md bg-[rgb(0,64,128)] px-4 py-2 
+                             text-sm font-bold text-white hover:bg-[rgb(4,37,71)] 
+                             transition-colors duration-200"
                 >
                   Add To Cart
                 </button>

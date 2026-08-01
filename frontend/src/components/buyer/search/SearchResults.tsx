@@ -158,7 +158,7 @@ const SearchResults = () => {
                   onLoad={() => handleImageLoad(item.id)}
                 />
 
-                <h4 className="my-[5px] text-[0.95rem] font-semibold">
+                <h4 className="my-[5px] text-[0.95rem] font-semibold text-center">
                   {item.brand} {item.category} for {item.vehicle_type}
                 </h4>
 

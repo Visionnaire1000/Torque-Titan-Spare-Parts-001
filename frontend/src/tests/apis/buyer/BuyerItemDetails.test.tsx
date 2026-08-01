@@ -6,7 +6,6 @@ import BuyerItemDetails from "../../../components/buyer/BuyerItemDetails";
 import config from "../../../config";
 
 /* ---------------- MOCKS ---------------- */
-
 vi.mock("../../../config", () => ({
   default: {
     API_BASE_URL: "http://test-api",
@@ -39,7 +38,6 @@ vi.mock("../../../contexts/AuthContext", () => ({
 }));
 
 /* ---------------- DATA ---------------- */
-
 interface MockItem {
   id: number;
   brand: string;
@@ -91,7 +89,6 @@ const mockReviews: MockReview[] = [
 ];
 
 /* ---------------- HELPERS ---------------- */
-
 const renderComponent = (): ReturnType<typeof render> =>
   render(
     <MemoryRouter initialEntries={["/item/1"]}>
@@ -105,7 +102,6 @@ const renderComponent = (): ReturnType<typeof render> =>
   );
 
 /* ---------------- SETUP ---------------- */
-
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -160,7 +156,6 @@ beforeEach(() => {
 });
 
 /* ---------------- TESTS ---------------- */
-
 describe("BuyerItemDetails", () => {
   it("renders item details", async () => {
     renderComponent();

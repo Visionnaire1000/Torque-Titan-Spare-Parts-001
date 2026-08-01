@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import {useLocation, useNavigate, Link, NavLink,} from "react-router-dom";
-import {ShoppingCart, Menu, Home, User, Package, MapPin, Search, ChevronDown } from "lucide-react";
+import { useLocation, useNavigate, Link, NavLink } from "react-router-dom";
+import { ShoppingCart, Menu, Home, User, Package, MapPin, Search, ChevronDown } from "lucide-react";
 import { useCart } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import "../../../styles/buyer/buyerNavbar.css";
+
 
 interface SelectedCategory {
   tyres: string;
@@ -35,22 +36,38 @@ interface SeenOrderIds {
   [key: string]: string[];
 }
 
+
 const BuyerNavbar = () => {
+
   const { user, logout } = useAuth();
   const { items } = useCart();
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [showDropdown, setShowDropdown] = useState<boolean>(false);
-  const [ordersCount, setOrdersCount] = useState<number>(0);
+
+  const [showDropdown, setShowDropdown] =
+    useState<boolean>(false);
+
+
+  const [ordersCount, setOrdersCount] =
+    useState<number>(0);
+
 
   const [openDropdown, setOpenDropdown] =
-  useState<keyof SelectedCategory | null>(null);
+    useState<keyof SelectedCategory | null>(null);
 
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0,});
 
-  const [menuWidth, setMenuWidth] = useState(150);
+  const [menuPosition, setMenuPosition] =
+    useState({
+      top: 0,
+      left: 0,
+    });
+
+
+  const [menuWidth, setMenuWidth] =
+    useState<number>(150);
+
 
   const [selectedCategory, setSelectedCategory] =
     useState<SelectedCategory>({
@@ -60,75 +77,146 @@ const BuyerNavbar = () => {
       filters: "",
     });
 
+
   const categories: Category[] = [
-    { label: "TYRES", path: "tyres" },
-    { label: "RIMS", path: "rims" },
-    { label: "BATTERIES", path: "batteries" },
-    { label: "OIL FILTERS", path: "filters" },
+    {
+      label: "TYRES",
+      path: "tyres",
+    },
+    {
+      label: "RIMS",
+      path: "rims",
+    },
+    {
+      label: "BATTERIES",
+      path: "batteries",
+    },
+    {
+      label: "OIL FILTERS",
+      path: "filters",
+    },
   ];
 
-    useEffect(() => {
-    const pathSegment = location.pathname.slice(1);
-
-    if (!pathSegment) {
-      setSelectedCategory({
-        tyres: "",
-        rims: "",
-        batteries: "",
-        filters: "",
-      });
-      return;
-    }
-
-    const [type, category] = pathSegment.split("-");
-
-    if (!type || !category) return;
-
   useEffect(() => {
-    const handleClickOutside = () => {
-    setOpenDropdown(null);
-   };
-     document.addEventListener("click", handleClickOutside);
 
-   return () =>
-    document.removeEventListener(
-      "click",
-      handleClickOutside
-    );
-   }, []);
+  const pathSegment =
+    location.pathname.slice(1);
 
-    setSelectedCategory((prev) => {
-      const newState = {} as SelectedCategory;
 
-      (Object.keys(prev) as (keyof SelectedCategory)[]).forEach((key) => {
-        newState[key] = key === category ? pathSegment : "";
-      });
+  if (!pathSegment) {
 
-      return newState;
+    setSelectedCategory({
+      tyres: "",
+      rims: "",
+      batteries: "",
+      filters: "",
     });
-  }, [location.pathname]);
 
- const handleCategorySelect = (
-  value: string,
-  path: keyof SelectedCategory
- ): void => {
-  navigate(`/${value}`);
+    return;
+  }
+
+
+  const parts =
+    pathSegment.split("-");
+
+
+  if (parts.length !== 2) return;
+
+
+  const category =
+    parts[1] as keyof SelectedCategory;
+
 
   setSelectedCategory((prev) => {
-    const newState = {} as SelectedCategory;
+
+    const updated =
+      {} as SelectedCategory;
+
 
     (
       Object.keys(prev) as (keyof SelectedCategory)[]
     ).forEach((key) => {
-      newState[key] = key === path ? value : "";
+
+      updated[key] =
+        key === category
+          ? pathSegment
+          : "";
+
     });
 
-    return newState;
+
+    return updated;
+
   });
 
+
+}, [location.pathname]);
+
+
+
+useEffect(() => {
+
+  const handleClickOutside = () => {
+
+    setOpenDropdown(null);
+
+  };
+
+
+  document.addEventListener(
+    "click",
+    handleClickOutside
+  );
+
+
+  return () => {
+
+    document.removeEventListener(
+      "click",
+      handleClickOutside
+    );
+
+  };
+
+
+}, []);
+
+const handleCategorySelect = (
+  value: string,
+  path: keyof SelectedCategory
+): void => {
+
+
+  navigate(`/${value}`);
+
+
+  setSelectedCategory((prev) => {
+
+    const updated =
+      {} as SelectedCategory;
+
+
+    (
+      Object.keys(prev) as (keyof SelectedCategory)[]
+    ).forEach((key) => {
+
+      updated[key] =
+        key === path
+          ? value
+          : "";
+
+    });
+
+
+    return updated;
+
+  });
+
+
   setOpenDropdown(null);
+
  };
- 
+
    const calculateNotifications = (): void => {
     const seenOrderIds: Partial<SeenOrderIds> = JSON.parse(
       localStorage.getItem("buyer_seen_order_ids") || "{}"
@@ -240,202 +328,265 @@ const BuyerNavbar = () => {
     };
    }, []);
 
-    return (
-    <nav className={`navbar ${user ? "logged-in" : "logged-out"}`}>
-      <div className="logo">
-        <img
-          src="https://i.imgur.com/wVCDyd7.png"
-          alt="Torque Titan logo"
-        />
-      </div>
-
-      <div className="dashboard-dropdown">
-        <button
-          className="dashboard-button"
-          onClick={() => setShowDropdown(!showDropdown)}
-          title="Dashboard"
-        >
-          <Menu />
-        </button>
-
-        {showDropdown && (
-          <div className="dropdown-menu">
-            <NavLink
-              to="/"
-              className={({ isActive }) =>
-                isActive ? "tab active-tab" : "tab"
-              }
-            >
-              <Home size={18} /> Home
-            </NavLink>
-
-            <NavLink
-              to="/orders"
-              className={({ isActive }) =>
-                isActive
-                  ? "tab active-tab orders-tab"
-                  : "tab orders-tab"
-              }
-              onClick={markPendingAsSeen}
-            >
-              <div className="orders-icon-wrapper">
-                <Package size={18} />
-
-                {ordersCount > 0 && (
-                  <span className="orders-badge">
-                    {ordersCount}
-                  </span>
-                )}
-              </div>
-
-              My Orders
-            </NavLink>
-
-            <NavLink
-              to="/address"
-              className={({ isActive }) =>
-                isActive ? "tab active-tab" : "tab"
-              }
-            >
-              <MapPin size={18} /> Address Book
-            </NavLink>
-
-            <NavLink
-              to="/account-management"
-              className={({ isActive }) =>
-                isActive ? "tab active-tab" : "tab"
-              }
-            >
-              <User size={18} /> Account Management
-            </NavLink>
-
-            {user && (
-              <button
-                onClick={() => {
-                  logout();
-                  navigate("/login");
-                }}
-              >
-                Logout
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-      <div className="categories-wrapper">
-       <div className="categories">
-       {categories.map(({ label, path }) => (
-       <div
-        key={path}
-        className="category-dropdown"
-       >
-        <button
-          type="button"
-          className="category-button"
-         onClick={(e) => {
-          e.stopPropagation();
-           if (openDropdown === path) {
-             setOpenDropdown(null);
-            return;
-           }
-           const rect =
-            e.currentTarget.getBoundingClientRect();
-            setMenuPosition({
-            top: rect.bottom + window.scrollY + 4,
-            left: rect.left + window.scrollX,
-          });
-           setMenuWidth(rect.width);
-           setOpenDropdown(path);
-        }}
-       >
-        {selectedCategory[path]
-          ? selectedCategory[path]
-              .replace("-", " ")
-              .toUpperCase()
-          : label}
-
-       <ChevronDown
-         size={18}
-         className={`dropdown-arrow ${
-         openDropdown === path ? "open" : ""
-       }`}
-       />
+  return (
+   <nav className={`navbar ${user ? "logged-in" : "logged-out"}`}>
+    <div className="logo">
+      <img
+        src="https://i.imgur.com/wVCDyd7.png"
+        alt="Torque Titan logo"
+      />
+    </div>
+    {/* Dashboard */}
+    <div className="dashboard-dropdown">
+      <button
+        className="dashboard-button"
+        onClick={() =>
+          setShowDropdown(!showDropdown)
+        }
+        title="Dashboard"
+      >
+        <Menu />
       </button>
-
-     
-        </div>
-        ))}
-       </div>
-      </div>
-      {openDropdown &&
-  createPortal(
-    <div
-      className="category-menu"
-      style={{
-        position: "absolute",
-        top: menuPosition.top,
-        left: menuPosition.left,
-        width: menuWidth,
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {["sedan", "suv", "truck", "bus"].map(
-        (type) => (
-          <button
-            key={type}
-            type="button"
-            className="category-option"
-            onClick={() =>
-              handleCategorySelect(
-                `${type}-${openDropdown}`,
-                openDropdown
-              )
+      {showDropdown && (
+        <div className="dropdown-menu">
+          <NavLink
+            to="/"
+            className={({ isActive }) =>
+              isActive
+                ? "tab active-tab"
+                : "tab"
             }
           >
-            {type.toUpperCase()}{" "}
-            {
-              categories.find(
-                (c) => c.path === openDropdown
-              )?.label
+            <Home size={18} />
+            Home
+          </NavLink>
+          <NavLink
+            to="/orders"
+            className={({ isActive }) =>
+              isActive
+                ? "tab active-tab orders-tab"
+                : "tab orders-tab"
             }
-          </button>
-        )
+            onClick={markPendingAsSeen}
+          >
+            <div className="orders-icon-wrapper">
+              <Package size={18} />
+
+              {ordersCount > 0 && (
+
+                <span className="orders-badge">
+                  {ordersCount}
+                </span>
+
+              )}
+            </div>
+            My Orders
+          </NavLink>
+          <NavLink
+            to="/address"
+            className={({ isActive }) =>
+              isActive
+                ? "tab active-tab"
+                : "tab"
+            }
+          >
+            <MapPin size={18} />
+            Address Book
+          </NavLink>
+          <NavLink
+            to="/account-management"
+            className={({ isActive }) =>
+              isActive
+                ? "tab active-tab"
+                : "tab"
+            }
+          >
+            <User size={18} />
+              Account Management
+          </NavLink>
+
+          {user && (
+            <button
+              onClick={() => {
+                logout();
+                navigate("/login");
+              }}
+
+            >
+              Logout
+            </button>
+
+          )}
+        </div>
       )}
-      </div>,
-      document.body
-     )}
-      <div className="navbar-smart-search">
-        <button
-          className="navbar-search-icon"
-          title="Search"
-          onClick={() => navigate("/search")}
+
+    </div>
+
+    {/* Categories */}
+    <div className="categories-wrapper">
+      <div className="categories">
+        {categories.map(
+          ({
+            label,
+            path
+          }) => (
+
+          <div
+            key={path}
+            className="category-dropdown"
+          >
+            <button
+              type="button"
+              className="category-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (
+                  openDropdown === path
+                ) {
+
+                  setOpenDropdown(null);
+                  return;
+
+                }
+                const rect =
+                  e.currentTarget
+                    .getBoundingClientRect();
+                setMenuPosition({
+                  top:
+                    rect.bottom +
+                    window.scrollY +
+                    4,
+                  left:
+                    rect.left +
+                    window.scrollX,
+
+                });
+
+                setMenuWidth(
+                  rect.width
+                );
+
+                setOpenDropdown(path);
+              }}
+
+            >
+              {
+                selectedCategory[path]
+                  ? selectedCategory[path]
+                      .replace("-", " ")
+                      .toUpperCase()
+                  : label
+              }
+              <ChevronDown
+                size={18}
+                className={
+                  openDropdown === path
+                    ? "dropdown-arrow open"
+                    : "dropdown-arrow"
+                }
+              />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+    {/* Category Portal Dropdown */}
+    {openDropdown &&
+      createPortal(
+        <div
+          className="category-menu"
+          style={{
+            position: "absolute",
+            top: menuPosition.top,
+            left: menuPosition.left,
+            width: menuWidth,
+          }}
+          onClick={(e) =>
+            e.stopPropagation()
+          }
         >
-          <Search />
-        </button>
-      </div>
+          {
+            [
+              "sedan",
+              "suv",
+              "truck",
+              "bus",
+            ]
+            .map((type) => (
+              <button
+                key={type}
+                type="button"
+                className="category-option"
+                onClick={() =>
+                  handleCategorySelect(
+                    `${type}-${openDropdown}`,
+                    openDropdown
+                  )
+                }
 
-      <div className="right-section">
-        <Link to="/cart" className="cart">
-          <ShoppingCart />
-          <span className="cart-count">
-            {items.length}
-          </span>
+              >
+                {type.toUpperCase()}
+
+                {" "}
+
+                {
+                  categories.find(
+                    (category) =>
+                      category.path === openDropdown
+                  )?.label
+                }
+              </button>
+            ))
+          }
+        </div>,
+        document.body
+      )
+    }
+    {/* Search */}
+    <div className="navbar-smart-search">
+      <button
+        className="navbar-search-icon"
+        title="Search"
+        onClick={() =>
+          navigate("/search")
+        }
+
+      >
+        <Search />
+      </button>
+    </div>
+    {/* Right Section */}
+    <div className="right-section">
+      <Link
+        to="/cart"
+        className="cart"
+      >
+        <ShoppingCart />
+        <span className="cart-count">
+          {items.length}
+        </span>
+      </Link>
+      {!user && (
+        <Link
+          to="/login"
+          className="login"
+        >
+          Login
         </Link>
-
-        {!user && (
-          <Link to="/login" className="login">
-            Login
-          </Link>
-        )}
-
-        {!user && (
-          <Link to="/register" className="register">
-            Register
-          </Link>
-        )}
-      </div>
-    </nav>
-  );
+      )}
+      {!user && (
+        <Link
+          to="/register"
+          className="register"
+        >
+          Register
+        </Link>
+      )}
+    </div>
+  </nav>
+ );
 };
 
 export default BuyerNavbar;
+
+  
