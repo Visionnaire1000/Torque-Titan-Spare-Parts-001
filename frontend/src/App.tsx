@@ -14,6 +14,7 @@ import RoleProtectedRoutes from "./components/shared/auth/RoleProtectedRoutes";
 import Navbar from "./components/shared/layout/Navbar";
 import Registration from "./components/shared/auth/Registration";
 import Login from "./components/shared/auth/Login";
+import AccountManagement from "./components/buyer/buyerDashboard/AccountManagement"; 
 import Homepage from "./components/shared/Homepage";
 import Cart from "./components/buyer/Cart";
 import SearchBar from "./components/buyer/search/SearchBar"; 
@@ -50,7 +51,15 @@ function App() {
              <Routes>
                 <Route path="/register" element={<Registration />} /> 
                 <Route path="/login" element={<Login />} /> 
-                <Route path="/" element={<Homepage />} /> 
+                <Route path="/" element={<Homepage />} /> ,
+                 <Route 
+                  path="/account-management" 
+                  element={
+                     <RoleProtectedRoutes allowedRoles={['buyer','admin','super_admin']}>
+                        <AccountManagement />
+                    </RoleProtectedRoutes>
+                  } 
+               />
                 <Route 
                   path="/cart" 
                   element={
