@@ -1,0 +1,77 @@
+/* AddressBook container */
+.address-book-container {
+  max-width: 500px;
+  padding: 2rem;
+  border-radius: 12px;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-family: Arial, sans-serif;
+}
+
+.header {
+  text-align: center;
+  color: rgb(0, 64, 128);
+  margin-top: 60px;
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+}
+
+/* Inputs */
+.address-book-container input {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border: 1.5px solid rgb(0, 64, 128);
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: 0.3s;
+}
+
+.address-book-container input:focus {
+  color: black;
+  box-shadow: 0 0 5px rgb(3, 29, 56);
+  border-color: rgb(0, 64, 128);
+}
+
+/* Button */
+.address-book-container button {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: rgb(0, 64, 128);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.address-book-container button:hover {
+  background-color: rgb(3, 32, 59);
+}
+
+/* Disabled button */
+.address-book-container button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+.address-book-container {
+  max-width: 480px;
+  width: 400px;
+  justify-content: center;
+  margin-left: 50px;
+  padding: 2rem;
+  border-radius: 12px;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-family: Arial, sans-serif;
+}
+
+}

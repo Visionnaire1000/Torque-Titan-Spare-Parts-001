@@ -19,6 +19,7 @@ import Cart from "./components/buyer/Cart";
 import SearchBar from "./components/buyer/search/SearchBar"; 
 import SearchResults from "./components/buyer/search/SearchResults";
 import ItemDetails from "./components/shared/ItemDetails";
+import BuyerAddress from "./components/buyer/buyerDashboard/BuyerAddress";
 
 //pages(categories)
 import SedanTyres from "./components/buyer/categories/tyres/SedanTyres";
@@ -61,6 +62,14 @@ function App() {
              <Route path="/search" element={<SearchBar />} />
              <Route path="/search-results" element={<SearchResults />} />
              <Route path="/items/:id" element={<ItemDetails />} /> 
+              <Route 
+                 path="/address" 
+                 element={
+                   <RoleProtectedRoutes allowedRoles={['buyer']}>
+                      <BuyerAddress />
+                   </RoleProtectedRoutes>
+                 } 
+               />
              
               {/*categories */}
               <Route path="/sedan-tyres" element={<SedanTyres />} />
