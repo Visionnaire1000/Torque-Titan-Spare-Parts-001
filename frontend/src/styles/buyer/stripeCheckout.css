@@ -1,0 +1,59 @@
+/* General form container */
+form {
+  max-width: 500px;
+  margin: 2rem auto;
+  padding: 2rem;
+  border-radius: 12px;
+  background-color: #f9f9f9;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  font-family: Arial, sans-serif;
+}
+
+/* Form headings */
+form h2 {
+  text-align: center;
+  color: rgb(0, 64, 128);
+  margin-bottom: 1.5rem;
+  font-size: 1.8rem;
+}
+
+/* Inputs */
+form input {
+  width: 100%;
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border: 1.5px solid rgb(0, 64, 128);
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  transition: 0.3s;
+}
+
+form input:focus {
+  color: black;
+  box-shadow:rgb(3, 29, 56);
+}
+
+/* Button */
+form button {
+  width: 100%;
+  padding: 0.8rem;
+  background-color: rgb(0, 64, 128);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+form button:hover {
+  background-color: rgb(3, 32, 59);
+}
+
+/* Disabled button */
+form button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+

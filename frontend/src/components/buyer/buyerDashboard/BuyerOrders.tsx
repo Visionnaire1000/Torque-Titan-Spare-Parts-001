@@ -509,8 +509,8 @@ const BuyerOrders: React.FC = () => {
               <span
                 className="
                   absolute
-                  -top-2
-                  right-2
+                  top-0
+                  right-0
                   inline-flex
                   h-[18px]
                   min-w-[18px]

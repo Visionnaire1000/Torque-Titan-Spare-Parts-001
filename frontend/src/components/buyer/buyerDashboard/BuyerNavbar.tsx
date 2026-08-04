@@ -336,6 +336,7 @@ const handleCategorySelect = (
         alt="Torque Titan logo"
       />
     </div>
+    
     {/* Dashboard */}
     <div className="dashboard-dropdown">
       <button

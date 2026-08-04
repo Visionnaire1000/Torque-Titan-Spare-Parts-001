@@ -22,6 +22,11 @@ import SearchResults from "./components/buyer/search/SearchResults";
 import ItemDetails from "./components/shared/ItemDetails";
 import BuyerAddress from "./components/buyer/buyerDashboard/BuyerAddress";
 import BuyerOrders from "./components/buyer/buyerDashboard/BuyerOrders";
+import StripeCheckout from "./components/buyer/checkout/StripeCheckout";
+import PaymentSuccess from "./components/buyer/checkout/PaymentSuccess"; 
+import PaymentCancel from "./components/buyer/checkout/PaymentCancel"; 
+
+
 
 //pages(categories)
 import SedanTyres from "./components/buyer/categories/tyres/SedanTyres";
@@ -88,6 +93,22 @@ function App() {
                  </RoleProtectedRoutes>
                } 
              />
+             <Route 
+                  path="/checkout" 
+                  element={
+                     <RoleProtectedRoutes allowedRoles={['buyer']}>
+                        <StripeCheckout />
+                    </RoleProtectedRoutes>
+                  } 
+              />
+              <Route 
+                  path="/payment-success" 
+                  element={<PaymentSuccess />}
+              />
+               <Route 
+                  path="/payment-cancel" 
+                  element={ <PaymentCancel /> }
+              /> 
              
               {/*categories */}
               <Route path="/sedan-tyres" element={<SedanTyres />} />

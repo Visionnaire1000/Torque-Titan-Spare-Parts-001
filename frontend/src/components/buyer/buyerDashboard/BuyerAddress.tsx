@@ -88,6 +88,7 @@ const BuyerAddress = (): React.JSX.Element => {
           className="
             text-center
             text-[rgb(0,64,128)]
+            font-semibold
             mt-[80px]
             mb-6
             text-[1.8rem]
