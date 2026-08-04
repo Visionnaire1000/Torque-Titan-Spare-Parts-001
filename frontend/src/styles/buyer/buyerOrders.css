@@ -1,0 +1,749 @@
+/* ---------------- Container ---------------- */
+.orders-container {
+  margin-top: 10px;
+  margin-left: 140px;
+  max-width: 900px;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+/* ---------------- Tabs ---------------- */
+.orders-tabs {
+  display: flex;
+  border-bottom: 2px solid #ccc;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  margin-top: 80px;
+  transition: color 0.3s, border-bottom 0.3s;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+  color: rgb(0,64,128);
+}
+
+.tab-btn.active {
+  color: rgb(0,64,128);
+  border-bottom: 3px solid rgb(0,64,128);
+}
+
+/* ---------------- Order Cards ---------------- */
+.order-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: #fafafa;
+  transition: box-shadow 0.3s;
+}
+
+.order-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.order-header {
+  font-size: 16px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.toggle-icon {
+  font-weight: bold;
+}
+
+/* ---------------- Order Items ---------------- */
+.order-items {
+  margin-top: 15px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+.order-item-card {
+  display: flex;
+  margin-bottom: 10px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #ddd;
+}
+
+.order-item-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  margin-right: 15px;
+  border-radius: 4px;
+}
+
+.order-item-info {
+  flex: 1;
+}
+
+/* ---------------- Buttons ---------------- */
+.cancel-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.cancel-btn:hover {
+  background-color: #c82333;
+}
+
+/* ---------------- Labels ---------------- */
+.timezone-label {
+  margin-left: 6px;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.toggle-icon{
+    cursor: pointer;
+}
+
+.item-card-link {
+  text-decoration: none;
+}
+
+.message{
+  margin-bottom: 400px;
+  font-size: medium;
+  font-weight: 600;
+  color: red;
+  text-align: center;
+}
+
+
+
+/* ---------------- Badge ---------------- */
+.tab-badge {
+  position: absolute;
+  top: -6px;
+  right: 54px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  background: linear-gradient(135deg, #ff4d4d, #ff1a1a);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50px;
+  box-shadow: 0 2px 6px rgba(255, 0, 0, 0.3);
+  display: inline-block;
+  animation: badge-pop 0.3s ease;
+}
+
+/* ---------------- Badge Animation ---------------- */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------------- Optional Pulse Effect ---------------- */
+.tab-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50px;
+  background: rgba(255, 0, 0, 0.4);
+  animation: pulse 1.5s infinite;
+  z-index: -1;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Toast container customizations (optional) */
+.toast-container {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+}
+
+/* Warning toast */
+.toast-warning {
+  background-color: #fff3cd;  /* light yellow */
+  color: #856404;             /* dark yellow/brown text */
+  border-left: 5px solid #ffc107;
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Toast message paragraph */
+.toast-warning p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Buttons container */
+.toast-btn {
+  cursor: pointer;
+  border: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Confirm button (Yes) */
+.toast-btn.confirm {
+  background-color: #dc3545; /* red */
+  color: #fff;
+}
+
+.toast-btn.confirm:hover {
+  background-color: #c82333;
+}
+
+/* Cancel button (No) */
+.toast-btn.cancel {
+  background-color: #6c757d; /* grey */
+  color: #fff;
+}
+
+.toast-btn.cancel:hover {
+  background-color: #5a6268;
+}
+
+/* Align buttons horizontally */
+.toast-btn + .toast-btn {
+  margin-left: 8px;
+}
+
+/* ---------------- Skeleton Base ---------------- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #f6f7f8;
+}
+
+/* Shimmer effect */
+.skeleton::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -150%;
+  height: 100%;
+  width: 150%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.6),
+    transparent
+  );
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ---------------- Text Blocks ---------------- */
+.skeleton-text {
+  height: 12px;
+  border-radius: 6px;
+  background: #e0e0e0;
+  margin: 8px 0;
+}
+
+.skeleton-text.title {
+  height: 16px;
+  width: 50%;
+}
+
+.w-80 { width: 80%; }
+.w-60 { width: 60%; }
+.w-50 { width: 50%; }
+.w-40 { width: 40%; }
+.w-30 { width: 30%; }
+
+/* ---------------- Image ---------------- */
+.skeleton-image {
+  width: 70px;
+  height: 70px;
+  border-radius: 10px;
+  background: #e0e0e0;
+}
+
+/* ---------------- Button ---------------- */
+.skeleton-btn {
+  width: 140px;
+  height: 32px;
+  border-radius: 8px;
+  background: #e0e0e0;
+  margin-top: 10px;
+}
+
+/* ---------------- Icon ---------------- */
+.skeleton-icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: #e0e0e0;
+}
+
+/* ---------------- Tabs ---------------- */
+.skeleton-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.skeleton-tab {
+  width: 90px;
+  height: 32px;
+  border-radius: 20px;
+  background: #e0e0e0;
+}
+
+/* ---------------- Match Real Layout ---------------- */
+.order-card.skeleton {
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.order-item-card {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.order-item-info {
+  flex: 1;
+}
+
+/* -------- Empty State (No Orders) -------- */
+.orders-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 50px;
+  min-height: 60vh;
+}
+
+.empty-card {
+  background: #fff;
+  padding: 40px 30px;
+  border-radius: 16px;
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.empty-icon {
+  color: #9ca3af;
+  margin-bottom: 16px;
+}
+
+.empty-card h2 {
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  color: #111827;
+}
+
+.empty-card p {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+/* CTA button */
+.empty-btn {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.empty-btn:hover {
+  background: #1f2933;
+  transform: translateY(-1px);
+}
+
+/* -------- Tab Empty State -------- */
+.empty-tab {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.empty-tab h3 {
+  margin-top: 10px;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.empty-tab p {
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+/* -------- Animation -------- */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* -------- Error State -------- */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  text-align: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.error-state h2 {
+  font-size: 1.5rem;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.error-state p {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin-bottom: 20px;
+  max-width: 400px;
+}
+
+/* Retry button */
+.retry-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #111827;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-btn:hover {
+  transform: translateY(-1px);
+  background: #1f2933;
+}
+
+.retry-icon {
+  transition: transform 0.3s ease;
+}
+
+.retry-btn:hover .retry-icon {
+  transform: rotate(90deg);
+}
+
+
+/*--------------------------------RESPONSIVE BREAKPOINT -------------------------------------------*/
+/* ---------- MOBILE----------- */
+@media (max-width: 480px) {
+ .orders-container {
+  margin-top: 10px;
+  max-width: 480px;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+/* ---------------- Tabs ---------------- */
+.orders-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  border-bottom: 2px solid #ccc;
+  margin-left: -140px;
+  margin-bottom: 20px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+  transition: color 0.3s, border-bottom 0.3s;
+  border-bottom: 3px solid transparent;
+}
+
+.tab-btn:hover {
+  color: rgb(0,64,128);
+}
+
+.tab-btn.active {
+  color: rgb(0,64,128);
+  border-bottom: 3px solid rgb(0,64,128);
+}
+
+/* ---------------- Order Cards ---------------- */
+.order-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  margin-left: -140px;
+  gap: 40px;
+  background-color: #fafafa;
+  transition: box-shadow 0.3s;
+}
+
+.order-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.order-header {
+  font-size: 16px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.toggle-icon {
+  font-weight: bold;
+}
+
+/* ---------------- Order Items ---------------- */
+.order-items {
+  margin-top: 15px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+.order-item-card {
+  display: flex;
+  margin-bottom: 10px;
+  padding: 5px 0;
+  border-bottom: 1px dashed #ddd;
+}
+
+.order-item-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  margin-right: 15px;
+  border-radius: 4px;
+}
+
+.order-item-info {
+  flex: 1;
+}
+
+/* ---------------- Buttons ---------------- */
+.cancel-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.cancel-btn:hover {
+  background-color: #c82333;
+}
+
+/* ---------------- Labels ---------------- */
+.timezone-label {
+  margin-left: 6px;
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.toggle-icon{
+    cursor: pointer;
+}
+
+.item-card-link {
+  text-decoration: none;
+}
+
+.message{
+  margin-bottom: 400px;
+  font-size: medium;
+  font-weight: 600;
+  color: red;
+  text-align: center;
+}
+
+
+/* ---------------- Badge ---------------- */
+.tab-badge {
+  position: absolute;
+  top: -10px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  background: linear-gradient(135deg, #ff4d4d, #ff1a1a);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50px;
+  box-shadow: 0 2px 6px rgba(255, 0, 0, 0.3);
+  display: inline-block;
+  animation: badge-pop 0.3s ease;
+}
+
+/* ---------------- Badge Animation ---------------- */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ---------------- Optional Pulse Effect ---------------- */
+.tab-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50px;
+  background: rgba(255, 0, 0, 0.4);
+  animation: pulse 1.5s infinite;
+  z-index: -1;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  70% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Toast container customizations (optional) */
+.toast-container {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+}
+
+/* Warning toast */
+.toast-warning {
+  background-color: #fff3cd;  /* light yellow */
+  color: #856404;             /* dark yellow/brown text */
+  border-left: 5px solid #ffc107;
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Toast message paragraph */
+.toast-warning p {
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Buttons container */
+.toast-btn {
+  cursor: pointer;
+  border: none;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Confirm button (Yes) */
+.toast-btn.confirm {
+  background-color: #dc3545; /* red */
+  color: #fff;
+}
+
+.toast-btn.confirm:hover {
+  background-color: #c82333;
+}
+
+/* Cancel button (No) */
+.toast-btn.cancel {
+  background-color: #6c757d; /* grey */
+  color: #fff;
+}
+
+.toast-btn.cancel:hover {
+  background-color: #5a6268;
+}
+
+/* Align buttons horizontally */
+.toast-btn + .toast-btn {
+  margin-left: 8px;
+}
+}

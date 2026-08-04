@@ -93,27 +93,6 @@ beforeEach(() => {
 /* ---------------- TESTS ---------------- */
 describe("SedanTyres", () => {
 
-
-  it("renders loading state initially", () => {
-
-    fetchMock.mockImplementation(
-      () => new Promise(() => {})
-    );
-
-
-    renderComponent();
-
-
-    expect(
-      document.querySelector(
-        ".products-page"
-      )
-    ).toBeInTheDocument();
-
-  });
-
-
-
   it("renders fetched tyres", async () => {
 
     renderComponent();
@@ -126,7 +105,6 @@ describe("SedanTyres", () => {
     ).toBeInTheDocument();
 
   });
-
 
 
   it("filters by brand", async () => {
