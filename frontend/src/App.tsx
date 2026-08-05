@@ -26,6 +26,10 @@ import StripeCheckout from "./components/buyer/checkout/StripeCheckout";
 import PaymentSuccess from "./components/buyer/checkout/PaymentSuccess"; 
 import PaymentCancel from "./components/buyer/checkout/PaymentCancel"; 
 
+// pages(admin)
+import Reviews from "./components/admin/adminDashboard/Reviews";
+import AdminOrders from "./components/admin/adminDashboard/AdminOrders";
+
 
 
 //pages(categories)
@@ -127,6 +131,24 @@ function App() {
               <Route path="/suv-filters" element={<SUVFilters />} />
               <Route path="/truck-filters" element={<TruckFilters />} />
               <Route path="/bus-filters" element={<BusFilters />} />  
+
+              {/*admin/super_admin*/}
+              <Route 
+                  path="/admin-orders" 
+                  element={
+                     <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
+                        <AdminOrders />
+                    </RoleProtectedRoutes>
+                  } 
+              />
+              <Route 
+                  path="/reviews" 
+                  element={
+                     <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
+                        <Reviews />
+                    </RoleProtectedRoutes>
+                  } 
+              />
              </Routes>
             </main>
            </div>

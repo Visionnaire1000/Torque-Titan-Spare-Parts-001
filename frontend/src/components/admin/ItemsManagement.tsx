@@ -68,7 +68,6 @@ const ItemsManagement = () => {
   });
 
   /* ---------------- Load history ---------------- */
-
   const reloadHistory = useCallback((): void => {
     const saved = JSON.parse(
       localStorage.getItem(HISTORY_KEY) || "[]"
@@ -82,7 +81,6 @@ const ItemsManagement = () => {
   }, [reloadHistory]);
 
   /* ---------------- Fetch spare parts ---------------- */
-
   const fetchSpareParts = useCallback((): void => {
     authFetch(`${config.API_BASE_URL}/spareparts?per_page=1000`)
       .then((res) => res.json() as Promise<SparePartsResponse>)
@@ -106,7 +104,6 @@ const ItemsManagement = () => {
   }, [fetchSpareParts]);
 
   /* ---------------- Save to history ---------------- */
-
   const saveToHistory = useCallback((option: SearchOption): void => {
     setHistoryOptions((prev) => {
       const updated = [
@@ -121,7 +118,6 @@ const ItemsManagement = () => {
   }, []);
 
   /* ---------------- Remove history item ---------------- */
-
   const removeHistoryItem = useCallback((value: string): void => {
     setHistoryOptions((prev) => {
       const updated = prev.filter((h) => h.value !== value);
@@ -133,7 +129,6 @@ const ItemsManagement = () => {
   }, []);
 
   /* ---------------- Filtering ---------------- */
-
   const filterOption = (
     option: FilterOptionOption<SearchOption>,
     inputVal: string
@@ -154,7 +149,6 @@ const ItemsManagement = () => {
   };
 
   /* ---------------- Handlers ---------------- */
-
   const handleInputChange = (value: string): void => {
     setInputValue(value);
   };
@@ -178,46 +172,49 @@ const ItemsManagement = () => {
     });
   };
 
-   /* ---------------- Custom Option ---------------- */
+ /* ---------------- Custom Option ---------------- */
+ const CustomOption = (props: any) => {
+  const { data } = props;
 
-  const CustomOption = (props: any) => {
-    const { data } = props;
+  return (
+    <components.Option {...props}>
+      <div className="flex items-center justify-between gap-3">
+        {data.isHistory && (
+          <Clock
+            className="text-gray-300"
+            size={16}
+            strokeWidth={1.8}
+          />
+        )}
 
-    return (
-      <components.Option {...props}>
-        <div className="search-option">
-          {data.isHistory && (
-            <Clock
-              className="clock-icon"
-              size={16}
-              strokeWidth={1.8}
-            />
-          )}
-
-          <div className="option-main">
-            <strong>{data.label}</strong>
-          </div>
-
-          {data.isHistory && (
-            <button
-              className="remove-history-item"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                removeHistoryItem(data.value);
-              }}
-              aria-label="Remove search"
-            >
-              <X size={16} strokeWidth={2} />
-            </button>
-          )}
+        <div className="flex-1">
+          <strong className="text-[14px] font-semibold text-white">
+            {data.label}
+          </strong>
         </div>
-      </components.Option>
-    );
-  };
+
+        {data.isHistory && (
+          <button
+            className="flex h-7 w-7 items-center justify-center rounded-md text-gray-300 transition hover:bg-white/10 hover:text-white"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              removeHistoryItem(data.value);
+            }}
+            aria-label="Remove search"
+          >
+            <X
+              size={16}
+              strokeWidth={2}
+            />
+          </button>
+        )}
+      </div>
+    </components.Option>
+  );
+ };
 
   /* ---------------- Grouped options ---------------- */
-
   const groupedOptions = useMemo<
     GroupBase<SearchOption>[]
   >(() => {
@@ -244,7 +241,6 @@ const ItemsManagement = () => {
   }, [historyOptions, inputValue, options]);
 
   /* ---------------- Toast helpers ---------------- */
-
   const notifySuccess = (msg: string): void => {
     toast.success(msg, {
       position: "top-right",
@@ -258,7 +254,6 @@ const ItemsManagement = () => {
   };
 
   /* ---------------- Form handlers ---------------- */
-
   const handleChange = (
     e: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement
@@ -467,129 +462,310 @@ const ItemsManagement = () => {
     }),
   };
 
-   return (
-    <div className="admin-spareparts">
-      <ToastContainer />
+  return (
+  <div
+    className="
+      mx-auto
+      mt-10
+      max-w-[900px]
+      rounded-2xl
+      bg-white
+      p-6
+      shadow-[0_10px_30px_rgba(0,0,0,0.08)]
+    "
+  >
+    <ToastContainer />
 
-      <h2>Manage Spare Parts</h2>
+    <h2 className="mt-10 mb-5 text-[22px] font-semibold text-[#222]">
+      Manage Spare Parts
+    </h2>
 
-      {/* SEARCH */}
+    {/* SEARCH */}
+    <Select<SearchOption, false, GroupBase<SearchOption>>
+      autoFocus
+      options={groupedOptions}
+      isClearable
+      placeholder="Search spare part..."
+      filterOption={filterOption}
+      onChange={handleSelect}
+      onInputChange={handleInputChange}
+      inputValue={inputValue}
+      components={{
+        Option: CustomOption,
+      }}
+      styles={selectStyles}
+    />
 
-      <Select<SearchOption, false, GroupBase<SearchOption>>
-        autoFocus
-        options={groupedOptions}
-        isClearable
-        placeholder="Search spare part..."
-        filterOption={filterOption}
-        onChange={handleSelect}
-        onInputChange={handleInputChange}
-        inputValue={inputValue}
-        components={{
-          Option: CustomOption,
-        }}
-        styles={selectStyles}
+    {/* IMAGE */}
+    {formData.image && selectedPart && (
+      <div className="my-5 text-center">
+        <Link to={`/items/${selectedPart.id}`}>
+          <img
+            src={formData.image}
+            alt={`${formData.brand} ${formData.vehicle_type}`}
+            className="
+              mx-auto
+              my-[15px]
+              max-h-[150px]
+              max-w-[160px]
+              rounded-[10px]
+              border
+              border-gray-300
+              object-contain
+            "
+          />
+        </Link>
+      </div>
+    )}
+
+    {/* FORM */}
+    <form
+      className="
+        grid
+        grid-cols-2
+        gap-[14px]
+        mt-[15px]
+        max-[640px]:grid-cols-1
+      "
+    >
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="category"
+        placeholder="Category"
+        value={formData.category}
+        onChange={handleChange}
       />
 
-      {/* IMAGE PREVIEW */}
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="vehicle_type"
+        placeholder="Vehicle Type"
+        value={formData.vehicle_type}
+        onChange={handleChange}
+      />
 
-      {formData.image && selectedPart && (
-        <div className="spare-image-preview">
-          <Link to={`/items/${selectedPart.id}`}>
-            <img
-              src={formData.image}
-              alt={`${formData.brand} ${formData.vehicle_type}`}
-            />
-          </Link>
-        </div>
-      )}
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="brand"
+        placeholder="Brand"
+        value={formData.brand}
+        onChange={handleChange}
+      />
 
-      {/* FORM */}
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="colour"
+        placeholder="Colour"
+        value={formData.colour}
+        onChange={handleChange}
+      />
 
-      <form className="spare-form">
-        <input
-          name="category"
-          placeholder="Category"
-          value={formData.category}
-          onChange={handleChange}
-        />
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="buying_price"
+        type="number"
+        placeholder="Buying Price"
+        value={formData.buying_price}
+        onChange={handleChange}
+      />
 
-        <input
-          name="vehicle_type"
-          placeholder="Vehicle Type"
-          value={formData.vehicle_type}
-          onChange={handleChange}
-        />
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="marked_price"
+        type="number"
+        placeholder="Marked Price"
+        value={formData.marked_price}
+        onChange={handleChange}
+      />
 
-        <input
-          name="brand"
-          placeholder="Brand"
-          value={formData.brand}
-          onChange={handleChange}
-        />
+      <input
+        className="
+          w-full
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+        "
+        name="image"
+        placeholder="Image URL"
+        value={formData.image}
+        onChange={handleChange}
+      />
 
-        <input
-          name="colour"
-          placeholder="Colour"
-          value={formData.colour}
-          onChange={handleChange}
-        />
+      <textarea
+        className="
+          col-span-2
+          min-h-[80px]
+          w-full
+          resize-y
+          rounded-[10px]
+          border
+          border-gray-300
+          px-3
+          py-[10px]
+          text-[14px]
+          transition
+          focus:border-[#004080]
+          focus:outline-none
+          focus:ring-2
+          focus:ring-[#004080]/20
+          max-[640px]:col-span-1
+        "
+        name="description"
+        placeholder="Description"
+        value={formData.description}
+        onChange={handleChange}
+      />
 
-        <input
-          name="buying_price"
-          type="number"
-          placeholder="Buying Price"
-          value={formData.buying_price}
-          onChange={handleChange}
-        />
+      <div
+        className="
+          col-span-2
+          mt-[10px]
+          flex
+          justify-center
+          gap-[10px]
+        "
+      >
+        <button
+          id="create"
+          onClick={handleCreate}
+          className="
+            flex-1
+            rounded-[10px]
+            bg-[#004080]
+            py-[10px]
+            font-medium
+            text-white
+            transition
+            hover:bg-[#004080]/70
+          "
+        >
+          Create
+        </button>
 
-        <input
-          name="marked_price"
-          type="number"
-          placeholder="Marked Price"
-          value={formData.marked_price}
-          onChange={handleChange}
-        />
+        <button
+          id="edit"
+          onClick={handleUpdate}
+          className="
+            flex-1
+            rounded-[10px]
+            bg-[#004080]
+            py-[10px]
+            font-medium
+            text-white
+            transition
+            hover:bg-[#004080]/70
+          "
+        >
+          Update
+        </button>
 
-        <input
-          name="image"
-          placeholder="Image URL"
-          value={formData.image}
-          onChange={handleChange}
-        />
-
-        <textarea
-          name="description"
-          placeholder="Description"
-          value={formData.description}
-          onChange={handleChange}
-        />
-
-        <div className="actions">
-          <button
-            id="create"
-            onClick={handleCreate}
-          >
-            Create
-          </button>
-
-          <button
-            id="edit"
-            onClick={handleUpdate}
-          >
-            Update
-          </button>
-
-          <button
-            type="button"
-            id="delete"
-            onClick={handleDelete}
-          >
-            Delete
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+        <button
+          type="button"
+          id="delete"
+          onClick={handleDelete}
+          className="
+            flex-1
+            rounded-[10px]
+            bg-red-600
+            py-[10px]
+            font-medium
+            text-white
+            transition
+            hover:bg-red-700
+          "
+        >
+          Delete
+        </button>
+      </div>
+    </form>
+  </div>
+ );
 };
 
 export default ItemsManagement;
