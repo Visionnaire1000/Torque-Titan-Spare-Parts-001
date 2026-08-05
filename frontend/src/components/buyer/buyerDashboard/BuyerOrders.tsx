@@ -5,7 +5,6 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
-import "../../../styles/buyer/buyerOrders.css";
 
 /* ---------------- Interfaces ---------------- */
 interface SparePart {

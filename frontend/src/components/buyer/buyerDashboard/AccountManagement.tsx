@@ -1,7 +1,6 @@
 import { useState, type ChangeEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import "../../../styles/buyer/accountManagement.css";
 
 const AccountManagement = (): React.JSX.Element => {
   const {
