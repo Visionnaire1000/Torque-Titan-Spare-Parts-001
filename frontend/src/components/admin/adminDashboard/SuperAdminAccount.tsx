@@ -404,8 +404,6 @@ return (
               >
                 {resendLoading
                   ? "Resending..."
-                  : otpCountdown > 0
-                  ? `Resend in ${otpCountdown}s`
                   : "Resend OTP"}
               </button>
             </div>
