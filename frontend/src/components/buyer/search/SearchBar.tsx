@@ -9,7 +9,7 @@ const HISTORY_KEY = "search_history";
 const HISTORY_LIMIT = 6;
 
 interface SparePart {
-  id: number;
+  id: string;
   brand: string;
   vehicle_type: string;
   category: string;
@@ -46,7 +46,7 @@ const SearchBar = () => {
   }, []);
 
   useEffect(() => {
-    fetch(`${config.API_BASE_URL}/spareparts?per_page=1000`)
+    fetch(`${config.API_BASE_URL}/spareparts/?per_page=1000`)
       .then((res) => res.json())
       .then((data: SparePartsResponse) => {
         const parts = data.items ?? [];

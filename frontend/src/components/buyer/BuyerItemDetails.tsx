@@ -6,6 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import config from "../../config";
 
+/* ----------------------------- INTERFACES-------------------------*/
 interface ErrorStateProps {
   onRetry: () => void;
 }
@@ -33,10 +34,8 @@ interface ReviewLike {
 interface Review {
   id: string;
   user_id: string;
-
   rating: number | null;
   comment: string | null;
-
   created_at: string;
 
   likes?: ReviewLike[];
@@ -52,40 +51,37 @@ interface Review {
 
 interface SparePart {
   id: string;
-
   brand: string;
   category: string;
   vehicle_type: string;
-
   image: string;
   description: string;
-
   buying_price: number;
-
   average_rating: number;
   discount_percentage: number;
 }
 
 interface ReviewReactionResponse {
+  action: "added" | "removed" | "switched";
+
   review: {
+    id: string;
     total_likes: number;
     total_dislikes: number;
+    user_reaction: boolean | null;
   };
 }
 
 interface ReviewActionOptions<T = unknown> {
   method: "POST" | "PATCH" | "DELETE";
-
   endpoint: string;
-
   body?: Record<string, unknown>;
-
   successMessage?: string;
-
   updateFn?: (data: T) => void;
 }
 
-/* -------------------------------- ERROR STATE -------------------------------- */
+
+/* -----------------------------ERROR STATE-------------------------*/
 const ErrorState = ({
   onRetry,
 }: ErrorStateProps) => (
@@ -104,13 +100,13 @@ const ErrorState = ({
       className="flex items-center gap-2 rounded-md bg-[rgb(0,64,128)] px-5 py-2 text-white transition-colors hover:bg-[rgb(17,49,82)]"
     >
       <RefreshCw size={18} />
-
       Retry
     </button>
   </div>
 );
 
-/* -------------------------------- STAR RATING -------------------------------- */
+
+/* -----------------------------STAR RATING-------------------------*/
 const StarRating = ({
   value = 0,
   onChange,
@@ -214,7 +210,8 @@ const StarRating = ({
   );
 };
 
-/* -------------------------------- SKELETON -------------------------------- */
+
+/* -----------------------------SKELETON-------------------------*/
 const Skeleton = ({
   width,
   height,
@@ -232,7 +229,6 @@ const Skeleton = ({
   />
 );
 
-/* -------------------------- ITEM DETAILS SKELETON -------------------------- */
 const ItemDetailsSkeleton = () => (
   <div
     className="
@@ -246,19 +242,16 @@ const ItemDetailsSkeleton = () => (
       font-['Segoe_UI',Tahoma,Geneva,Verdana,sans-serif]
       text-[#333]
       shadow-[0_4px_15px_rgba(0,0,0,0.05)]
-
       max-[480px]:mt-[90px]
       max-[480px]:mb-[30px]
     "
   >
-    {/* ---------------- Item ---------------- */}
     <div
       className="
         mb-8
         flex
         flex-wrap
         gap-8
-
         max-[480px]:mt-[10px]
         max-[480px]:mb-[50px]
       "
@@ -278,17 +271,13 @@ const ItemDetailsSkeleton = () => (
         <Skeleton
           width="40%"
           height="24px"
-          style={{
-            marginTop: 8,
-          }}
+          style={{ marginTop: 8 }}
         />
 
         <Skeleton
           width="90%"
           height="16px"
-          style={{
-            marginTop: 8,
-          }}
+          style={{ marginTop: 8 }}
         />
 
         <div className="mt-2 flex gap-[5px]">
@@ -306,14 +295,11 @@ const ItemDetailsSkeleton = () => (
           width="120px"
           height="34px"
           borderRadius={6}
-          style={{
-            marginTop: 12,
-          }}
+          style={{ marginTop: 12 }}
         />
       </div>
     </div>
 
-    {/* ---------------- Add Review ---------------- */}
     <div className="mb-8 border-y border-[#eee] p-4">
       <Skeleton
         width="30%"
@@ -341,13 +327,10 @@ const ItemDetailsSkeleton = () => (
         width="120px"
         height="34px"
         borderRadius={6}
-        style={{
-          marginTop: 8,
-        }}
+        style={{ marginTop: 8 }}
       />
     </div>
 
-    {/* ---------------- Reviews ---------------- */}
     <div>
       {[...Array(3)].map((_, i) => (
         <div
@@ -369,9 +352,7 @@ const ItemDetailsSkeleton = () => (
           <Skeleton
             width="80px"
             height="14px"
-            style={{
-              marginTop: 4,
-            }}
+            style={{ marginTop: 4 }}
           />
 
           <div className="my-1 flex gap-[5px]">
@@ -388,9 +369,7 @@ const ItemDetailsSkeleton = () => (
           <Skeleton
             width="90%"
             height="14px"
-            style={{
-              marginTop: 4,
-            }}
+            style={{ marginTop: 4 }}
           />
 
           <div className="mt-1 flex gap-[5px]">
@@ -412,15 +391,25 @@ const ItemDetailsSkeleton = () => (
   </div>
 );
 
+
+/* -----------------------------COMPONENT-------------------------*/
 const BuyerItemDetails = () => {
   const { id } = useParams<{ id: string }>();
 
   const { addItem } = useCart();
-  const { user, authFetch } = useAuth();
 
-  const currentUserId = user?.id;
+  const {
+    user,
+    isLoading: authLoading,
+    authFetch,
+  } = useAuth();
 
-  /* ---------------- State ---------------- */
+ 
+  const currentUserId: string | null =
+    user?.id != null
+      ? String(user.id)
+      : null;
+
   const [item, setItem] =
     useState<SparePart | null>(null);
 
@@ -452,7 +441,8 @@ const BuyerItemDetails = () => {
     setEditComment,
   ] = useState<string>("");
 
-  /* ---------------- Fetch Item + Reviews ---------------- */
+
+  // FETCH
   const fetchItemAndReviews =
     async (): Promise<void> => {
       if (!id) return;
@@ -466,10 +456,11 @@ const BuyerItemDetails = () => {
           reviewsRes,
         ] = await Promise.all([
           fetch(
-            `${config.API_BASE_URL}/spareparts/${id}`
+            `${config.API_BASE_URL}/spareparts/${id}/`
           ),
+
           fetch(
-            `${config.API_BASE_URL}/reviews/${id}`
+            `${config.API_BASE_URL}/reviews/${id}/`
           ),
         ]);
 
@@ -488,437 +479,394 @@ const BuyerItemDetails = () => {
         const reviewData: Review[] =
           await reviewsRes.json();
 
-        const reviewsWithReaction: Review[] =
-          reviewData.map((review) => {
-            const userReaction =
-              review.likes?.find(
-                (like) =>
-                  like.user_id ===
-                  currentUserId
-              );
+        
+        const normalizedReviews =
+          reviewData.map((review) => ({
+            ...review,
 
-            return {
-              ...review,
+            id: String(review.id),
 
-              user_reaction:
-                userReaction ===
-                undefined
-                  ? null
-                  : userReaction.is_like,
+            user_id: String(
+              review.user_id
+            ),
 
-              display_name:
-                review.user_display_name ??
-                "User",
-            };
-          });
+            total_likes: Number(
+              review.total_likes ?? 0
+            ),
+
+            total_dislikes: Number(
+              review.total_dislikes ?? 0
+            ),
+
+            user_reaction:
+              review.user_reaction ??
+              null,
+
+            display_name:
+              review.user_display_name ??
+              review.display_name ??
+              "User",
+          }));
 
         setItem(itemData);
-
         setReviews(
-          reviewsWithReaction
+          normalizedReviews
         );
       } catch (err) {
         console.error(err);
-
         setError(true);
       } finally {
         setLoading(false);
       }
     };
 
+  
   useEffect(() => {
-    fetchItemAndReviews();
-  }, [id]);
+    if (authLoading) return;
 
-  /* ---------------- Derived Values ---------------- */
+    fetchItemAndReviews();
+  }, [authLoading, id]);
+
   const averageRating = Number(
     item?.average_rating ?? 0
   );
 
   const userReview =
-    reviews.find(
-      (review) =>
-        review.user_id === currentUserId
-    ) ?? null;
-
-    /* ---------------- Review Actions ---------------- */
-
-const handleReviewAction = async <T,>({
-  method,
-  endpoint,
-  body,
-  successMessage,
-  updateFn,
-}: ReviewActionOptions<T>): Promise<void> => {
-  try {
-    const res = await authFetch(
-      `${config.API_BASE_URL}${endpoint}`,
-      {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: body
-          ? JSON.stringify(body)
-          : undefined,
-      }
-    );
-
-    if (!res.ok) {
-      const errData: {
-        message?: string;
-      } = await res
-        .json()
-        .catch(() => ({}));
-
-      throw new Error(
-        errData.message ??
-          "Action failed"
-      );
-    }
-
-    const data: T | null =
-      method === "DELETE"
-        ? null
-        : ((await res.json()) as T);
-
-    if (
-      updateFn &&
-      data !== null
-    ) {
-      updateFn(data);
-    }
-
-    if (successMessage) {
-      toast.success(successMessage);
-    }
-
-    fetchItemAndReviews();
-  } catch (err) {
-    toast.error(
-      err instanceof Error
-        ? err.message
-        : "Action failed"
-    );
-  }
-};
-
-/* ---------------- Submit Review ---------------- */
-
-const submitReview = (): void => {
-  if (userReview) {
-    toast.info(
-      "You already reviewed this item. You can edit or delete your review."
-    );
-    return;
-  }
-
-  if (
-    !rating &&
-    !comment.trim()
-  ) {
-    toast.error(
-      "Add a rating or comment"
-    );
-    return;
-  }
-
-  handleReviewAction<Review>({
-    method: "POST",
-
-    endpoint: `/reviews/${id}`,
-
-    body: {
-      rating:
-        rating || undefined,
-
-      comment:
-        comment.trim() ||
-        undefined,
-    },
-
-    successMessage:
-      "Review added",
-
-    updateFn: (
-      newReview
-    ) =>
-      setReviews((prev) => [
-        newReview,
-        ...prev,
-      ]),
-  });
-
-  setRating(0);
-  setComment("");
-};
-
-/* ---------------- Edit Review ---------------- */
-
-const startEdit = (
-  review: Review
-): void => {
-  setEditingReviewId(
-    review.id
-  );
-
-  setEditRating(
-    review.rating ?? 0
-  );
-
-  setEditComment(
-    review.comment ?? ""
-  );
-};
-
-const cancelEdit = (): void => {
-  setEditingReviewId(null);
-
-  setEditRating(0);
-
-  setEditComment("");
-};
-
-const saveEdit = (
-  reviewId: string
-): void => {
-  if (
-    !editRating &&
-    !editComment.trim()
-  ) {
-    toast.error(
-      "Add a rating or comment"
-    );
-    return;
-  }
-
-  handleReviewAction<Review>({
-    method: "PATCH",
-
-    endpoint: `/reviews/edit/${reviewId}`,
-
-    body: {
-      rating:
-        editRating ||
-        undefined,
-
-      comment:
-        editComment.trim() ||
-        undefined,
-    },
-
-    successMessage:
-      "Review updated",
-
-    updateFn: (
-      updatedReview
-    ) =>
-      setReviews((prev) =>
-        prev.map((review) =>
-          review.id === reviewId
-            ? updatedReview
-            : review
-        )
-      ),
-  });
-
-  cancelEdit();
-};
-
-/* ---------------- Delete Review ---------------- */
-const deleteReview = (
-  reviewId: string
-): void => {
-  handleReviewAction<void>({
-    method: "DELETE",
-
-    endpoint: `/reviews/edit/${reviewId}`,
-
-    successMessage:
-      "Review deleted",
-
-    updateFn: () =>
-      setReviews((prev) =>
-        prev.filter(
+    currentUserId !== null
+      ? reviews.find(
           (review) =>
-            review.id !== reviewId
-        )
-      ),
-  });
-};
+            String(review.user_id) ===
+            currentUserId
+        ) ?? null
+      : null;
 
-/* ---------------- Review Reactions ---------------- */
-const reactToReview = async (
-  reviewId: string,
-  isLike: boolean,
-  reviewUserId: string
-): Promise<void> => {
-  if (
-    reviewUserId ===
-    currentUserId
-  ) {
-    toast.info(
-      "Cannot react to your own review"
-    );
-    return;
-  }
 
-  setReviews((prev) =>
-    prev.map((review) => {
-      if (
-        review.id !== reviewId
-      ) {
-        return review;
-      }
-
-      let newUserReaction:
-        | boolean
-        | null =
-        review.user_reaction;
-
-      let newLikes =
-        review.total_likes;
-
-      let newDislikes =
-        review.total_dislikes;
-
-      if (
-        review.user_reaction ===
-        isLike
-      ) {
-        newUserReaction =
-          null;
-
-        if (isLike) {
-          newLikes = Math.max(
-            0,
-            review.total_likes - 1
-          );
-        } else {
-          newDislikes =
-            Math.max(
-              0,
-              review.total_dislikes - 1
-            );
-        }
-      } else {
-        newUserReaction =
-          isLike;
-
-        if (isLike) {
-          newLikes =
-            review.total_likes + 1;
-
-          if (
-            review.user_reaction ===
-            false
-          ) {
-            newDislikes =
-              Math.max(
-                0,
-                review.total_dislikes - 1
-              );
-          }
-        } else {
-          newDislikes =
-            review.total_dislikes + 1;
-
-          if (
-            review.user_reaction ===
-            true
-          ) {
-            newLikes = Math.max(
-              0,
-              review.total_likes - 1
-            );
-          }
-        }
-      }
-
-      return {
-        ...review,
-
-        user_reaction:
-          newUserReaction,
-
-        total_likes:
-          newLikes,
-
-        total_dislikes:
-          newDislikes,
-      };
-    })
-  );
-
-  try {
-    const res =
-      await authFetch(
-        `${config.API_BASE_URL}/reviews/${reviewId}/react`,
+  const handleReviewAction = async <T,>({
+    method,
+    endpoint,
+    body,
+    successMessage,
+  }: ReviewActionOptions<T>): Promise<boolean> => {
+    try {
+      const res = await authFetch(
+        `${config.API_BASE_URL}${endpoint}`,
         {
-          method: "POST",
-
+          method,
           headers: {
             "Content-Type":
               "application/json",
           },
-
-          body: JSON.stringify({
-            is_like: isLike,
-          }),
+          body: body
+            ? JSON.stringify(body)
+            : undefined,
         }
       );
 
-    if (!res.ok) {
-      throw new Error(
-        "Failed to react"
+      if (!res.ok) {
+        const errData = await res
+          .json()
+          .catch(() => ({}));
+
+        throw new Error(
+          errData.error ??
+            errData.detail ??
+            errData.message ??
+            "Action failed"
+        );
+      }
+
+      if (successMessage) {
+        toast.success(
+          successMessage
+        );
+      }
+
+      await fetchItemAndReviews();
+
+      return true;
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Action failed"
       );
+
+      return false;
+    }
+  };
+
+
+  /* -----------------------------CREATE REVIEW-------------------------*/
+  const submitReview = (): void => {
+    if (userReview) {
+      toast.info(
+        "You already reviewed this item."
+      );
+      return;
     }
 
-    const data: ReviewReactionResponse =
-      await res.json();
+    if (
+      !rating &&
+      !comment.trim()
+    ) {
+      toast.error(
+        "Add a rating or comment"
+      );
+      return;
+    }
 
-    setReviews((prev) =>
-      prev.map((review) =>
-        review.id === reviewId
-          ? {
-              ...review,
+    void handleReviewAction<Review>({
+      method: "POST",
+      endpoint: `/reviews/${id}/`,
+      body: {
+        rating:
+          rating || undefined,
 
-              total_likes:
-                data.review
-                  .total_likes,
+        comment:
+          comment.trim() ||
+          undefined,
+      },
+      successMessage:
+        "Review added",
+    }).then((success) => {
+      if (!success) return;
 
-              total_dislikes:
-                data.review
-                  .total_dislikes,
-            }
-          : review
-      )
+      setRating(0);
+      setComment("");
+    });
+  };
+
+  
+  /* -----------------------------EDIT-------------------------*/
+  const startEdit = (
+    review: Review
+  ): void => {
+    
+    if (userReview?.id !== review.id) {
+      toast.error(
+        "You can only edit your own review."
+      );
+      return;
+    }
+
+    setEditingReviewId(
+      review.id
     );
-  } catch (err) {
-    toast.error(
-      err instanceof Error
-        ? err.message
-        : "Action failed"
+
+    setEditRating(
+      review.rating ?? 0
     );
 
-    fetchItemAndReviews();
+    setEditComment(
+      review.comment ?? ""
+    );
+  };
+
+  const cancelEdit = (): void => {
+    setEditingReviewId(null);
+    setEditRating(0);
+    setEditComment("");
+  };
+
+  const saveEdit = (
+    review: Review
+  ): void => {
+    
+    if (userReview?.id !== review.id) {
+      toast.error(
+        "You can only edit your own review."
+      );
+      return;
+    }
+
+    if (
+      !editRating &&
+      !editComment.trim()
+    ) {
+      toast.error(
+        "Add a rating or comment"
+      );
+      return;
+    }
+
+    void handleReviewAction<Review>({
+      method: "PATCH",
+      endpoint: `/reviews/${review.id}/edit/`,
+      body: {
+        rating:
+          editRating ||
+          undefined,
+
+        comment:
+          editComment.trim() ||
+          undefined,
+      },
+      successMessage:
+        "Review updated",
+    }).then((success) => {
+      if (success) {
+        cancelEdit();
+      }
+    });
+  };
+
+  /* -----------------------------DELETE-------------------------*/
+  const deleteReview = (
+    review: Review
+  ): void => {
+    
+    if (userReview?.id !== review.id) {
+      toast.error(
+        "You can only delete your own review."
+      );
+      return;
+    }
+
+    void handleReviewAction<void>({
+      method: "DELETE",
+      endpoint: `/reviews/${review.id}/delete/`,
+      successMessage:
+        "Review deleted",
+    });
+  };
+
+
+  /* -----------------------------REACTION-------------------------*/
+  const reactToReview = async (
+    review: Review,
+    isLike: boolean
+  ): Promise<void> => {
+    
+    if (userReview?.id === review.id) {
+      return;
+    }
+
+    if (currentUserId === null) {
+      toast.info(
+        "Please log in to react to reviews."
+      );
+      return;
+    }
+
+    try {
+      const res =
+        await authFetch(
+          `${config.API_BASE_URL}/reviews/${review.id}/react/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              is_like: isLike,
+            }),
+          }
+        );
+
+      if (!res.ok) {
+        const errData = await res
+          .json()
+          .catch(() => ({}));
+
+        throw new Error(
+          errData.error ??
+            errData.detail ??
+            errData.message ??
+            "Failed to react"
+        );
+      }
+
+      const data: ReviewReactionResponse =
+        await res.json();
+
+      setReviews((prev) =>
+        prev.map((existingReview) =>
+          String(existingReview.id) ===
+          String(review.id)
+            ? {
+                ...existingReview,
+                total_likes:
+                  data.review
+                    .total_likes,
+                total_dislikes:
+                  data.review
+                    .total_dislikes,
+                user_reaction:
+                  data.review
+                    .user_reaction,
+              }
+            : existingReview
+        )
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to react"
+      );
+
+      await fetchItemAndReviews();
+    }
+  };
+
+  /*-----------------------------LOADING-------------------------*/
+  if (loading || authLoading) {
+    return <ItemDetailsSkeleton />;
   }
-};
 
-/* -------------------------------- Render -------------------------------- */
-if (loading) {
-  return <ItemDetailsSkeleton />;
-}
+  if (error) {
+    return (
+      <ErrorState
+        onRetry={fetchItemAndReviews}
+      />
+    );
+  }
 
-if (error) {
-  return (
-    <ErrorState
-      onRetry={fetchItemAndReviews}
-    />
-  );
-}
+  if (!item) {
+    return (
+      <div
+        className="
+          mx-auto
+          mt-[70px]
+          mb-[60px]
+          max-w-[900px]
+          rounded-[10px]
+          bg-[#fefefe]
+          p-4
+          text-center
+          text-[#333]
+          shadow-[0_4px_15px_rgba(0,0,0,0.05)]
+        "
+      >
+        Item not found
+      </div>
+    );
+  }
 
-if (!item) {
+  
+  /* -----------------------------SORT REVIEWS-------------------------*/
+  const sortedReviews =
+    [...reviews].sort(
+      (a, b) => {
+        const aIsOwner =
+          userReview?.id === a.id;
+
+        const bIsOwner =
+          userReview?.id === b.id;
+
+        if (aIsOwner && !bIsOwner) {
+          return -1;
+        }
+
+        if (!aIsOwner && bIsOwner) {
+          return 1;
+        }
+
+        return 0;
+      }
+    );
+
   return (
     <div
       className="
@@ -929,415 +877,437 @@ if (!item) {
         rounded-[10px]
         bg-[#fefefe]
         p-4
-        text-center
         text-[#333]
         shadow-[0_4px_15px_rgba(0,0,0,0.05)]
+        max-[480px]:mt-[90px]
+        max-[480px]:mb-[30px]
       "
     >
-      Item not found
-    </div>
-  );
-}
-
-const sortedReviews: Review[] = [...reviews].sort(
-  (a, b) =>
-    a.user_id === currentUserId
-      ? -1
-      : b.user_id === currentUserId
-      ? 1
-      : 0
-);
-
-return (
-  <div
-    className="
-      mx-auto
-      mt-[70px]
-      mb-[60px]
-      max-w-[900px]
-      rounded-[10px]
-      bg-[#fefefe]
-      p-4
-      text-[#333]
-      shadow-[0_4px_15px_rgba(0,0,0,0.05)]
-      max-[480px]:mt-[90px]
-      max-[480px]:mb-[30px]
-    "
-  >
-    <div
-      className="
-        mb-8
-        flex
-        flex-wrap
-        gap-8
-        max-[480px]:mt-[10px]
-        max-[480px]:mb-[50px]
-      "
-    >
-      <img
-        src={item.image}
-        alt={item.brand}
-        className="
-          mt-10
-          h-[30%]
-          w-[30%]
-          rounded-lg
-          object-cover
-          max-[480px]:mt-[10px]
-          max-[480px]:w-[40%]
-        "
-      />
-
+     
       <div
         className="
+          mb-8
           flex
-          flex-1
-          flex-col
-          justify-between
+          flex-wrap
+          gap-8
           max-[480px]:mt-[10px]
+          max-[480px]:mb-[50px]
         "
       >
-        <h2
+        <img
+          src={item.image}
+          alt={item.brand}
           className="
-            mt-20
-            mb-2
-            text-[rgb(0,64,128)]
-            text-3xl
-            font-bold
-            max-[480px]:mt-1
-            max-[480px]:text-xl
+            mt-10
+            h-[30%]
+            w-[30%]
+            rounded-lg
+            object-cover
+            max-[480px]:mt-[10px]
+            max-[480px]:w-[40%]
+          "
+        />
+
+        <div
+          className="
+            flex
+            flex-1
+            flex-col
+            justify-between
+            max-[480px]:mt-[10px]
           "
         >
-          {item.brand} {item.category} for{" "}
-          {item.vehicle_type}
-        </h2>
+          <h2
+            className="
+              mt-20
+              mb-2
+              text-[rgb(0,64,128)]
+              text-3xl
+              font-bold
+              max-[480px]:mt-1
+              max-[480px]:text-xl
+            "
+          >
+            {item.brand} {item.category}{" "}
+            for {item.vehicle_type}
+          </h2>
 
-        <p className="mb-2 text-lg font-semibold text-red-600">
-          KES {item.buying_price.toLocaleString()}
+          <p className="mb-2 text-lg font-semibold text-red-600">
+            KES{" "}
+            {item.buying_price.toLocaleString()}
 
-          {item.discount_percentage > 0 && (
-            <span className="ml-[5px] text-sm text-[#e41a139b]">
-              (-{item.discount_percentage.toFixed(0)}%)
+            {item.discount_percentage >
+              0 && (
+              <span className="ml-[5px] text-sm text-[#e41a139b]">
+                (-
+                {item.discount_percentage.toFixed(
+                  0
+                )}
+                %)
+              </span>
+            )}
+          </p>
+
+          <p className="font-normal text-black">
+            {item.description}
+          </p>
+
+          <div className="mt-2 flex items-center gap-[5px]">
+            <StarRating
+              value={averageRating}
+              readonly
+              size={22}
+            />
+
+            <span className="text-sm text-gray-700">
+              {averageRating.toFixed(1)}{" "}
+              (
+              {
+                reviews.filter(
+                  (review) =>
+                    review.rating !==
+                    null
+                ).length
+              }
+              )
             </span>
-          )}
-        </p>
+          </div>
 
-        <p className="font-normal text-black">
-          {item.description}
-        </p>
+          <button
+            onClick={() =>
+              addItem(item)
+            }
+            className="
+              mt-4
+              w-full
+              rounded-md
+              bg-[rgb(0,64,128)]
+              px-5
+              py-2.5
+              font-medium
+              text-white
+              transition-colors
+              hover:bg-[rgb(17,49,82)]
+            "
+          >
+            Add To Cart
+          </button>
+        </div>
+      </div>
 
-        <div className="mt-2 flex items-center gap-[5px]">
+      {/*ADD REVIEW*/}
+      {!userReview ? (
+        <div className="mb-8 border-y border-[#eee] p-4">
+          <h3 className="mb-2 text-xl font-semibold">
+            Add a Review
+          </h3>
+
           <StarRating
-            value={averageRating}
-            readonly
-            size={22}
+            value={rating}
+            onChange={setRating}
           />
 
-          <span className="text-sm text-gray-700">
-            {averageRating.toFixed(1)} (
-            {
-              reviews.filter(
-                (review: Review) =>
-                  review.rating != null
-              ).length
+          <textarea
+            placeholder="Write a comment (optional)"
+            value={comment}
+            onChange={(e) =>
+              setComment(e.target.value)
             }
-            )
-          </span>
+            className="
+              my-2
+              min-h-[80px]
+              w-full
+              resize-y
+              rounded-md
+              border
+              border-gray-300
+              p-2
+              outline-none
+              transition
+              focus:border-black
+            "
+          />
+
+          <button
+            onClick={submitReview}
+            className="
+              rounded-md
+              bg-[rgb(0,64,128)]
+              px-4
+              py-2
+              text-white
+              transition-colors
+              hover:bg-[rgb(2,30,58)]
+            "
+          >
+            Submit Review
+          </button>
         </div>
+      ) : (
+        <p className="mb-8 text-gray-500">
+          You already reviewed this item.
+          You can edit or delete your review
+          below.
+        </p>
+      )}
 
-        <button
-          onClick={() =>
-            addItem(item)
+      {/*REVIEWS*/}
+      <div>
+        <h3 className="mb-4 text-2xl font-semibold">
+          Customer Reviews (
+          {
+            reviews.filter(
+              (review) =>
+                review.comment?.trim()
+            ).length
           }
-          className="
-            mt-4
-            w-full
-            rounded-md
-            bg-[rgb(0,64,128)]
-            px-5
-            py-2.5
-            font-medium
-            text-white
-            transition-colors
-            hover:bg-[rgb(17,49,82)]
-          "
-        >
-          Add To Cart
-        </button>
-      </div>
-    </div>
-
-    {!userReview ? (
-      <div className="mb-8 border-y border-[#eee] p-4">
-        <h3 className="mb-2 text-xl font-semibold">
-          Add a Review
+          )
         </h3>
 
-        <StarRating
-          value={rating}
-          onChange={setRating}
-        />
+        {sortedReviews.map(
+          (review) => {
+           
+            const isOwner =
+              userReview?.id === review.id;
 
-        <textarea
-          placeholder="Write a comment (optional)"
-          value={comment}
-          onChange={(
-            e: React.ChangeEvent<HTMLTextAreaElement>
-          ) =>
-            setComment(
-              e.target.value
-            )
-          }
-          className="
-            my-2
-            min-h-[80px]
-            w-full
-            resize-y
-            rounded-md
-            border
-            border-gray-300
-            p-2
-            outline-none
-            transition
-            focus:border-black
-          "
-        />
-
-        <button
-          onClick={submitReview}
-          className="
-            rounded-md
-            bg-[rgb(0,64,128)]
-            px-4
-            py-2
-            text-white
-            transition-colors
-            hover:bg-[rgb(2,30,58)]
-          "
-        >
-          Submit Review
-        </button>
-      </div>
-    ) : (
-      <p className="mb-8 text-gray-500">
-        You already reviewed this item.
-        You can edit or delete your
-        review below.
-      </p>
-    )}
-
-    <div>
-      <h3 className="mb-4 text-2xl font-semibold">
-        Customer Reviews (
-        {
-          reviews.filter(
-            (review: Review) =>
-              review.comment?.trim()
-          ).length
-        }
-        )
-      </h3>
-
-      {sortedReviews.map((review: Review) => (
-        <div
-          key={review.id}
-          className="
-            mb-3
-            rounded-md
-            border
-            border-gray-300
-            bg-[#fafafa]
-            p-3
-          "
-        >
-          {editingReviewId === review.id ? (
-            <>
-              <StarRating
-                value={editRating}
-                onChange={setEditRating}
-              />
-
-              <textarea
-                value={editComment}
-                onChange={(
-                  e: React.ChangeEvent<HTMLTextAreaElement>
-                ) =>
-                  setEditComment(
-                    e.target.value
-                  )
-                }
+            return (
+              <div
+                key={review.id}
                 className="
                   mb-3
-                  h-[70px]
-                  w-full
-                  resize-y
                   rounded-md
                   border
                   border-gray-300
+                  bg-[#fafafa]
                   p-3
-                  text-sm
-                  outline-none
-                  transition
-                  focus:border-black
                 "
-              />
+              >
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() =>
-                    saveEdit(review.id)
-                  }
-                  className="
-                    rounded-md
-                    bg-[rgb(0,64,128)]
-                    px-3
-                    py-1.5
-                    text-white
-                    transition-colors
-                    hover:bg-[rgb(17,49,82)]
-                  "
-                >
-                  Save
-                </button>
+                {/*EDIT MODE*/}
+                {editingReviewId ===
+                review.id ? (
+                  <>
+                    <StarRating
+                      value={
+                        editRating
+                      }
+                      onChange={
+                        setEditRating
+                      }
+                    />
 
-                <button
-                  onClick={cancelEdit}
-                  className="
-                    rounded-md
-                    bg-[rgb(0,64,128)]
-                    px-3
-                    py-1.5
-                    text-white
-                    transition-colors
-                    hover:bg-[rgb(17,49,82)]
-                  "
-                >
-                  Cancel
-                </button>
+                    <textarea
+                      value={
+                        editComment
+                      }
+                      onChange={(
+                        e
+                      ) =>
+                        setEditComment(
+                          e.target.value
+                        )
+                      }
+                      className="
+                        mb-3
+                        h-[70px]
+                        w-full
+                        resize-y
+                        rounded-md
+                        border
+                        border-gray-300
+                        p-3
+                        text-sm
+                        outline-none
+                        transition
+                        focus:border-black
+                      "
+                    />
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() =>
+                          saveEdit(
+                            review
+                          )
+                        }
+                        className="
+                          rounded-md
+                          bg-[rgb(0,64,128)]
+                          px-3
+                          py-1.5
+                          text-white
+                          transition-colors
+                          hover:bg-[rgb(17,49,82)]
+                        "
+                      >
+                        Save
+                      </button>
+
+                      <button
+                        onClick={
+                          cancelEdit
+                        }
+                        className="
+                          rounded-md
+                          bg-[rgb(0,64,128)]
+                          px-3
+                          py-1.5
+                          text-white
+                          transition-colors
+                          hover:bg-[rgb(17,49,82)]
+                        "
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* ================= REVIEW HEADER ================= */}
+
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <span className="ml-3 font-bold text-[rgb(0,64,128)]">
+                        {isOwner ? (
+                          <span className="ml-1 rounded bg-[#0677f8] px-2 py-[2px] text-[0.8rem] text-white">
+                            You
+                          </span>
+                        ) : (
+                          review.display_name
+                        )}
+                      </span>
+
+                      <span className="text-sm text-gray-600">
+                        {new Date(
+                          review.created_at
+                        ).toLocaleDateString(
+                          "en-GB"
+                        )}
+                      </span>
+                    </div>
+
+                    
+                    {/*RATING*/}
+                    <StarRating
+                      value={
+                        review.rating ?? 0
+                      }
+                      readonly
+                      size={20}
+                    />
+
+                    
+                    {/*COMMENT*/}
+                    {review.comment && (
+                      <p className="my-2 leading-6">
+                        {review.comment}
+                      </p>
+                    )}
+
+                    {/*OWNER*/}
+                    {isOwner ? (
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            startEdit(
+                              review
+                            )
+                          }
+                          className="
+                            rounded-md
+                            bg-[rgb(0,64,128)]
+                            px-3
+                            py-1.5
+                            text-white
+                            transition-colors
+                            hover:bg-[rgb(17,49,82)]
+                          "
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            deleteReview(
+                              review
+                            )
+                          }
+                          className="
+                            rounded-md
+                            bg-[rgb(0,64,128)]
+                            px-3
+                            py-1.5
+                            text-white
+                            transition-colors
+                            hover:bg-[rgb(17,49,82)]
+                          "
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    ) : (
+                     
+                      // OTHER USER
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            reactToReview(
+                              review,
+                              true
+                            )
+                          }
+                          className={`inline-flex items-center gap-1 rounded bg-[#e0e0e0] px-[10px] py-1 transition-colors hover:bg-[#d5d5d5] ${
+                            review.user_reaction ===
+                            true
+                              ? "text-[#0f9d58]"
+                              : "text-[#333]"
+                          }`}
+                        >
+                          <ThumbsUp
+                            size={16}
+                          />
+
+                          {
+                            review.total_likes
+                          }
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            reactToReview(
+                              review,
+                              false
+                            )
+                          }
+                          className={`inline-flex items-center gap-1 rounded bg-[#e0e0e0] px-[10px] py-1 transition-colors hover:bg-[#d5d5d5] ${
+                            review.user_reaction ===
+                            false
+                              ? "text-[#d93025]"
+                              : "text-[#333]"
+                          }`}
+                        >
+                          <ThumbsDown
+                            size={16}
+                          />
+
+                          {
+                            review.total_dislikes
+                          }
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            </>
-          ) : (
-            <>
-              <div className="mb-1.5 flex items-center justify-between">
-                <span className="ml-3 font-bold text-[rgb(0,64,128)]">
-                  {review.user_id ===
-                  currentUserId ? (
-                    <span className="ml-1 rounded bg-[#0677f8] px-2 py-[2px] text-[0.8rem] text-white">
-                      You
-                    </span>
-                  ) : (
-                    review.display_name
-                  )}
-                </span>
-
-                <span className="text-sm text-gray-600">
-                  {new Date(
-                    review.created_at
-                  ).toLocaleDateString(
-                    "en-GB"
-                  )}
-                </span>
-              </div>
-
-              <StarRating
-                value={review.rating ?? 0}
-                readonly
-                size={20}
-              />
-
-              {review.comment && (
-                <p className="my-2 leading-6">
-                  {review.comment}
-                </p>
-              )}
-
-              {review.user_id ===
-              currentUserId ? (
-                <div className="flex gap-3">
-                  <button
-                    onClick={() =>
-                      startEdit(review)
-                    }
-                    className="
-                      rounded-md
-                      bg-[rgb(0,64,128)]
-                      px-3
-                      py-1.5
-                      text-white
-                      transition-colors
-                      hover:bg-[rgb(17,49,82)]
-                    "
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      deleteReview(
-                        review.id
-                      )
-                    }
-                    className="
-                      rounded-md
-                      bg-[rgb(0,64,128)]
-                      px-3
-                      py-1.5
-                      text-white
-                      transition-colors
-                      hover:bg-[rgb(17,49,82)]
-                    "
-                  >
-                    Delete
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-3">
-                  <button
-                    onClick={() =>
-                      reactToReview(
-                        review.id,
-                        true,
-                        review.user_id
-                      )
-                    }
-                    className={`inline-flex items-center gap-1 rounded bg-[#e0e0e0] px-[10px] py-1 transition-colors hover:bg-[#d5d5d5] ${
-                      review.user_reaction ===
-                      true
-                        ? "text-[#0f9d58]"
-                        : "text-[#333]"
-                    }`}
-                  >
-                    <ThumbsUp size={16} />
-                    {review.total_likes}
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      reactToReview(
-                        review.id,
-                        false,
-                        review.user_id
-                      )
-                    }
-                    className={`inline-flex items-center gap-1 rounded bg-[#e0e0e0] px-[10px] py-1 transition-colors hover:bg-[#d5d5d5] ${
-                      review.user_reaction ===
-                      false
-                        ? "text-[#d93025]"
-                        : "text-[#333]"
-                    }`}
-                  >
-                    <ThumbsDown size={16} />
-                    {review.total_dislikes}
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      ))}
+            );
+          }
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 export default BuyerItemDetails;

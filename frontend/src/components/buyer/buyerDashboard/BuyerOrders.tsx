@@ -8,7 +8,7 @@ import config from "../../../config";
 
 /* ---------------- Interfaces ---------------- */
 interface SparePart {
-  id: number;
+  id: string;
   brand: string;
   category: string;
   vehicle_type: string;
@@ -16,7 +16,7 @@ interface SparePart {
 }
 
 interface OrderItem {
-  id: number;
+  id: string;
   quantity: number;
   price: number;
   subtotal: number;
@@ -24,7 +24,7 @@ interface OrderItem {
 }
 
 interface Order {
-  id: number;
+  id: string;
   status: string;
   total_items: number;
   total_price: number;
@@ -41,7 +41,7 @@ interface ToastConfirmProps {
   closeToast?: () => void;
 }
 
-type SeenOrders = Record<string, number[]>;
+type SeenOrders = Record<string, string[]>;
 
 /* ---------------- Skeleton Loader ---------------- */
 const SkeletonOrderCard: React.FC = () => (
@@ -118,7 +118,7 @@ const BuyerOrders: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("pending");
 
   const [expandedOrderId, setExpandedOrderId] =
-    useState<number | null>(null);
+    useState<string | null>(null);
 
   const [seenOrderIds, setSeenOrderIds] =
     useState<SeenOrders>(() => {
@@ -155,7 +155,7 @@ const BuyerOrders: React.FC = () => {
     setError("");
 
     try {
-      const res = await authFetch(`${config.API_BASE_URL}/orders`);
+      const res = await authFetch(`${config.API_BASE_URL}/orders/`);
 
       if (!res.ok) {
         throw new Error("Failed to fetch orders");
@@ -192,151 +192,146 @@ const BuyerOrders: React.FC = () => {
     }
   };
 
-  const cancelOrder = (orderId: number): void => {
-    toast.warn(
-      ({ closeToast }: ToastConfirmProps) => (
-        <div>
-          <p>Are you sure you want to cancel this order?</p>
+const cancelOrder = (orderId: string): void => {
+  toast.warn(
+    ({ closeToast }: ToastConfirmProps) => (
+      <div>
+        <p>Are you sure you want to cancel this order?</p>
 
-          <div style={{ marginTop: "8px" }}>
-            <button
-              className="toast-btn confirm"
-              onClick={async () => {
-                closeToast?.();
+        <div style={{ marginTop: "8px" }}>
+          <button
+            className="toast-btn confirm"
+            onClick={async () => {
+              closeToast?.();
 
-                try {
-                  const res = await authFetch(
-                    `${config.API_BASE_URL}/orders/${orderId}`,
-                    {
-                      method: "PATCH",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        status: "cancelled",
-                      }),
-                    }
-                  );
-
-                  const data: {
-                    error?: string;
-                    message?: string;
-                  } = await res.json();
-
-                  if (!res.ok) {
-                    throw new Error(
-                      data.error ??
-                        "Failed to cancel order"
-                    );
+              try {
+                const res = await authFetch(
+                  `${config.API_BASE_URL}/orders/${orderId}/`,
+                  {
+                    method: "PATCH",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      status: "cancelled",
+                    }),
                   }
+                );
 
-                  toast.success(
-                    data.message ?? "Order cancelled"
+                const data: {
+                  error?: string;
+                  message?: string;
+                } = await res.json();
+
+                if (!res.ok) {
+                  throw new Error(
+                    data.error ?? "Failed to cancel order"
                   );
-
-                  fetchOrders();
-                } catch (err) {
-                  const message =
-                    err instanceof Error
-                      ? err.message
-                      : "Failed to cancel order";
-
-                  toast.error(message);
                 }
-              }}
-            >
-              Yes
-            </button>
 
-            <button
-              className="toast-btn cancel"
-              style={{ marginLeft: 10 }}
-              onClick={() => closeToast?.()}
-            >
-              No
-            </button>
-          </div>
+                toast.success(
+                  data.message ?? "Order cancelled"
+                );
+
+                await fetchOrders();
+              } catch (err) {
+                const message =
+                  err instanceof Error
+                    ? err.message
+                    : "Failed to cancel order";
+
+                toast.error(message);
+              }
+            }}
+          >
+            Yes
+          </button>
+
+          <button
+            className="toast-btn cancel"
+            style={{ marginLeft: 10 }}
+            onClick={() => closeToast?.()}
+          >
+            No
+          </button>
         </div>
-      ),
-      {
-        autoClose: false,
-      }
-    );
-  };
-
-  const handleTabClick = (tab: string): void => {
-    setActiveTab(tab);
-
-    const ordersInTab = orders.filter(
-      (order) => order.status.toLowerCase() === tab
-    );
-
-    const updatedSeen: SeenOrders = {
-      ...seenOrderIds,
-      [tab]: ordersInTab.map((order) => order.id),
-    };
-
-    setSeenOrderIds(updatedSeen);
-
-    localStorage.setItem(
-      "buyer_seen_order_ids",
-      JSON.stringify(updatedSeen)
-    );
-  };
-
-  useEffect(() => {
-    if (!orders.length) return;
-
-    const ordersInTab = orders.filter(
-      (order) => order.status.toLowerCase() === activeTab
-    );
-
-    const updatedSeen: SeenOrders = {
-      ...seenOrderIds,
-    };
-
-    if (!updatedSeen[activeTab]) {
-      updatedSeen[activeTab] = [];
+      </div>
+    ),
+    {
+      autoClose: false,
     }
+  );
+};
 
-    const seenSet = new Set(updatedSeen[activeTab]);
+const handleTabClick = (tab: string): void => {
+  setActiveTab(tab);
 
-    ordersInTab.forEach((order) =>
-      seenSet.add(order.id)
+  const ordersInTab = orders.filter(
+    (order) => order.status.toLowerCase() === tab
+  );
+
+  const updatedSeen: SeenOrders = {
+    ...seenOrderIds,
+    [tab]: ordersInTab.map((order) => order.id),
+  };
+
+  setSeenOrderIds(updatedSeen);
+
+  localStorage.setItem(
+    "buyer_seen_order_ids",
+    JSON.stringify(updatedSeen)
+  );
+};
+
+useEffect(() => {
+  if (!orders.length) return;
+
+  const ordersInTab = orders.filter(
+    (order) => order.status.toLowerCase() === activeTab
+  );
+
+  setSeenOrderIds((currentSeen) => {
+    const seenSet = new Set(
+      currentSeen[activeTab] ?? []
     );
 
-    updatedSeen[activeTab] = Array.from(seenSet);
+    ordersInTab.forEach((order) => {
+      seenSet.add(order.id);
+    });
 
-    setSeenOrderIds(updatedSeen);
+    const updatedSeen: SeenOrders = {
+      ...currentSeen,
+      [activeTab]: Array.from(seenSet),
+    };
 
     localStorage.setItem(
       "buyer_seen_order_ids",
       JSON.stringify(updatedSeen)
     );
 
-    window.dispatchEvent(
-      new Event("ordersUpdated")
-    );
-  }, [activeTab, orders]);
+    return updatedSeen;
+  });
 
-  useEffect(() => {
-    fetchOrders();
+  window.dispatchEvent(
+    new Event("ordersUpdated")
+  );
+}, [activeTab, orders]);
 
-    const interval = setInterval(
-      fetchOrders,
-      30000
-    );
+useEffect(() => {
+  fetchOrders();
 
-    return () => clearInterval(interval);
-  }, []);
+  const interval = setInterval(
+    fetchOrders,
+    30000
+  );
 
-  const groupedOrders: Record<
-    string,
-    Order[]
-  > = orders.reduce(
+  return () => clearInterval(interval);
+}, []);
+
+const groupedOrders: Record<string, Order[]> =
+  orders.reduce(
     (acc, order) => {
-      const status =
-        order.status.toLowerCase();
+      const status = order.status.toLowerCase();
 
       if (!acc[status]) {
         acc[status] = [];
@@ -349,41 +344,32 @@ const BuyerOrders: React.FC = () => {
     {} as Record<string, Order[]>
   );
 
-  Object.keys(groupedOrders).forEach(
-    (status) => {
-      groupedOrders[status].sort(
-        (a, b) =>
-          new Date(
-            `${b.created_at}Z`
-          ).getTime() -
-          new Date(
-            `${a.created_at}Z`
-          ).getTime()
-      );
-    }
+Object.keys(groupedOrders).forEach((status) => {
+  groupedOrders[status].sort(
+    (a, b) =>
+      new Date(`${b.created_at}Z`).getTime() -
+      new Date(`${a.created_at}Z`).getTime()
+  );
+});
+
+const tabs: string[] = [
+  "pending",
+  "shipped",
+  "delivered",
+  "cancelled",
+];
+
+const getBadgeCount = (tab: string): number => {
+  const ordersInTab = groupedOrders[tab] ?? [];
+
+  const seenIds = new Set(
+    seenOrderIds[tab] ?? []
   );
 
-  const tabs: string[] = [
-    "pending",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ];
-
-  const getBadgeCount = (
-    tab: string
-  ): number => {
-    const ordersInTab =
-      groupedOrders[tab] ?? [];
-
-    const seenIds = new Set(
-      seenOrderIds[tab] ?? []
-    );
-
-    return ordersInTab.filter(
-      (order) => !seenIds.has(order.id)
-    ).length;
-  };
+  return ordersInTab.filter(
+    (order) => !seenIds.has(order.id)
+  ).length;
+};
 
   /* ---------------- Loading ---------------- */
   if (loading) {

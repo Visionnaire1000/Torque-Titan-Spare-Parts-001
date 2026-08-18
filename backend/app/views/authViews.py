@@ -1,5 +1,4 @@
-from datetime import timedelta
-
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -11,21 +10,16 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 
-from app.models import (
-    Users
-)
+from app.models import Users
 from utils.tasks import send_email_task
 
 
-# ============================================================
-# AUTH
-# ============================================================
-
+# ------------------------------AUTHENTICATION---------------------------------------
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        data = request.data
+        data = request.data or {}
 
         email = data.get("email")
         password = data.get("password")
@@ -39,12 +33,15 @@ class RegisterView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        existing_user = Users.objects.filter(email=email).first()
+        email = email.strip().lower()
 
-        if existing_user:
+        if Users.objects.filter(email=email).exists():
             return Response(
                 {
-                    "error": "Email already exists. Use resend to get OTP again.",
+                    "error": (
+                        "Email already exists. "
+                        "Use resend to get OTP again."
+                    ),
                     "wait_seconds": 0,
                 },
                 status=status.HTTP_409_CONFLICT,
@@ -59,17 +56,24 @@ class RegisterView(APIView):
 
                 user.set_password(password)
 
+                # generate_email_otp() saves the OTP data.
                 raw_otp = user.generate_email_otp()
 
-                user.save()
-
-            send_email_task.delay(user.email, raw_otp)
+            send_email_task.delay(
+                user.email,
+                raw_otp,
+            )
 
             return Response(
                 {
                     "status": "success",
-                    "message": "Verification code sent to your email",
-                    "wait_seconds": Users.OTP_RESEND_COOLDOWN_SECONDS,
+                    "message": (
+                        "Verification code sent "
+                        "to your email"
+                    ),
+                    "wait_seconds": (
+                        Users.OTP_RESEND_COOLDOWN_SECONDS
+                    ),
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -86,6 +90,7 @@ class RegisterView(APIView):
             )
 
 
+# ------------------------------RESEND OTP---------------------------------------
 class ResendOTPView(APIView):
     permission_classes = [AllowAny]
 
@@ -97,20 +102,21 @@ class ResendOTPView(APIView):
         user = None
         is_logged_in = False
 
-        # ----------------------------------------------------
         # Logged-in user
-        # ----------------------------------------------------
-
-        if request.user and request.user.is_authenticated:
+        if (
+            request.user
+            and request.user.is_authenticated
+        ):
             user = request.user
             is_logged_in = True
 
-        # ----------------------------------------------------
         # Registration fallback
-        # ----------------------------------------------------
-
         if not user and email:
-            user = Users.objects.filter(email=email).first()
+            email = email.strip().lower()
+
+            user = Users.objects.filter(
+                email=email
+            ).first()
 
         if not user:
             return Response(
@@ -122,8 +128,7 @@ class ResendOTPView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Don't resend registration OTP for verified users.
-        # Logged-in users can still use this for password change.
+        # prevents resending registration OTP for an already verified account.
         if not is_logged_in and user.email_verified:
             return Response(
                 {
@@ -134,13 +139,13 @@ class ResendOTPView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # ----------------------------------------------------
-        # Cooldown / resend limit
-        # ----------------------------------------------------
-
-        can_resend, wait_seconds = user.can_resend_otp(
-            cooldown_seconds=Users.OTP_RESEND_COOLDOWN_SECONDS,
-            max_resends=Users.MAX_OTP_RESENDS,
+        can_resend, wait_seconds = (
+            user.can_resend_otp(
+                cooldown_seconds=(
+                    Users.OTP_RESEND_COOLDOWN_SECONDS
+                ),
+                max_resends=Users.MAX_OTP_RESENDS,
+            )
         )
 
         if not can_resend:
@@ -156,35 +161,47 @@ class ResendOTPView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
-        # ----------------------------------------------------
-        # Generate new OTP
-        # ----------------------------------------------------
-
         raw_otp = user.generate_email_otp()
-        user.save()
 
-        send_email_task.delay(user.email, raw_otp)
+        send_email_task.delay(
+            user.email,
+            raw_otp,
+        )
 
         return Response(
             {
                 "status": "success",
                 "message": "New OTP sent to your email",
-                "wait_seconds": Users.OTP_RESEND_COOLDOWN_SECONDS,
+                "wait_seconds": (
+                    Users.OTP_RESEND_COOLDOWN_SECONDS
+                ),
             },
             status=status.HTTP_200_OK,
         )
 
-
+# ------------------------------VERIFY ACCOUNT---------------------------------------
 class VerifyAccountView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        data = request.data
+        data = request.data or {}
 
         email = data.get("email")
         otp = data.get("otp")
 
-        user = Users.objects.filter(email=email).first()
+        if not email or not otp:
+            return Response(
+                {
+                    "error": "Email and OTP are required"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email = email.strip().lower()
+
+        user = Users.objects.filter(
+            email=email
+        ).first()
 
         if not user:
             return Response(
@@ -206,37 +223,45 @@ class VerifyAccountView(APIView):
             )
 
         if not result:
-            user.save()
-
             return Response(
-                {"error": "Invalid or expired code"},
+                {
+                    "error": "Invalid or expired code"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user.save()
-
         return Response(
-            {"message": "Account verified successfully"},
+            {
+                "message": (
+                    "Account verified successfully"
+                )
+            },
             status=status.HTTP_200_OK,
         )
 
-
+# ------------------------------ LOGIN ---------------------------------------
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        data = request.data
+        data = request.data or {}
 
         email = data.get("email")
         password = data.get("password")
 
         if not email or not password:
             return Response(
-                {"error": "Email and password required"},
+                {
+                    "error": "Email and password required"
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = Users.objects.filter(email=email).first()
+        email = email.strip().lower()
+
+        user = Users.objects.filter(
+            email=email
+        ).first()
 
         if not user or not user.check_password(password):
             return Response(
@@ -246,103 +271,165 @@ class LoginView(APIView):
 
         if not user.email_verified:
             return Response(
-                {"error": "Please verify your email first"},
+                {
+                    "error": "Please verify your email first"
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # ----------------------------------------------------
-        # SimpleJWT
-        # ----------------------------------------------------
-
+        # Create refresh token.
         refresh = RefreshToken.for_user(user)
+
+        # Adds user claims to the refresh token.
+        refresh["user_id"] = str(user.id)
+        refresh["email"] = user.email
+        refresh["role"] = user.role
+        refresh["display_name"] = user.display_name
+
+        # Creates access token from the refresh token.
         access = refresh.access_token
 
-        # Match your Flask 15-minute access token lifetime.
-        access.set_exp(
-            lifetime=timedelta(minutes=15)
-        )
-
-        return Response(
+        response = Response(
             {
                 "access_token": str(access),
-                "refresh_token": str(refresh),
-                "role": user.role,
-                "display_name": user.display_name,
             },
             status=status.HTTP_200_OK,
         )
 
+        # HttpOnly refresh-token cookie.
+        response.set_cookie(
+            key=settings.REFRESH_COOKIE_NAME,
+            value=str(refresh),
+            max_age=settings.REFRESH_COOKIE_MAX_AGE,
+            httponly=True,
+            secure=settings.REFRESH_COOKIE_SECURE,
+            samesite=settings.REFRESH_COOKIE_SAMESITE,
+            path="/token/refresh/",
+        )
 
+        return response
+
+
+# ------------------------------ TOKEN REFRESH ---------------------------------------
 class TokenRefreshView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_token = request.data.get("refresh_token")
+        refresh_token = request.COOKIES.get(
+            settings.REFRESH_COOKIE_NAME
+        )
 
         if not refresh_token:
             return Response(
-                {"error": "Refresh token required"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {
+                    "error": "Refresh token required"
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         try:
             refresh = RefreshToken(refresh_token)
 
+            # Creates a new access token.
             access = refresh.access_token
 
-            access.set_exp(
-                lifetime=timedelta(minutes=15)
+            # Copies the user claims from the refresh token to the new access token.
+            access["user_id"] = refresh.get("user_id")
+            access["email"] = refresh.get("email")
+            access["role"] = refresh.get("role")
+            access["display_name"] = refresh.get(
+                "display_name"
             )
 
             return Response(
                 {
-                    "access_token": str(access),
+                    "access_token": str(access)
                 },
                 status=status.HTTP_200_OK,
             )
 
         except TokenError:
             return Response(
-                {"error": "Invalid or expired refresh token"},
+                {
+                    "error": (
+                        "Invalid or expired "
+                        "refresh token"
+                    )
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+        
+
+# ------------------------------LOGOUT---------------------------------------
+class LogoutView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        response = Response(
+            {
+                "status": "success",
+                "message": "Logged out successfully",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+        response.delete_cookie(
+            key=settings.REFRESH_COOKIE_NAME,
+            path="/token/refresh/",
+        )
+
+        return response
 
 
+# ------------------------------CHANGE PASSWORD---------------------------------------
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         data = request.data or {}
 
-        current_password = data.get("current_password")
+        current_password = data.get(
+            "current_password"
+        )
+
         otp = data.get("otp")
-        new_password = data.get("new_password")
+
+        new_password = data.get(
+            "new_password"
+        )
 
         if not current_password:
             return Response(
-                {"error": "Current password is required"},
+                {
+                    "error": (
+                        "Current password is required"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         user = request.user
 
-        if not user.check_password(current_password):
+        if not user.check_password(
+            current_password
+        ):
             return Response(
-                {"error": "Invalid credentials"},
+                {
+                    "error": "Invalid credentials"
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # ----------------------------------------------------
-        # OTP lock check
-        # ----------------------------------------------------
 
         if user.otp_locked_until:
             now = timezone.now()
 
             if now < user.otp_locked_until:
+
                 remaining = int(
                     (
-                        user.otp_locked_until - now
+                        user.otp_locked_until
+                        - now
                     ).total_seconds()
                 )
 
@@ -352,25 +439,33 @@ class ChangePasswordView(APIView):
                             "Too many failed attempts. "
                             "OTP locked for 15 minutes"
                         ),
-                        "wait_seconds": max(remaining, 0),
+                        "wait_seconds": max(
+                            remaining,
+                            0,
+                        ),
                     },
                     status=423,
                 )
 
-        # ----------------------------------------------------
-        # Send OTP
-        # ----------------------------------------------------
+    
 
         if not otp and not new_password:
-            raw_otp = user.generate_email_otp()
-            user.save()
 
-            send_email_task.delay(user.email, raw_otp)
+            raw_otp = (
+                user.generate_email_otp()
+            )
+
+            send_email_task.delay(
+                user.email,
+                raw_otp,
+            )
 
             return Response(
                 {
                     "status": "otp_sent",
-                    "message": "OTP sent to your email",
+                    "message": (
+                        "OTP sent to your email"
+                    ),
                     "wait_seconds": (
                         Users.OTP_RESEND_COOLDOWN_SECONDS
                     ),
@@ -378,24 +473,24 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # ----------------------------------------------------
-        # Verify OTP + change password
-        # ----------------------------------------------------
 
         if not otp or not new_password:
             return Response(
                 {
                     "error": (
-                        "OTP and new password are required"
+                        "OTP and new password "
+                        "are required"
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         result = user.verify_email_otp(otp)
-        user.save()
 
         if result == "locked":
+
+            remaining = 0
+
             if user.otp_locked_until:
                 remaining = int(
                     (
@@ -403,8 +498,6 @@ class ChangePasswordView(APIView):
                         - timezone.now()
                     ).total_seconds()
                 )
-            else:
-                remaining = Users.OTP_RESEND_COOLDOWN_SECONDS
 
             return Response(
                 {
@@ -412,38 +505,57 @@ class ChangePasswordView(APIView):
                         "Too many failed attempts. "
                         "OTP locked for 15 minutes"
                     ),
-                    "wait_seconds": max(remaining, 0),
+                    "wait_seconds": max(
+                        remaining,
+                        0,
+                    ),
                 },
                 status=423,
             )
 
         if not result:
             return Response(
-                {"error": "Invalid or expired OTP"},
+                {
+                    "error": (
+                        "Invalid or expired OTP"
+                    )
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+
         try:
-            user.set_password(new_password)
+            user.set_password(
+                new_password
+            )
+
             user.save()
 
             return Response(
                 {
                     "status": "success",
-                    "message": "Password updated successfully",
+                    "message": (
+                        "Password updated successfully"
+                    ),
                 },
                 status=status.HTTP_200_OK,
             )
 
         except Exception as exc:
-            print("Password change error:", exc)
+            print(
+                "Password change error:",
+                exc,
+            )
 
             return Response(
-                {"error": "Internal server error"},
+                {
+                    "error": "Internal server error"
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
+# ------------------------------DELETE ACCOUNT---------------------------------------
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -454,7 +566,11 @@ class DeleteAccountView(APIView):
 
         if not password:
             return Response(
-                {"error": "Password confirmation required"},
+                {
+                    "error": (
+                        "Password confirmation required"
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -462,14 +578,16 @@ class DeleteAccountView(APIView):
 
         if not user.check_password(password):
             return Response(
-                {"error": "Invalid password"},
+                {
+                    "error": "Invalid password"
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
         try:
             user.delete()
 
-            return Response(
+            response = Response(
                 {
                     "status": "success",
                     "message": "Account deleted",
@@ -477,10 +595,22 @@ class DeleteAccountView(APIView):
                 status=status.HTTP_200_OK,
             )
 
+            response.delete_cookie(
+                key=settings.REFRESH_COOKIE_NAME,
+                path="/token/refresh/",
+            )
+
+            return response
+
         except Exception as exc:
-            print("Delete error:", exc)
+            print(
+                "Delete error:",
+                exc,
+            )
 
             return Response(
-                {"error": "Internal server error"},
+                {
+                    "error": "Internal server error"
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

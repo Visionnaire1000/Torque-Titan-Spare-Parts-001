@@ -12,10 +12,7 @@ from dotenv import load_dotenv
 import dj_database_url
 
 
-# ============================================================
-# BASE DIRECTORY / ENVIRONMENT
-# ============================================================
-
+# -----------------------BASE DIR/ENV---------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load .env from the project root
@@ -37,10 +34,7 @@ def env_bool(name, default=False):
     )
 
 
-# ============================================================
-# SECURITY
-# ============================================================
-
+# -----------------------SECURITY---------------------------------
 SECRET_KEY = env("SECRET_KEY")
 
 if not SECRET_KEY:
@@ -57,10 +51,7 @@ ALLOWED_HOSTS = [
 ]
 
 
-# ============================================================
-# APPLICATIONS
-# ============================================================
-
+# -----------------------APPLICATIONS---------------------------------
 INSTALLED_APPS = [
     # Django built-in apps
     "django.contrib.admin",
@@ -79,11 +70,10 @@ INSTALLED_APPS = [
     "app",
 ]
 
+AUTH_USER_MODEL = "app.Users"
 
-# ============================================================
-# MIDDLEWARE
-# ============================================================
 
+# -----------------------MIDDLEWARE---------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
 
@@ -99,17 +89,11 @@ MIDDLEWARE = [
 ]
 
 
-# ============================================================
-# URL CONFIGURATION
-# ============================================================
-
+# -----------------------URL CONFIG---------------------------------
 ROOT_URLCONF = "config.urls"
 
 
-# ============================================================
-# TEMPLATES
-# ============================================================
-
+# -----------------------TEMPLATES---------------------------------
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -126,19 +110,13 @@ TEMPLATES = [
 ]
 
 
-# ============================================================
-# WSGI / ASGI
-# ============================================================
-
+# -----------------------WSGI/ASGI---------------------------------
 WSGI_APPLICATION = "config.wsgi.application"
 
 ASGI_APPLICATION = "config.asgi.application"
 
 
-# ============================================================
-# DATABASE
-# ============================================================
-
+# -----------------------DATABASE URL---------------------------------
 DATABASE_URL = env("DATABASE_URL")
 
 if not DATABASE_URL:
@@ -153,10 +131,7 @@ DATABASES = {
 }
 
 
-# ============================================================
-# PASSWORD VALIDATION
-# ============================================================
-
+# -----------------------PASSWORD VALIDATION---------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": (
@@ -184,11 +159,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
-# ============================================================
-# INTERNATIONALIZATION
-# ============================================================
-
+# -----------------------INTERNATIONALIZATION---------------------------------
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "UTC"
@@ -198,24 +169,13 @@ USE_I18N = True
 USE_TZ = True
 
 
-# ============================================================
-# STATIC FILES
-# ============================================================
-
+# -----------------------STATIC FILES---------------------------------
 STATIC_URL = "static/"
 
-
-# ============================================================
-# DEFAULT PRIMARY KEY
-# ============================================================
-
+# -----------------------DEFAULT PRIMARY KEY---------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-
-# ============================================================
-# DJANGO REST FRAMEWORK
-# ============================================================
-
+# -----------------------DJANGO REST FRAMEWORK---------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -231,10 +191,7 @@ REST_FRAMEWORK = {
 }
 
 
-# ============================================================
-# JWT
-# ============================================================
-
+# -----------------------JWT---------------------------------
 JWT_SECRET_KEY = env("JWT_SECRET_KEY")
 
 if not JWT_SECRET_KEY:
@@ -261,13 +218,37 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": (
         "Bearer",
     ),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 
+# -----------------------REFRESH TOKEN COOKIE(http-only cookie)---------------------------------
+REFRESH_COOKIE_NAME = env(
+    "REFRESH_COOKIE_NAME",
+    "refresh_token",
+)
 
-# ============================================================
-# FRONTEND
-# ============================================================
+REFRESH_COOKIE_MAX_AGE = int(
+    env(
+        "REFRESH_COOKIE_MAX_AGE",
+        60 * 60 * 24 * 30,
+    )
+)
 
+REFRESH_COOKIE_SECURE = env(
+    "REFRESH_COOKIE_SECURE",
+    "False",
+).lower() == "true"
+
+REFRESH_COOKIE_HTTP_ONLY = True
+
+REFRESH_COOKIE_SAMESITE = env(
+    "REFRESH_COOKIE_SAMESITE",
+    "Lax",
+)
+
+
+# -----------------------FRONTEND---------------------------------
 FRONTEND_ENDPOINT_URL = env("FRONTEND_ENDPOINT_URL")
 
 if not FRONTEND_ENDPOINT_URL:
@@ -276,21 +257,16 @@ if not FRONTEND_ENDPOINT_URL:
     )
 
 
-# ============================================================
-# CORS
-# ============================================================
-
+# -----------------------CORS---------------------------------
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in env("CORS_ALLOWED_ORIGINS", "").split(",")
     if origin.strip()
 ]
 
+CORS_ALLOW_CREDENTIALS = True
 
-# ============================================================
-# CSRF
-# ============================================================
-
+# -----------------------CSRF---------------------------------
 CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in env("CSRF_TRUSTED_ORIGINS", "").split(",")
@@ -298,10 +274,14 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-# ============================================================
-# EMAIL
-# ============================================================
+#-------------------------STRIPE CONFIG-------------------------
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+STRIPE_SUCCESS_URL = env("STRIPE_SUCCESS_URL")
+STRIPE_CANCEL_URL = env("STRIPE_CANCEL_URL")
 
+
+# -----------------------EMAIL---------------------------------
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",

@@ -143,7 +143,7 @@ const SedanRims = (): ReactElement => {
 
     try {
       const response = await fetch(
-        `${config.API_BASE_URL}/spareparts?${params.toString()}`
+        `${config.API_BASE_URL}/spareparts/?${params.toString()}`
       );
 
       if (!response.ok) {

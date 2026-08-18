@@ -3,6 +3,8 @@ import secrets
 import uuid
 from datetime import timedelta
 
+from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.contrib.auth.hashers import make_password, check_password
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -10,12 +12,55 @@ from django.db.models import Avg
 from django.utils import timezone
 
 
+
 # (UUID helper)
 def generate_uuid():
     return str(uuid.uuid4())
 
+
+# ------------------------------USERS MANAGER------------------------------------------
+class UsersManager(BaseUserManager):
+
+    def create_user(self, email, password=None, **extra_fields):
+
+        if not email:
+            raise ValueError("Email is required")
+
+        email = email.lower().strip()
+
+        user = self.model(
+            email=email,
+            **extra_fields
+        )
+
+        if password:
+            user.set_password(password)
+
+        user.save(using=self._db)
+
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True")
+
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True")
+
+        return self.create_user(
+            email=email,
+            password=password,
+            **extra_fields
+        )
+
+
 # ------------------------------USERS MODEL------------------------------------------
-class Users(models.Model):
+class Users(AbstractBaseUser, PermissionsMixin):
 
     id = models.CharField(
         max_length=36,
@@ -28,6 +73,7 @@ class Users(models.Model):
         unique=True
     )
 
+    # Keep your existing password_hash field.
     password_hash = models.CharField(
         max_length=255
     )
@@ -35,6 +81,15 @@ class Users(models.Model):
     role = models.CharField(
         max_length=30,
         default="buyer"
+    )
+
+    # Django authentication fields
+    is_active = models.BooleanField(
+        default=True
+    )
+
+    is_staff = models.BooleanField(
+        default=False
     )
 
     # (Email verification)
@@ -78,6 +133,12 @@ class Users(models.Model):
     MAX_OTP_ATTEMPTS = 5
     OTP_LOCK_MINUTES = 15
 
+    # Django authentication configuration
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
+
+    objects = UsersManager()
+
     class Meta:
         db_table = "users"
 
@@ -90,16 +151,25 @@ class Users(models.Model):
 
     # (PASSWORD)
     def set_password(self, password: str):
+
         self.password_hash = make_password(password)
 
     def check_password(self, password: str) -> bool:
+
         return check_password(
             password,
             self.password_hash
         )
 
+    # Django's AbstractBaseUser expects this internally.
+    # We keep password_hash as the actual storage field.
+    @property
+    def password(self):
+        return self.password_hash
+
     # (OTP)
     def _hash_otp(self, otp: str) -> str:
+
         return hashlib.sha256(
             otp.encode()
         ).hexdigest()
@@ -210,7 +280,7 @@ class Users(models.Model):
 
             return False
 
-        # (Successful verification0
+        # Successful verification
         self.email_verified = True
         self.email_otp_hash = None
         self.email_otp_expires = None
@@ -421,56 +491,46 @@ class SpareParts(models.Model):
         return f"{self.brand} - {self.category}"
 
 
-    
-# ------------------------------REVIEWS MODEL------------------------------------------
+# ------------------------------ REVIEWS MODEL ------------------------------------------
 class Reviews(models.Model):
 
     id = models.CharField(
         max_length=36,
         primary_key=True,
         default=generate_uuid,
-        editable=False
+        editable=False,
     )
 
     user = models.ForeignKey(
         Users,
         on_delete=models.CASCADE,
-        related_name="reviews"
+        related_name="reviews",
     )
 
     sparepart = models.ForeignKey(
         SpareParts,
         on_delete=models.CASCADE,
-        related_name="reviews"
+        related_name="reviews",
     )
 
     comment = models.TextField(
         null=True,
-        blank=True
+        blank=True,
     )
 
     rating = models.IntegerField(
         null=True,
-        blank=True
+        blank=True,
     )
 
     created_at = models.DateTimeField(
-        default=timezone.now
-    )
-
-    total_likes = models.IntegerField(
-        default=0
-    )
-
-    total_dislikes = models.IntegerField(
-        default=0
+        default=timezone.now,
     )
 
     class Meta:
         db_table = "reviews"
 
     def clean(self):
-
         if (
             self.rating is not None
             and not 1 <= self.rating <= 5
@@ -479,27 +539,28 @@ class Reviews(models.Model):
                 "Rating must be between 1 and 5"
             )
 
-    def update_reaction_stats(self):
+        if (
+            self.rating is None
+            and not self.comment
+        ):
+            raise ValidationError(
+                "Review must have a rating or comment"
+            )
 
-        self.total_likes = self.likes.filter(
+    @property
+    def total_likes(self):
+        return self.likes.filter(
             is_like=True
         ).count()
 
-        self.total_dislikes = self.likes.filter(
+    @property
+    def total_dislikes(self):
+        return self.likes.filter(
             is_like=False
         ).count()
 
-        self.save(
-            update_fields=[
-                "total_likes",
-                "total_dislikes",
-            ]
-        )
-
-    # (USER DISPLAY NAME)
     @property
     def user_display_name(self):
-
         return (
             self.user.display_name
             if self.user
@@ -507,7 +568,6 @@ class Reviews(models.Model):
         )
 
     def save(self, *args, **kwargs):
-
         self.full_clean()
 
         super().save(*args, **kwargs)
@@ -515,7 +575,6 @@ class Reviews(models.Model):
         self.sparepart.update_review_stats()
 
     def delete(self, *args, **kwargs):
-
         sparepart = self.sparepart
 
         result = super().delete(
@@ -528,28 +587,32 @@ class Reviews(models.Model):
         return result
 
     def __str__(self):
-        return f"Review by {self.user_display_name}"
+        return (
+            f"Review by "
+            f"{self.user_display_name}"
+        )
 
-# ------------------------------REVIEW REACTIONS MODEL------------------------------------------
+
+# ------------------------------ REVIEW REACTIONS MODEL ------------------------------------------
 class ReviewReactions(models.Model):
 
     id = models.CharField(
         max_length=36,
         primary_key=True,
         default=generate_uuid,
-        editable=False
+        editable=False,
     )
 
     user = models.ForeignKey(
         Users,
         on_delete=models.CASCADE,
-        related_name="likes"
+        related_name="likes",
     )
 
     review = models.ForeignKey(
         Reviews,
         on_delete=models.CASCADE,
-        related_name="likes"
+        related_name="likes",
     )
 
     is_like = models.BooleanField()
@@ -557,47 +620,41 @@ class ReviewReactions(models.Model):
     class Meta:
         db_table = "review_reactions"
 
-    # (Validation)
-    def clean(self):
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "user",
+                    "review",
+                ],
+                name="unique_user_review_reaction",
+            )
+        ]
 
+    def clean(self):
         if not isinstance(
             self.is_like,
-            bool
+            bool,
         ):
             raise ValidationError(
-                "is_like must be True or False"
+                "is_like must be a boolean"
             )
 
     def save(self, *args, **kwargs):
-
         self.full_clean()
 
         super().save(*args, **kwargs)
 
-        self.review.update_reaction_stats()
-        self.review.sparepart.update_review_stats()
-
     def delete(self, *args, **kwargs):
-
-        review = self.review
-
-        result = super().delete(
+        return super().delete(
             *args,
             **kwargs
         )
 
-        review.update_reaction_stats()
-        review.sparepart.update_review_stats()
-
-        return result
-
     def __str__(self):
-
         return (
             f"{self.user.email} - "
             f"{'Like' if self.is_like else 'Dislike'}"
         )
-
     
 # ------------------------------ORDERS MODEL------------------------------------------
 class Orders(models.Model):

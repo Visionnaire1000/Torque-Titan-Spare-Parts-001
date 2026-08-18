@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -5,7 +7,7 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
+from rest_framework import serializers, status
 
 from app.models import (
     Users,
@@ -15,10 +17,21 @@ from app.models import (
     ReviewReactions,
 )
 
-# ===========================================================
-# ACCOUNT MANAGEMENT
-# ============================================================
 
+# --------------------------- SERIALIZERS ----------------------------------------------
+class SparePartsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SpareParts
+        fields = "__all__"
+
+
+class ReviewsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reviews
+        fields = "__all__"
+
+
+# --------------------------- ACCOUNT MANAGEMENT ----------------------------------------------
 class CreateAdminView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -41,6 +54,8 @@ class CreateAdminView(APIView):
                 {"error": "Email and password are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        email = email.strip().lower()
 
         if Users.objects.filter(email=email).exists():
             return Response(
@@ -100,7 +115,7 @@ class ListAdminsView(APIView):
 
         admins = Users.objects.filter(
             role="admin"
-        )
+        ).order_by("email")
 
         admins_list = [
             {
@@ -157,12 +172,7 @@ class DeleteAdminView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
-# ============================================================
-# SPARE PARTS MANAGEMENT
-# ============================================================
-
-
+# ------------------------------ Spare Parts Management -------------------------------------------
 class AdminSparePartsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -172,35 +182,34 @@ class AdminSparePartsView(APIView):
             "super_admin",
         ]
 
-    # --------------------------------------------------------
-    # CREATE
-    # --------------------------------------------------------
-
+    # ---------------- CREATE ----------------
     def post(self, request):
+
         if not self._check_admin(request):
             return Response(
                 {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        data = request.data or {}
+        data = request.data
 
         try:
+            # ---------------- PRICE VALIDATION ----------------
             try:
-                buying_price = float(
-                    data.get("buying_price", 0)
+                buying_price = Decimal(
+                    str(data.get("buying_price", 0))
                 )
-                marked_price = float(
-                    data.get("marked_price", 0)
+                marked_price = Decimal(
+                    str(data.get("marked_price", 0))
                 )
-
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, InvalidOperation):
                 return Response(
                     {"error": "Invalid price values"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            spare = SpareParts(
+            # ---------------- CREATE ----------------
+            spare = SpareParts.objects.create(
                 category=data.get("category"),
                 vehicle_type=data.get("vehicle_type"),
                 brand=data.get("brand"),
@@ -211,62 +220,52 @@ class AdminSparePartsView(APIView):
                 description=data.get("description"),
             )
 
+            # ---------------- CALCULATE DISCOUNT ----------------
             spare.calculate_discount()
             spare.save()
 
             return Response(
                 {
-                    "message": (
-                        "Spare part created successfully"
-                    ),
-                    "sparepart": spare.to_dict(),
+                    "message": "Spare part created successfully",
+                    "sparepart": SparePartsSerializer(spare).data,
                 },
                 status=status.HTTP_201_CREATED,
             )
 
-        except Exception as exc:
-            print("Create spare part error:", exc)
-
+        except Exception as e:
             return Response(
-                {"error": str(exc)},
+                {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    # --------------------------------------------------------
-    # UPDATE
-    # --------------------------------------------------------
-
+    # ---------------- UPDATE ----------------
     def put(self, request, spare_id):
+
         if not self._check_admin(request):
             return Response(
                 {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        spare = SpareParts.objects.filter(
-            pk=spare_id
-        ).first()
+        spare = get_object_or_404(
+            SpareParts,
+            id=spare_id,
+        )
 
-        if not spare:
-            return Response(
-                {"error": "Spare part not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        data = request.data or {}
-
-        fields = [
-            "category",
-            "vehicle_type",
-            "brand",
-            "colour",
-            "buying_price",
-            "marked_price",
-            "image",
-            "description",
-        ]
+        data = request.data
 
         try:
+            fields = [
+                "category",
+                "vehicle_type",
+                "brand",
+                "colour",
+                "buying_price",
+                "marked_price",
+                "image",
+                "description",
+            ]
+
             for field in fields:
 
                 if field not in data:
@@ -277,9 +276,14 @@ class AdminSparePartsView(APIView):
                     "marked_price",
                 ]:
                     try:
-                        value = float(data[field])
-
-                    except (TypeError, ValueError):
+                        value = Decimal(
+                            str(data[field])
+                        )
+                    except (
+                        TypeError,
+                        ValueError,
+                        InvalidOperation,
+                    ):
                         return Response(
                             {
                                 "error": (
@@ -298,74 +302,56 @@ class AdminSparePartsView(APIView):
                         data[field],
                     )
 
+            # ---------------- RECALCULATE DISCOUNT ----------------
             spare.calculate_discount()
             spare.save()
 
             return Response(
                 {
-                    "message": (
-                        "Spare part updated successfully"
-                    ),
-                    "sparepart": spare.to_dict(),
+                    "message": "Spare part updated successfully",
+                    "sparepart": SparePartsSerializer(spare).data,
                 },
                 status=status.HTTP_200_OK,
             )
 
-        except Exception as exc:
-            print("Update spare part error:", exc)
-
+        except Exception as e:
             return Response(
-                {"error": str(exc)},
+                {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    # --------------------------------------------------------
-    # DELETE
-    # --------------------------------------------------------
-
+    # ---------------- DELETE ----------------
     def delete(self, request, spare_id):
+
         if not self._check_admin(request):
             return Response(
                 {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        spare = SpareParts.objects.filter(
-            pk=spare_id
-        ).first()
-
-        if not spare:
-            return Response(
-                {"error": "Spare part not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        spare = get_object_or_404(
+            SpareParts,
+            id=spare_id,
+        )
 
         try:
             spare.delete()
 
             return Response(
                 {
-                    "message": (
-                        "Spare part deleted successfully"
-                    )
+                    "message": "Spare part deleted successfully"
                 },
                 status=status.HTTP_200_OK,
             )
 
-        except Exception as exc:
-            print("Delete spare part error:", exc)
-
+        except Exception as e:
             return Response(
-                {"error": str(exc)},
+                {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
 
-# ============================================================
-# ADMIN REVIEWS
-# ============================================================
-
-
+# --------------------------- ADMIN REVIEWS ----------------------------------------------
 class AdminReviewsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -383,19 +369,27 @@ class AdminReviewsView(APIView):
 
         reviews = (
             Reviews.objects
+            .select_related(
+                "user",
+                "sparepart",
+            )
+            .prefetch_related("likes")
             .order_by("-created_at")
         )
 
         result = []
 
         for review in reviews:
-            review_dict = review.to_dict()
+
+            review_dict = ReviewsSerializer(
+                review
+            ).data
 
             review_dict["sparepart_id"] = (
                 review.sparepart_id
             )
 
-            sparepart = review.spareparts
+            sparepart = review.sparepart
 
             review_dict["sparepart_image"] = (
                 sparepart.image
@@ -403,7 +397,7 @@ class AdminReviewsView(APIView):
                 else None
             )
 
-            user = review.users
+            user = review.user
 
             review_dict["user_display_name"] = (
                 f"{review.user_display_name} "
@@ -457,20 +451,25 @@ class AdminReviewsBySparePartView(APIView):
 
         reviews = (
             Reviews.objects
+            .select_related("user")
+            .prefetch_related("likes")
             .filter(sparepart_id=sparepart_id)
-            .order_by("-id")
+            .order_by("-created_at")
         )
 
         result = []
 
         for review in reviews:
-            review_dict = review.to_dict()
+
+            review_dict = ReviewsSerializer(
+                review
+            ).data
 
             review_dict["sparepart_id"] = (
                 review.sparepart_id
             )
 
-            user = review.users
+            user = review.user
 
             review_dict["user_display_name"] = (
                 f"{review.user_display_name} "
@@ -483,6 +482,12 @@ class AdminReviewsBySparePartView(APIView):
 
             review_dict["total_dislikes"] = (
                 review.total_dislikes
+            )
+
+            review_dict["created_at"] = (
+                review.created_at.isoformat()
+                if review.created_at
+                else None
             )
 
             review_dict["likes"] = [
@@ -523,15 +528,15 @@ class AdminReviewReactionsView(APIView):
 
         reactions = (
             ReviewReactions.objects
+            .select_related("user")
             .filter(review_id=review.id)
         )
 
         reaction_list = [
             {
                 "user_id": reaction.user_id,
-                "username": (
-                    reaction.users.username
-                ),
+                "username": reaction.user.display_name,
+                "email": reaction.user.email,
                 "is_like": reaction.is_like,
             }
             for reaction in reactions
@@ -552,7 +557,7 @@ class AdminReviewReactionsView(APIView):
         return Response(
             {
                 "review_id": review.id,
-                "review_text": review.text,
+                "review_text": review.comment,
                 "total_likes": total_likes,
                 "total_dislikes": total_dislikes,
                 "reactions": reaction_list,
@@ -561,11 +566,7 @@ class AdminReviewReactionsView(APIView):
         )
 
 
-# ============================================================
-# ADMIN ORDERS
-# ============================================================
-
-
+# --------------------------- ADMIN ORDERS ----------------------------------------------
 class AdminOrdersView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -575,10 +576,7 @@ class AdminOrdersView(APIView):
             "super_admin",
         ]
 
-    # --------------------------------------------------------
-    # GET ALL ORDERS
-    # --------------------------------------------------------
-
+    # Get all orders
     def get(self, request):
         if not self._check_admin(request):
             return Response(
@@ -588,6 +586,9 @@ class AdminOrdersView(APIView):
 
         orders = (
             Orders.objects
+            .prefetch_related(
+                "order_items__sparepart"
+            )
             .order_by("-created_at")
         )
 
@@ -654,12 +655,8 @@ class AdminOrdersView(APIView):
                         ),
                         "sparepart": {
                             "id": item.sparepart.id,
-                            "brand": (
-                                item.sparepart.brand
-                            ),
-                            "category": (
-                                item.sparepart.category
-                            ),
+                            "brand": item.sparepart.brand,
+                            "category": item.sparepart.category,
                             "vehicle_type": (
                                 item.sparepart.vehicle_type
                             ),
@@ -679,10 +676,7 @@ class AdminOrdersView(APIView):
             status=status.HTTP_200_OK,
         )
 
-    # --------------------------------------------------------
-    # UPDATE ORDER STATUS
-    # --------------------------------------------------------
-
+    # Update order status
     def patch(self, request, order_id):
         if not self._check_admin(request):
             return Response(
@@ -724,11 +718,6 @@ class AdminOrdersView(APIView):
             )
 
         order.status = new_status
-
-        # ----------------------------------------------------
-        # Use timezone-aware Django datetime
-        # instead of datetime.utcnow()
-        # ----------------------------------------------------
 
         if (
             new_status == "shipped"

@@ -69,7 +69,7 @@ const StripeCheckout = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/create-checkout-session`,
+        `${config.API_BASE_URL}/create-checkout-session/`,
         {
           method: "POST",
           body: JSON.stringify({

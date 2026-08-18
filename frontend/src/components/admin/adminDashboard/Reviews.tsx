@@ -196,7 +196,7 @@ const Reviews: FC = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/reviews`
+        `${config.API_BASE_URL}/admin/reviews/`
       );
 
       if (!res.ok) {

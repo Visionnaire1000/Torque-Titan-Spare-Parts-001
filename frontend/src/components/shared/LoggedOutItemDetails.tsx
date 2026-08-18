@@ -290,10 +290,10 @@ const LoggedOutItemDetails = () => {
           reviewsRes,
         ] = await Promise.all([
           fetch(
-            `${config.API_BASE_URL}/spareparts/${id}`
+            `${config.API_BASE_URL}/spareparts/${id}/`
           ),
           fetch(
-            `${config.API_BASE_URL}/reviews/${id}`
+            `${config.API_BASE_URL}/reviews/${id}/`
           ),
         ]);
 

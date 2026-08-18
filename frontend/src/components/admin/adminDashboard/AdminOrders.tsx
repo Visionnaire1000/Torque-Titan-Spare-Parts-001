@@ -375,7 +375,7 @@ const AdminOrders = (): ReactElement => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/orders`
+        `${config.API_BASE_URL}/admin/orders/`
       );
 
       if (!res.ok) {
@@ -447,7 +447,7 @@ const AdminOrders = (): ReactElement => {
 
               try {
                 const res = await authFetch(
-                  `${config.API_BASE_URL}/admin/orders/${orderId}`,
+                  `${config.API_BASE_URL}/admin/orders/${orderId}/`,
                   {
                     method: "PATCH",
                     headers: {

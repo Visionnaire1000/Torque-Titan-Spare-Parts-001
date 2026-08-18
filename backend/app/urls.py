@@ -9,6 +9,7 @@ from app.views.authViews import (
     ChangePasswordView,
     DeleteAccountView,
     TokenRefreshView,
+    LogoutView,
 )
 
 from app.views.buyerViews import (
@@ -33,7 +34,7 @@ from app.views.adminViews import (
 
 urlpatterns = [
 
-    # ----------------------AUTHENTICATION-------------------------------------
+    # ---------------------- AUTHENTICATION -------------------------------------
     path(
         "register/",
         RegisterView.as_view(),
@@ -71,12 +72,19 @@ urlpatterns = [
     ),
 
     path(
-        "refresh/",
+        "token/refresh/",
         TokenRefreshView.as_view(),
         name="refresh",
     ),
 
-    # ----------------------BUYER SPARE-PARTS-------------------------------------
+    path(
+        "logout/",
+        LogoutView.as_view(),
+        name="logout",
+    ),
+
+
+    # ---------------------- BUYER SPARE-PARTS -------------------------------------
     path(
         "spareparts/",
         SparePartsListView.as_view(),
@@ -84,31 +92,39 @@ urlpatterns = [
     ),
 
     path(
-        "spareparts/<int:part_id>/",
+        "spareparts/<str:part_id>/",
         SparePartsListView.as_view(),
         name="sparepart-detail",
     ),
 
-    # ----------------------BUYER-REVIEWS-------------------------------------
+
+    # ---------------------- BUYER REVIEWS -------------------------------------
     path(
-        "reviews/<int:part_id>/",
+        "reviews/<str:part_id>/",
         ReviewsView.as_view(),
         name="reviews",
     ),
 
     path(
-        "reviews/edit/<int:review_id>/",
+        "reviews/<str:review_id>/react/",
+        ReviewReactionsView.as_view(),
+        name="review-reaction",
+        ),
+
+    path(
+        "reviews/<str:review_id>/edit/",
         ReviewEditView.as_view(),
         name="review-edit",
     ),
 
     path(
-        "reviews/<int:review_id>/react/",
+        "reviews/<str:review_id>/delete/",
         ReviewReactionsView.as_view(),
         name="review-reaction",
     ),
 
-    # ----------------------BUYER-ORDERS-------------------------------------
+
+    # ---------------------- BUYER ORDERS -------------------------------------
     path(
         "orders/",
         OrdersView.as_view(),
@@ -116,12 +132,13 @@ urlpatterns = [
     ),
 
     path(
-        "orders/<int:order_id>/",
+        "orders/<str:order_id>/",
         OrdersView.as_view(),
         name="order-detail",
     ),
 
-    # ----------------------ADMIN-ACCOUNT-MANAGEMENT-------------------------------------
+
+    # ---------------------- ADMIN ACCOUNT MANAGEMENT -------------------------------------
     path(
         "admin/create-admin/",
         CreateAdminView.as_view(),
@@ -135,12 +152,13 @@ urlpatterns = [
     ),
 
     path(
-        "admin/delete-admin/<uuid:admin_id>/",
+        "admin/delete-admin/<str:admin_id>/",
         DeleteAdminView.as_view(),
         name="delete-admin",
     ),
 
-    # ----------------------ADMIN-SPAREPARTS-------------------------------------
+
+    # ---------------------- ADMIN SPARE-PARTS -------------------------------------
     path(
         "admin/spareparts/",
         AdminSparePartsView.as_view(),
@@ -148,12 +166,13 @@ urlpatterns = [
     ),
 
     path(
-        "admin/spareparts/<int:spare_id>/",
+        "admin/spareparts/<str:spare_id>/",
         AdminSparePartsView.as_view(),
         name="admin-sparepart-detail",
     ),
 
-    # ----------------------ADMIN-REVIEWS-------------------------------------
+
+    # ---------------------- ADMIN REVIEWS -------------------------------------
     path(
         "admin/reviews/",
         AdminReviewsView.as_view(),
@@ -161,18 +180,19 @@ urlpatterns = [
     ),
 
     path(
-        "admin/reviews/<int:review_id>/reactions/",
+        "admin/reviews/<str:review_id>/reactions/",
         AdminReviewReactionsView.as_view(),
         name="admin-review-reactions",
     ),
 
     path(
-        "admin/reviews/sparepart/<int:sparepart_id>/",
+        "admin/reviews/sparepart/<str:sparepart_id>/",
         AdminReviewsBySparePartView.as_view(),
         name="admin-reviews-by-sparepart",
     ),
 
-    # ----------------------ADMIN-ORDERS-------------------------------------
+
+    # ---------------------- ADMIN ORDERS -------------------------------------
     path(
         "admin/orders/",
         AdminOrdersView.as_view(),
@@ -180,7 +200,7 @@ urlpatterns = [
     ),
 
     path(
-        "admin/orders/<int:order_id>/",
+        "admin/orders/<str:order_id>/",
         AdminOrdersView.as_view(),
         name="admin-order-detail",
     ),

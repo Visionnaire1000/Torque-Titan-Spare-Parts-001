@@ -56,7 +56,7 @@ const SearchResults = () => {
   useEffect(() => {
     setLoading(true);
 
-    fetch(`${config.API_BASE_URL}/spareparts?per_page=1000`)
+    fetch(`${config.API_BASE_URL}/spareparts/?per_page=1000`)
       .then((res) => res.json())
       .then((data: SparePartsResponse) => {
         let results = data.items ?? [];

@@ -209,7 +209,7 @@ const BusRims = (): ReactElement => {
 
     try {
       const response = await fetch(
-        `${config.API_BASE_URL}/spareparts?${params.toString()}`
+        `${config.API_BASE_URL}/spareparts/?${params.toString()}`
       );
 
       if (!response.ok) {
@@ -568,6 +568,7 @@ return (
           )}
 
         </div>
+
         {/* -------- Pagination -------- */}
         {loading ? (
           <div className="mt-4 flex justify-center gap-2">

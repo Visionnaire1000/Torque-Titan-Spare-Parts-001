@@ -37,7 +37,7 @@ const AdminManagement = () => {
 
   const fetchAdmins = useCallback(async () => {
     try {
-      const res = await authFetch(`${config.API_BASE_URL}/admin/admins`);
+      const res = await authFetch(`${config.API_BASE_URL}/admin/admins/`);
 
       const data: AdminsResponse = await res.json();
 
@@ -90,7 +90,7 @@ const AdminManagement = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/create-admin`,
+        `${config.API_BASE_URL}/admin/create-admin/`,
         {
           method: "POST",
           headers: {
@@ -139,7 +139,7 @@ const AdminManagement = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/delete-admin/${selectedId}`,
+        `${config.API_BASE_URL}/admin/delete-admin/${selectedId}/`,
         {
           method: "DELETE",
         }

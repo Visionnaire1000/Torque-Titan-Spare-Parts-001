@@ -1,12 +1,7 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import {
-  RefreshCw,
-  Star,
-  ThumbsDown,
-  ThumbsUp,
-} from "lucide-react";
+import { RefreshCw, Star, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import config from "../../config";
 
@@ -312,10 +307,10 @@ const AdminItemDetails = () => {
           reviewsRes,
         ] = await Promise.all([
           authFetch(
-            `${config.API_BASE_URL}/spareparts/${id}`
+            `${config.API_BASE_URL}/spareparts/${id}/`
           ),
           authFetch(
-            `${config.API_BASE_URL}/admin/reviews/sparepart/${id}`
+            `${config.API_BASE_URL}/admin/reviews/sparepart/${id}/`
           ),
         ]);
 

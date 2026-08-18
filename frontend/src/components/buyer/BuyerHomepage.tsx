@@ -7,7 +7,6 @@ import config from "../../config";
 import Footer from "../shared/layout/Footer";
 
 // ------------------ Interfaces ------------------
-
 interface SparePart {
   id: string;
   image: string;
@@ -23,7 +22,6 @@ interface SparePartsResponse {
 }
 
 // ------------------ Skeleton ------------------
-
 const SkeletonCard = () => (
   <div className="relative flex h-full flex-col gap-[10px] overflow-hidden rounded-xl bg-[#f3f3f3] p-3">
     <div className="absolute inset-0 overflow-hidden rounded-xl">
@@ -41,7 +39,6 @@ const SkeletonCard = () => (
 
 const BuyerHomepage = () => {
   // ------------------ State ------------------
-
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,12 +51,11 @@ const BuyerHomepage = () => {
   const { addItem } = useCart();
 
   // ------------------ Fetch Spare Parts ------------------
-
   const fetchSpareParts = (): void => {
     setLoading(true);
     setError(null);
 
-    fetch(`${config.API_BASE_URL}/spareparts?per_page=100`)
+    fetch(`${config.API_BASE_URL}/spareparts/?per_page=100`)
       .then((res) => {
         if (!res.ok) {
           throw new Error("Server error");
@@ -146,14 +142,13 @@ const BuyerHomepage = () => {
         setLoading(false);
       });
   };
-    // ------------------ Initial Fetch ------------------
 
+  // ------------------ Initial Fetch ------------------
   useEffect(() => {
     fetchSpareParts();
   }, []);
 
   // ------------------ Carousel ------------------
-
   useEffect(() => {
     if (spareParts.length < 8) return;
 
@@ -165,7 +160,6 @@ const BuyerHomepage = () => {
   }, [spareParts]);
 
   // ------------------ Handlers ------------------
-
   const handleAddToCart = (
     item: SparePart,
     e: MouseEvent<HTMLButtonElement>
@@ -184,7 +178,6 @@ const BuyerHomepage = () => {
   };
 
   // ------------------ Derived Data ------------------
-
   const carouselItems = spareParts.slice(0, 8);
 
   const gridItems = spareParts.slice(8, 16);
@@ -200,7 +193,6 @@ const BuyerHomepage = () => {
       : [];
 
   // ------------------ Error State ------------------
-
   if (error) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center text-center">
@@ -221,8 +213,8 @@ const BuyerHomepage = () => {
       </div>
     );
   }
-    // ------------------ Render ------------------
 
+  // ------------------ Render ------------------
   return (
      <div className="pt-24 px-[10px] pb-[70px] 
                      font-['Segoe_UI',Tahoma,Geneva,Verdana,sans-serif] sm:px-[15px] lg:px-5">

@@ -136,10 +136,7 @@ class Command(BaseCommand):
 
         spareparts_data = [
 
-            # ====================================================
-            # SEDAN TYRES
-            # ====================================================
-
+            # ---------------------------SEDAN TYRES----------------------------------------------
             {
                 "category": "tyre",
                 "vehicle_type": "sedan",
@@ -261,10 +258,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/p3F6z4f.jpeg",
             },
 
-            # ====================================================
-            # SUV TYRES
-            # ====================================================
-
+            # ---------------------------SUV TYRES----------------------------------------------
             {
                 "category": "tyre",
                 "vehicle_type": "suv",
@@ -386,10 +380,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/0S5xlog.jpeg",
             },
 
-            # ====================================================
-            # TRUCK TYRES
-            # ====================================================
-
+            # ---------------------------TRUCK TYRES----------------------------------------------
             {
                 "category": "tyre",
                 "vehicle_type": "truck",
@@ -511,10 +502,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/VK4jogs.png",
             },
 
-            # ====================================================
-            # BUS TYRES
-            # ====================================================
-
+            # ---------------------------BUS TYRES----------------------------------------------
             {
                 "category": "tyre",
                 "vehicle_type": "bus",
@@ -636,10 +624,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/HW5YltA.png",
             },
 
-            # ====================================================
-            # SEDAN RIMS
-            # ====================================================
-
+             # ---------------------------SEDAN RIMS----------------------------------------------
             {
                 "category": "rim",
                 "vehicle_type": "sedan",
@@ -761,10 +746,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/SMFBJCQ.jpeg",
             },
 
-            # ====================================================
-            # SUV RIMS
-            # ====================================================
-
+            # ---------------------------SUV RIMS----------------------------------------------
             {
                 "category": "rim",
                 "vehicle_type": "suv",
@@ -886,10 +868,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/q0k6UtF.jpeg",
             },
 
-            # ====================================================
-            # TRUCK RIMS
-            # ====================================================
-
+            # ---------------------------TRUCK RIMS----------------------------------------------
             {
                 "category": "rim",
                 "vehicle_type": "truck",
@@ -1011,10 +990,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/HaYNDv9.png",
             },
 
-            # ====================================================
-            # BUS RIMS
-            # ====================================================
-
+            # ---------------------------BUS RIMS----------------------------------------------
             {
                 "category": "rim",
                 "vehicle_type": "bus",
@@ -1136,10 +1112,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/DztFd2K.jpeg",
             },
 
-            # ====================================================
-            # SEDAN BATTERIES
-            # ====================================================
-
+            #---------------------------SEDAN BATTERIES----------------------------------------------
             {
                 "category": "battery",
                 "vehicle_type": "sedan",
@@ -1261,10 +1234,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/aE0nyCl.jpeg",
             },
 
-            # ====================================================
-            # SUV BATTERIES
-            # ====================================================
-
+            # ---------------------------SUV BATTERIES----------------------------------------------
             {
                 "category": "battery",
                 "vehicle_type": "suv",
@@ -1386,10 +1356,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/Xkdks8i.png",
             },
 
-            # ====================================================
-            # TRUCK BATTERIES
-            # ====================================================
-
+            # ---------------------------TRUCK BATTERIES----------------------------------------------
             {
                 "category": "battery",
                 "vehicle_type": "truck",
@@ -1501,10 +1468,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/mbVzhGS.png",
             },
 
-            # ====================================================
-            # BUS BATTERIES
-            # ====================================================
-
+            # ---------------------------BUS BATTERIES----------------------------------------------
             {
                 "category": "battery",
                 "vehicle_type": "bus",
@@ -1616,10 +1580,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/pDNryOp.jpeg",
             },
 
-            # ====================================================
-            # SEDAN OIL FILTERS
-            # ====================================================
-
+            # ---------------------------SEDAN OIL FILTERS----------------------------------------------
             {
                 "category": "oil filter",
                 "vehicle_type": "sedan",
@@ -1741,10 +1702,8 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/PgmSfZH.jpeg",
             },
 
-            # ====================================================
-            # SUV OIL FILTERS
-            # ====================================================
-
+           
+            # ---------------------------SUV OIL FILTERS----------------------------------------------
             {
                 "category": "oil filter",
                 "vehicle_type": "suv",
@@ -1866,10 +1825,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/apBVYo1.jpeg",
             },
 
-            # ====================================================
-            # TRUCK OIL FILTERS
-            # ====================================================
-
+            # ---------------------------TRUCK OIL FILTERS----------------------------------------------
             {
                 "category": "oil filter",
                 "vehicle_type": "truck",
@@ -1991,10 +1947,7 @@ class Command(BaseCommand):
                 "image": "https://i.imgur.com/aqdEJrM.jpeg",
             },
 
-            # ====================================================
-            # BUS OIL FILTERS
-            # ====================================================
-
+            # ---------------------------BUS OIL FILTERS----------------------------------------------
             {
                 "category": "oil filter",
                 "vehicle_type": "bus",

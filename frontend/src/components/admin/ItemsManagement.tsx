@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useMemo,type ChangeEvent } from "react";
-import Select, { components, type FilterOptionOption, type GroupBase, type StylesConfig } from "react-select";
+import { useEffect, useState, useCallback, useMemo, type ChangeEvent } from "react";
+import Select, { components, type FilterOptionOption, type GroupBase,
+                 type StylesConfig, type OptionProps} from "react-select";
 import { Clock, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
@@ -12,7 +13,6 @@ const HISTORY_KEY = "spareparts_history";
 const HISTORY_LIMIT = 6;
 
 /* ---------------- Interfaces ---------------- */
-
 interface SparePart {
   id: string;
   category: string;
@@ -52,9 +52,12 @@ const ItemsManagement = () => {
   const { authFetch } = useAuth();
 
   const [options, setOptions] = useState<SearchOption[]>([]);
-  const [historyOptions, setHistoryOptions] = useState<SearchOption[]>([]);
+  const [historyOptions, setHistoryOptions] = useState<SearchOption[]>(
+    []
+  );
   const [inputValue, setInputValue] = useState<string>("");
-  const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
+  const [selectedPart, setSelectedPart] =
+    useState<SparePart | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     category: "",
@@ -69,11 +72,17 @@ const ItemsManagement = () => {
 
   /* ---------------- Load history ---------------- */
   const reloadHistory = useCallback((): void => {
-    const saved = JSON.parse(
-      localStorage.getItem(HISTORY_KEY) || "[]"
-    ) as SearchOption[];
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(HISTORY_KEY) || "[]"
+      ) as SearchOption[];
 
-    setHistoryOptions(saved);
+      setHistoryOptions(
+        Array.isArray(saved) ? saved : []
+      );
+    } catch {
+      setHistoryOptions([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -82,20 +91,62 @@ const ItemsManagement = () => {
 
   /* ---------------- Fetch spare parts ---------------- */
   const fetchSpareParts = useCallback((): void => {
-    authFetch(`${config.API_BASE_URL}/spareparts?per_page=1000`)
-      .then((res) => res.json() as Promise<SparePartsResponse>)
+    authFetch(
+      `${config.API_BASE_URL}/spareparts?per_page=1000`
+    )
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Failed to fetch spare parts");
+        }
+
+        return res.json() as Promise<SparePartsResponse>;
+      })
       .then((data) => {
         const parts = data.items ?? [];
 
-        const individualOptions: SearchOption[] = parts.map((part) => ({
-          label: `${part.brand} ${part.vehicle_type} ${part.category}`,
-          value: part.id,
-          part,
-          searchableText:
-            `${part.brand} ${part.vehicle_type} ${part.category}`.toLowerCase(),
-        }));
+        const individualOptions: SearchOption[] =
+          parts.map((part) => {
+           
+            const normalizedPart: SparePart = {
+              ...part,
+              id: String(part.id),
+            };
+
+            const searchableText = [
+              normalizedPart.brand,
+              normalizedPart.vehicle_type,
+              normalizedPart.category,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+            return {
+              label: [
+                normalizedPart.brand,
+                normalizedPart.vehicle_type,
+                normalizedPart.category,
+              ]
+                .filter(Boolean)
+                .join(" "),
+
+              value: normalizedPart.id,
+
+              part: normalizedPart,
+
+              searchableText,
+            };
+          });
 
         setOptions(individualOptions);
+      })
+      .catch((error) => {
+        console.error(
+          "Failed to fetch spare parts:",
+          error
+        );
+
+        notifyError("Failed to load spare parts");
       });
   }, [authFetch]);
 
@@ -104,38 +155,62 @@ const ItemsManagement = () => {
   }, [fetchSpareParts]);
 
   /* ---------------- Save to history ---------------- */
-  const saveToHistory = useCallback((option: SearchOption): void => {
-    setHistoryOptions((prev) => {
-      const updated = [
-        { ...option, isHistory: true },
-        ...prev.filter((h) => h.value !== option.value),
-      ].slice(0, HISTORY_LIMIT);
+  const saveToHistory = useCallback(
+    (option: SearchOption): void => {
+      setHistoryOptions((prev) => {
+        const updated = [
+          {
+            ...option,
+            isHistory: true,
+          },
+          ...prev.filter(
+            (h) => h.value !== option.value
+          ),
+        ].slice(0, HISTORY_LIMIT);
 
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+        localStorage.setItem(
+          HISTORY_KEY,
+          JSON.stringify(updated)
+        );
 
-      return updated;
-    });
-  }, []);
+        return updated;
+      });
+    },
+    []
+  );
 
   /* ---------------- Remove history item ---------------- */
-  const removeHistoryItem = useCallback((value: string): void => {
-    setHistoryOptions((prev) => {
-      const updated = prev.filter((h) => h.value !== value);
+  const removeHistoryItem = useCallback(
+    (value: string): void => {
+      setHistoryOptions((prev) => {
+        const updated = prev.filter(
+          (h) => h.value !== value
+        );
 
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+        localStorage.setItem(
+          HISTORY_KEY,
+          JSON.stringify(updated)
+        );
 
-      return updated;
-    });
-  }, []);
+        return updated;
+      });
+    },
+    []
+  );
 
   /* ---------------- Filtering ---------------- */
   const filterOption = (
     option: FilterOptionOption<SearchOption>,
     inputVal: string
   ): boolean => {
-    if (option.data.isHistory && !inputVal) return true;
+  
+    if (option.data.isHistory && !inputVal) {
+      return true;
+    }
 
-    if (!inputVal) return false;
+    if (!inputVal) {
+      return false;
+    }
 
     const words = inputVal
       .toLowerCase()
@@ -153,8 +228,12 @@ const ItemsManagement = () => {
     setInputValue(value);
   };
 
-  const handleSelect = (option: SearchOption | null): void => {
-    if (!option) return;
+  const handleSelect = (
+    option: SearchOption | null
+  ): void => {
+    if (!option) {
+      return;
+    }
 
     saveToHistory(option);
 
@@ -162,57 +241,85 @@ const ItemsManagement = () => {
 
     setFormData({
       category: option.part.category || "",
-      vehicle_type: option.part.vehicle_type || "",
+      vehicle_type:
+        option.part.vehicle_type || "",
       brand: option.part.brand || "",
       colour: option.part.colour || "",
-      buying_price: option.part.buying_price || "",
-      marked_price: option.part.marked_price || "",
+      buying_price:
+        option.part.buying_price || "",
+      marked_price:
+        option.part.marked_price || "",
       image: option.part.image || "",
-      description: option.part.description || "",
+      description:
+        option.part.description || "",
     });
+
+     // Clear the search input after selecting.
+    setInputValue("");
   };
 
- /* ---------------- Custom Option ---------------- */
- const CustomOption = (props: any) => {
-  const { data } = props;
+  /* ---------------- Custom Option ---------------- */
+  const CustomOption = (
+    props: OptionProps<
+      SearchOption,
+      false,
+      GroupBase<SearchOption>
+    >
+  ) => {
+    const { data } = props;
 
-  return (
-    <components.Option {...props}>
-      <div className="flex items-center justify-between gap-3">
-        {data.isHistory && (
-          <Clock
-            className="text-gray-300"
-            size={16}
-            strokeWidth={1.8}
-          />
-        )}
-
-        <div className="flex-1">
-          <strong className="text-[14px] font-semibold text-white">
-            {data.label}
-          </strong>
-        </div>
-
-        {data.isHistory && (
-          <button
-            className="flex h-7 w-7 items-center justify-center rounded-md text-gray-300 transition hover:bg-white/10 hover:text-white"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              removeHistoryItem(data.value);
-            }}
-            aria-label="Remove search"
-          >
-            <X
+    return (
+      <components.Option {...props}>
+        <div className="flex items-center justify-between gap-3">
+          {data.isHistory && (
+            <Clock
+              className="text-gray-300"
               size={16}
-              strokeWidth={2}
+              strokeWidth={1.8}
             />
-          </button>
-        )}
-      </div>
-    </components.Option>
-  );
- };
+          )}
+
+          <div className="flex-1">
+            <strong className="text-[14px] font-semibold text-white">
+              {data.label}
+            </strong>
+          </div>
+
+          {data.isHistory && (
+            <button
+              type="button"
+              className="
+                flex
+                h-7
+                w-7
+                items-center
+                justify-center
+                rounded-md
+                text-gray-300
+                transition
+                hover:bg-white/10
+                hover:text-white
+              "
+              onMouseDown={(
+                e: React.MouseEvent<HTMLButtonElement>
+              ) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                removeHistoryItem(data.value);
+              }}
+              aria-label="Remove search"
+            >
+              <X
+                size={16}
+                strokeWidth={2}
+              />
+            </button>
+          )}
+        </div>
+      </components.Option>
+    );
+  };
 
   /* ---------------- Grouped options ---------------- */
   const groupedOptions = useMemo<
@@ -220,7 +327,10 @@ const ItemsManagement = () => {
   >(() => {
     const groups: GroupBase<SearchOption>[] = [];
 
-    if (historyOptions.length && !inputValue) {
+    if (
+      historyOptions.length > 0 &&
+      !inputValue
+    ) {
       groups.push({
         label: "Recent Searches",
         options: historyOptions.map((item) => ({
@@ -230,7 +340,7 @@ const ItemsManagement = () => {
       });
     }
 
-    if (inputValue || options.length) {
+    if (inputValue) {
       groups.push({
         label: "All Results",
         options,
@@ -238,7 +348,11 @@ const ItemsManagement = () => {
     }
 
     return groups;
-  }, [historyOptions, inputValue, options]);
+  }, [
+    historyOptions,
+    inputValue,
+    options,
+  ]);
 
   /* ---------------- Toast helpers ---------------- */
   const notifySuccess = (msg: string): void => {
@@ -265,14 +379,15 @@ const ItemsManagement = () => {
     }));
   };
 
-    const handleCreate = async (
+  /* ---------------- Create ---------------- */
+  const handleCreate = async (
     e: React.MouseEvent<HTMLButtonElement>
   ): Promise<void> => {
     e.preventDefault();
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/spareparts`,
+        `${config.API_BASE_URL}/admin/spareparts/`,
         {
           method: "POST",
           headers: {
@@ -286,16 +401,22 @@ const ItemsManagement = () => {
 
       if (data.message) {
         notifySuccess(data.message);
+
         fetchSpareParts();
         reloadHistory();
       } else {
-        notifyError(data.error);
+        notifyError(
+          data.error ||
+            data.detail ||
+            "Error creating spare part"
+        );
       }
     } catch {
       notifyError("Error creating spare part");
     }
   };
 
+  /* ---------------- Update ---------------- */
   const handleUpdate = async (
     e: React.MouseEvent<HTMLButtonElement>
   ): Promise<void> => {
@@ -308,7 +429,7 @@ const ItemsManagement = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/spareparts/${selectedPart.id}`,
+        `${config.API_BASE_URL}/admin/spareparts/${selectedPart.id}/`,
         {
           method: "PUT",
           headers: {
@@ -329,9 +450,13 @@ const ItemsManagement = () => {
               ? {
                   ...h,
                   part: {
+                    ...selectedPart,
                     ...formData,
                     id: selectedPart.id,
                   },
+                  label: `${formData.brand} ${formData.vehicle_type} ${formData.category}`,
+                  searchableText: `${formData.brand} ${formData.vehicle_type} ${formData.category}`
+                    .toLowerCase(),
                 }
               : h
           );
@@ -346,13 +471,18 @@ const ItemsManagement = () => {
 
         fetchSpareParts();
       } else {
-        notifyError(data.error);
+        notifyError(
+          data.error ||
+            data.detail ||
+            "Error updating spare part"
+        );
       }
     } catch {
       notifyError("Error updating spare part");
     }
   };
 
+  /* ---------------- Delete ---------------- */
   const handleDelete = async (): Promise<void> => {
     if (!selectedPart) {
       notifyError("Select a spare part first");
@@ -361,7 +491,7 @@ const ItemsManagement = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/spareparts/${selectedPart.id}`,
+        `${config.API_BASE_URL}/admin/spareparts/${selectedPart.id}/`,
         {
           method: "DELETE",
         }
@@ -398,15 +528,22 @@ const ItemsManagement = () => {
           description: "",
         });
 
+        setInputValue("");
+
         fetchSpareParts();
       } else {
-        notifyError(data.error);
+        notifyError(
+          data.error ||
+            data.detail ||
+            "Error deleting spare part"
+        );
       }
     } catch {
       notifyError("Error deleting spare part");
     }
   };
 
+  /* ---------------- Select styles ---------------- */
   const selectStyles: StylesConfig<
     SearchOption,
     false,
@@ -451,321 +588,341 @@ const ItemsManagement = () => {
       zIndex: 1000,
     }),
 
+    groupHeading: (base) => ({
+      ...base,
+      color: "#bdbdbd",
+      fontWeight: 700,
+      fontSize: "12px",
+      padding: "10px 15px",
+      backgroundColor: "#161616",
+    }),
+
     option: (base, state) => ({
       ...base,
       backgroundColor: state.isFocused
         ? "rgb(0,64,128)"
         : "#1b1b1b",
-      color: state.isFocused ? "#fff" : "#ddd",
+      color: state.isFocused
+        ? "#fff"
+        : "#ddd",
       padding: "12px 15px",
       cursor: "pointer",
     }),
   };
 
   return (
-  <div
-    className="
-      mx-auto
-      mt-10
-      max-w-[900px]
-      rounded-2xl
-      bg-white
-      p-6
-      shadow-[0_10px_30px_rgba(0,0,0,0.08)]
-    "
-  >
-    <ToastContainer />
-
-    <h2 className="mt-10 mb-5 text-[22px] font-semibold text-[#222]">
-      Manage Spare Parts
-    </h2>
-
-    {/* SEARCH */}
-    <Select<SearchOption, false, GroupBase<SearchOption>>
-      autoFocus
-      options={groupedOptions}
-      isClearable
-      placeholder="Search spare part..."
-      filterOption={filterOption}
-      onChange={handleSelect}
-      onInputChange={handleInputChange}
-      inputValue={inputValue}
-      components={{
-        Option: CustomOption,
-      }}
-      styles={selectStyles}
-    />
-
-    {/* IMAGE */}
-    {formData.image && selectedPart && (
-      <div className="my-5 text-center">
-        <Link to={`/items/${selectedPart.id}`}>
-          <img
-            src={formData.image}
-            alt={`${formData.brand} ${formData.vehicle_type}`}
-            className="
-              mx-auto
-              my-[15px]
-              max-h-[150px]
-              max-w-[160px]
-              rounded-[10px]
-              border
-              border-gray-300
-              object-contain
-            "
-          />
-        </Link>
-      </div>
-    )}
-
-    {/* FORM */}
-    <form
+    <div
       className="
-        grid
-        grid-cols-2
-        gap-[14px]
-        mt-[15px]
-        max-[640px]:grid-cols-1
+        mx-auto
+        mt-10
+        max-w-[900px]
+        rounded-2xl
+        bg-white
+        p-6
+        shadow-[0_10px_30px_rgba(0,0,0,0.08)]
       "
     >
-      <input
-        className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="category"
-        placeholder="Category"
-        value={formData.category}
-        onChange={handleChange}
+      <ToastContainer />
+
+      <h2 className="mt-10 mb-5 text-[22px] font-semibold text-[#222]">
+        Manage Spare Parts
+      </h2>
+
+      {/* SEARCH */}
+      <Select<
+        SearchOption,
+        false,
+        GroupBase<SearchOption>
+      >
+        autoFocus
+        options={groupedOptions}
+        isClearable
+        placeholder="Search spare part..."
+        filterOption={filterOption}
+        onChange={handleSelect}
+        onInputChange={handleInputChange}
+        inputValue={inputValue}
+        components={{
+          Option: CustomOption,
+        }}
+        styles={selectStyles}
+        noOptionsMessage={() =>
+          "No spare parts found"
+        }
       />
 
-      <input
-        className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="vehicle_type"
-        placeholder="Vehicle Type"
-        value={formData.vehicle_type}
-        onChange={handleChange}
-      />
+      {/* IMAGE */}
+      {formData.image && selectedPart && (
+        <div className="my-5 text-center">
+          <Link to={`/items/${selectedPart.id}`}>
+            <img
+              src={formData.image}
+              alt={`${formData.brand} ${formData.vehicle_type}`}
+              className="
+                mx-auto
+                my-[15px]
+                max-h-[150px]
+                max-w-[160px]
+                rounded-[10px]
+                border
+                border-gray-300
+                object-contain
+              "
+            />
+          </Link>
+        </div>
+      )}
 
-      <input
+      {/* FORM */}
+      <form
         className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="brand"
-        placeholder="Brand"
-        value={formData.brand}
-        onChange={handleChange}
-      />
-
-      <input
-        className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="colour"
-        placeholder="Colour"
-        value={formData.colour}
-        onChange={handleChange}
-      />
-
-      <input
-        className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="buying_price"
-        type="number"
-        placeholder="Buying Price"
-        value={formData.buying_price}
-        onChange={handleChange}
-      />
-
-      <input
-        className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="marked_price"
-        type="number"
-        placeholder="Marked Price"
-        value={formData.marked_price}
-        onChange={handleChange}
-      />
-
-      <input
-        className="
-          w-full
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-        "
-        name="image"
-        placeholder="Image URL"
-        value={formData.image}
-        onChange={handleChange}
-      />
-
-      <textarea
-        className="
-          col-span-2
-          min-h-[80px]
-          w-full
-          resize-y
-          rounded-[10px]
-          border
-          border-gray-300
-          px-3
-          py-[10px]
-          text-[14px]
-          transition
-          focus:border-[#004080]
-          focus:outline-none
-          focus:ring-2
-          focus:ring-[#004080]/20
-          max-[640px]:col-span-1
-        "
-        name="description"
-        placeholder="Description"
-        value={formData.description}
-        onChange={handleChange}
-      />
-
-      <div
-        className="
-          col-span-2
-          mt-[10px]
-          flex
-          justify-center
-          gap-[10px]
+          mt-[15px]
+          grid
+          grid-cols-2
+          gap-[14px]
+          max-[640px]:grid-cols-1
         "
       >
-        <button
-          id="create"
-          onClick={handleCreate}
+        <input
           className="
-            flex-1
+            w-full
             rounded-[10px]
-            bg-[#004080]
+            border
+            border-gray-300
+            px-3
             py-[10px]
-            font-medium
-            text-white
+            text-[14px]
             transition
-            hover:bg-[#004080]/70
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
           "
-        >
-          Create
-        </button>
+          name="category"
+          placeholder="Category"
+          value={formData.category}
+          onChange={handleChange}
+        />
 
-        <button
-          id="edit"
-          onClick={handleUpdate}
+        <input
           className="
-            flex-1
+            w-full
             rounded-[10px]
-            bg-[#004080]
+            border
+            border-gray-300
+            px-3
             py-[10px]
-            font-medium
-            text-white
+            text-[14px]
             transition
-            hover:bg-[#004080]/70
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
           "
-        >
-          Update
-        </button>
+          name="vehicle_type"
+          placeholder="Vehicle Type"
+          value={formData.vehicle_type}
+          onChange={handleChange}
+        />
 
-        <button
-          type="button"
-          id="delete"
-          onClick={handleDelete}
+        <input
           className="
-            flex-1
+            w-full
             rounded-[10px]
-            bg-red-600
+            border
+            border-gray-300
+            px-3
             py-[10px]
-            font-medium
-            text-white
+            text-[14px]
             transition
-            hover:bg-red-700
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
+          "
+          name="brand"
+          placeholder="Brand"
+          value={formData.brand}
+          onChange={handleChange}
+        />
+
+        <input
+          className="
+            w-full
+            rounded-[10px]
+            border
+            border-gray-300
+            px-3
+            py-[10px]
+            text-[14px]
+            transition
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
+          "
+          name="colour"
+          placeholder="Colour"
+          value={formData.colour}
+          onChange={handleChange}
+        />
+
+        <input
+          className="
+            w-full
+            rounded-[10px]
+            border
+            border-gray-300
+            px-3
+            py-[10px]
+            text-[14px]
+            transition
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
+          "
+          name="buying_price"
+          type="number"
+          placeholder="Buying Price"
+          value={formData.buying_price}
+          onChange={handleChange}
+        />
+
+        <input
+          className="
+            w-full
+            rounded-[10px]
+            border
+            border-gray-300
+            px-3
+            py-[10px]
+            text-[14px]
+            transition
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
+          "
+          name="marked_price"
+          type="number"
+          placeholder="Marked Price"
+          value={formData.marked_price}
+          onChange={handleChange}
+        />
+
+        <input
+          className="
+            w-full
+            rounded-[10px]
+            border
+            border-gray-300
+            px-3
+            py-[10px]
+            text-[14px]
+            transition
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
+          "
+          name="image"
+          placeholder="Image URL"
+          value={formData.image}
+          onChange={handleChange}
+        />
+
+        <textarea
+          className="
+            col-span-2
+            min-h-[80px]
+            w-full
+            resize-y
+            rounded-[10px]
+            border
+            border-gray-300
+            px-3
+            py-[10px]
+            text-[14px]
+            transition
+            focus:border-[#004080]
+            focus:outline-none
+            focus:ring-2
+            focus:ring-[#004080]/20
+            max-[640px]:col-span-1
+          "
+          name="description"
+          placeholder="Description"
+          value={formData.description}
+          onChange={handleChange}
+        />
+
+        <div
+          className="
+            col-span-2
+            mt-[10px]
+            flex
+            justify-center
+            gap-[10px]
           "
         >
-          Delete
-        </button>
-      </div>
-    </form>
-  </div>
- );
+          <button
+            type="button"
+            id="create"
+            onClick={handleCreate}
+            className="
+              flex-1
+              rounded-[10px]
+              bg-[#004080]
+              py-[10px]
+              font-medium
+              text-white
+              transition
+              hover:bg-[#004080]/70
+            "
+          >
+            Create
+          </button>
+
+          <button
+            type="button"
+            id="edit"
+            onClick={handleUpdate}
+            className="
+              flex-1
+              rounded-[10px]
+              bg-[#004080]
+              py-[10px]
+              font-medium
+              text-white
+              transition
+              hover:bg-[#004080]/70
+            "
+          >
+            Update
+          </button>
+
+          <button
+            type="button"
+            id="delete"
+            onClick={handleDelete}
+            className="
+              flex-1
+              rounded-[10px]
+              bg-red-600
+              py-[10px]
+              font-medium
+              text-white
+              transition
+              hover:bg-red-700
+            "
+          >
+            Delete
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 };
 
 export default ItemsManagement;
