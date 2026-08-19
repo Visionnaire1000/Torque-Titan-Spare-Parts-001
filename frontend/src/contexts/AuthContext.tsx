@@ -9,6 +9,7 @@ interface JwtPayload {
   email: string;
   role: User["role"];
   display_name: string;
+  auth_provider: User["auth_provider"];
   exp: number;
 }
 
@@ -17,8 +18,7 @@ interface User {
   email: string;
   role: "buyer" | "admin" | "super_admin";
   display_name: string;
-
-  // Access token is memory-only.
+  auth_provider: "local" | "google";
   token: string;
 }
 
@@ -52,6 +52,10 @@ interface AuthContextType {
     password: string
   ) => Promise<void>;
 
+  loginWithGoogle: (
+    credential: string
+  ) => Promise<void>;
+
   logout: (
     showToast?: boolean
   ) => void;
@@ -72,7 +76,6 @@ interface AuthContextType {
     otp: string
   ) => Promise<boolean>;
 
-  // Resend registration OTP
   resendOtp: (
     email: string | null
   ) => Promise<boolean>;
@@ -90,15 +93,11 @@ interface AuthContextType {
   ) => Promise<boolean | void>;
 
   // Account Deletion
-  sendDeleteAccountOtp: (
-    password: string,
-    resend?: boolean
-  ) => Promise<boolean>;
+  sendDeleteAccountOtp: () => Promise<boolean>;
 
   completeDeleteAccount: (
-    password: string,
     otp: string
-  ) => Promise<boolean | void>;
+  ) => Promise<boolean>;
 
   // Loading States
   changePasswordLoading: boolean;
@@ -184,6 +183,36 @@ export const AuthProvider = ({
     }
   };
 
+  // ------------------------------ Build User From Token -------------------------------------------
+  const buildUserFromToken = (
+    accessToken: string
+  ): User => {
+    const decoded =
+      jwtDecode<JwtPayload>(accessToken);
+
+    if (
+      !decoded.user_id ||
+      !decoded.email ||
+      !decoded.role ||
+      !decoded.display_name ||
+      !decoded.auth_provider ||
+      !decoded.exp
+    ) {
+      throw new Error(
+        "Invalid authentication token"
+      );
+    }
+
+    return {
+      id: String(decoded.user_id),
+      email: decoded.email,
+      role: decoded.role,
+      display_name: decoded.display_name,
+      auth_provider: decoded.auth_provider,
+      token: accessToken,
+    };
+  };
+
   // ------------------------------ Schedule Refresh -------------------------------------------
   const scheduleTokenRefresh = (
     accessToken: string
@@ -242,7 +271,6 @@ export const AuthProvider = ({
               {
                 method: "POST",
                 credentials: "include",
-
                 headers: {
                   "Content-Type":
                     "application/json",
@@ -261,45 +289,12 @@ export const AuthProvider = ({
               return null;
             }
 
-            const decoded =
-              jwtDecode<JwtPayload>(
+            const refreshedUser =
+              buildUserFromToken(
                 data.access_token
               );
 
-            // Makes sure the refreshed token contains all required claims.
-            if (
-              !decoded.user_id ||
-              !decoded.email ||
-              !decoded.role ||
-              !decoded.display_name ||
-              !decoded.exp
-            ) {
-              console.error(
-                "[AuthProvider] Refreshed token is missing required claims"
-              );
-
-              return null;
-            }
-
-            const refreshedUser: User = {
-              id: String(
-                decoded.user_id
-              ),
-
-              email: decoded.email,
-
-              role: decoded.role,
-
-              display_name:
-                decoded.display_name,
-
-              token:
-                data.access_token,
-            };
-
-            setUser(
-              refreshedUser
-            );
+            setUser(refreshedUser);
 
             scheduleTokenRefresh(
               data.access_token
@@ -334,14 +329,11 @@ export const AuthProvider = ({
         `${config.API_BASE_URL}/login/`,
         {
           method: "POST",
-
           headers: {
             "Content-Type":
               "application/json",
           },
-
           credentials: "include",
-
           body: JSON.stringify({
             email,
             password,
@@ -349,63 +341,36 @@ export const AuthProvider = ({
         }
       );
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data: LoginError =
-          await res.json();
+        const errorData =
+          data as LoginError;
 
         throw new Error(
-          data.error ??
+          errorData.error ??
             "Login failed"
         );
       }
 
-      const data: LoginResponse =
-        await res.json();
+      const loginData =
+        data as LoginResponse;
 
-      if (!data.access_token) {
+      if (!loginData.access_token) {
         throw new Error(
           "Access token missing"
         );
       }
 
-      const decoded =
-        jwtDecode<JwtPayload>(
-          data.access_token
+      const userInfo =
+        buildUserFromToken(
+          loginData.access_token
         );
-
-      if (
-        !decoded.user_id ||
-        !decoded.email ||
-        !decoded.role ||
-        !decoded.display_name ||
-        !decoded.exp
-      ) {
-        throw new Error(
-          "Invalid authentication token"
-        );
-      }
-
-      const userInfo: User = {
-        id: String(
-          decoded.user_id
-        ),
-
-        email: decoded.email,
-
-        role: decoded.role,
-
-        display_name:
-          decoded.display_name,
-
-        // Access token remains memory-only
-        token:
-          data.access_token,
-      };
 
       setUser(userInfo);
 
       scheduleTokenRefresh(
-        data.access_token
+        loginData.access_token
       );
 
       toast.success(
@@ -413,12 +378,91 @@ export const AuthProvider = ({
       );
     } catch (err) {
       if (err instanceof Error) {
-        toast.error(
-          err.message
-        );
+        toast.error(err.message);
       } else {
         toast.error(
           "Login failed"
+        );
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ------------------------------ Google Login -------------------------------------------
+  const loginWithGoogle = async (
+    credential: string
+  ): Promise<void> => {
+    if (!credential) {
+      toast.error(
+        "Google credential is missing"
+      );
+
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const res = await fetch(
+        `${config.API_BASE_URL}/auth/google/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            credential,
+          }),
+        }
+      );
+
+      const data =
+        await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error ??
+            "Google login failed"
+        );
+      }
+
+      const accessToken =
+        data.access_token;
+
+      if (!accessToken) {
+        throw new Error(
+          "Access token missing"
+        );
+      }
+
+      const googleUser =
+        buildUserFromToken(
+          accessToken
+        );
+
+      setUser(googleUser);
+
+      scheduleTokenRefresh(
+        accessToken
+      );
+
+      toast.success(
+        "Logged in with Google successfully"
+      );
+    } catch (err) {
+      console.error(
+        "[AuthProvider] Google login failed:",
+        err
+      );
+
+      if (err instanceof Error) {
+        toast.error(err.message);
+      } else {
+        toast.error(
+          "Google login failed"
         );
       }
     } finally {
@@ -430,15 +474,11 @@ export const AuthProvider = ({
   const logout = (
     showToast: boolean = true
   ): void => {
-    // Tell Django to remove
-    // the HttpOnly refresh cookie.
     fetch(
       `${config.API_BASE_URL}/logout/`,
       {
         method: "POST",
-
         credentials: "include",
-
         headers: {
           "Content-Type":
             "application/json",
@@ -451,11 +491,8 @@ export const AuthProvider = ({
       );
     });
 
-    // Remove user immediately
-    // from frontend memory.
     setUser(null);
 
-    // Stop scheduled access-token refresh.
     if (refreshTimer.current) {
       clearTimeout(
         refreshTimer.current
@@ -464,7 +501,6 @@ export const AuthProvider = ({
       refreshTimer.current = null;
     }
 
-    // Stop OTP countdown.
     if (otpTimerRef.current) {
       clearInterval(
         otpTimerRef.current
@@ -476,7 +512,6 @@ export const AuthProvider = ({
     setOtpCountdown(0);
     setOtpSent(false);
 
-    // Clear any pending refresh reference.
     refreshPromiseRef.current =
       null;
 
@@ -523,7 +558,6 @@ export const AuthProvider = ({
       | null =
       user?.token ?? null;
 
-    // No access token in memory.
     if (!tokenToUse) {
       tokenToUse =
         await refreshAccessToken();
@@ -533,13 +567,8 @@ export const AuthProvider = ({
           "Re-authentication required"
         );
       }
-    }
-
-    // Existing access token expired.
-    else if (
-      isTokenExpired(
-        tokenToUse
-      )
+    } else if (
+      isTokenExpired(tokenToUse)
     ) {
       tokenToUse =
         await refreshAccessToken();
@@ -571,15 +600,11 @@ export const AuthProvider = ({
       url,
       {
         ...options,
-
         headers,
-
-        credentials:
-          "include",
+        credentials: "include",
       }
     );
 
-    // Access token may have expired between the initial check and the request.
     if (res.status === 401) {
       const newToken =
         await refreshAccessToken();
@@ -594,16 +619,12 @@ export const AuthProvider = ({
         url,
         {
           ...options,
-
           headers: {
             ...headers,
-
             Authorization:
               `Bearer ${newToken}`,
           },
-
-          credentials:
-            "include",
+          credentials: "include",
         }
       );
     }
@@ -616,7 +637,6 @@ export const AuthProvider = ({
     seconds: number
   ): void => {
     setOtpCountdown(seconds);
-
     setOtpSent(true);
 
     if (otpTimerRef.current) {
@@ -664,12 +684,10 @@ export const AuthProvider = ({
             `${config.API_BASE_URL}/register/`,
             {
               method: "POST",
-
               headers: {
                 "Content-Type":
                   "application/json",
               },
-
               body: JSON.stringify({
                 email,
                 password,
@@ -719,12 +737,10 @@ export const AuthProvider = ({
             `${config.API_BASE_URL}/verify-account/`,
             {
               method: "POST",
-
               headers: {
                 "Content-Type":
                   "application/json",
               },
-
               body: JSON.stringify({
                 email,
                 otp,
@@ -778,32 +794,25 @@ export const AuthProvider = ({
     try {
       let res: Response;
 
-      // Registration resend.
       if (email) {
         res = await fetch(
           `${config.API_BASE_URL}/resend-otp/`,
           {
             method: "POST",
-
             headers: {
               "Content-Type":
                 "application/json",
             },
-
             body: JSON.stringify({
               email,
             }),
           }
         );
-      }
-
-      // Logged-in email OTP resend.
-      else {
+      } else {
         res = await authFetch(
           `${config.API_BASE_URL}/resend-otp/`,
           {
             method: "POST",
-
             body: JSON.stringify({}),
           }
         );
@@ -861,7 +870,6 @@ export const AuthProvider = ({
             `${config.API_BASE_URL}/change-password/`,
             {
               method: "POST",
-
               body: JSON.stringify({
                 current_password:
                   currentPassword,
@@ -924,14 +932,11 @@ export const AuthProvider = ({
             `${config.API_BASE_URL}/change-password/`,
             {
               method: "POST",
-
               body: JSON.stringify({
                 current_password:
                   currentPassword,
-
                 new_password:
                   newPassword,
-
                 otp,
               }),
             }
@@ -951,7 +956,6 @@ export const AuthProvider = ({
           data.message
         );
 
-        // Force a fresh login after successful password change
         logout(false);
 
         return true;
@@ -972,10 +976,7 @@ export const AuthProvider = ({
 
   // ------------------------------ Delete Account OTP -------------------------------------------
   const sendDeleteAccountOtp =
-    async (
-      password: string,
-      _resend: boolean = false
-    ): Promise<boolean> => {
+    async (): Promise<boolean> => {
       if (!user?.email) {
         toast.error(
           "User not found"
@@ -990,10 +991,7 @@ export const AuthProvider = ({
             `${config.API_BASE_URL}/delete-account/`,
             {
               method: "POST",
-
-              body: JSON.stringify({
-                password,
-              }),
+              body: JSON.stringify({}),
             }
           );
 
@@ -1030,12 +1028,19 @@ export const AuthProvider = ({
   // ------------------------------ Complete Delete Account -------------------------------------------
   const completeDeleteAccount =
     async (
-      password: string,
       otp: string
     ): Promise<boolean> => {
       if (!user?.email) {
         toast.error(
           "User not found"
+        );
+
+        return false;
+      }
+
+      if (!otp) {
+        toast.error(
+          "OTP is required"
         );
 
         return false;
@@ -1051,9 +1056,7 @@ export const AuthProvider = ({
             `${config.API_BASE_URL}/delete-account/`,
             {
               method: "DELETE",
-
               body: JSON.stringify({
-                password,
                 otp,
               }),
             }
@@ -1100,8 +1103,7 @@ export const AuthProvider = ({
           otpTimerRef.current
         );
 
-        otpTimerRef.current =
-          null;
+        otpTimerRef.current = null;
       }
 
       if (refreshTimer.current) {
@@ -1109,8 +1111,7 @@ export const AuthProvider = ({
           refreshTimer.current
         );
 
-        refreshTimer.current =
-          null;
+        refreshTimer.current = null;
       }
     };
   }, []);
@@ -1126,10 +1127,11 @@ export const AuthProvider = ({
 
         // Auth actions
         login,
+        loginWithGoogle,
         logout,
         authFetch,
 
-        // Registration OTP
+        // Registration
         sendRegistrationOtp,
         verifyRegistrationOtp,
 

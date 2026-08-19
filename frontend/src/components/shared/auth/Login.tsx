@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../../../contexts/AuthContext";
 
 interface LocationState {
@@ -11,7 +12,7 @@ const Login = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
 
-  const { login, isLoading, user, isAuthenticated } = useAuth();
+  const { login, user, isAuthenticated, loginWithGoogle, isLoading } = useAuth();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -169,6 +170,28 @@ const Login = () => {
             : "Login"}
         </button>
       </form>
+      <GoogleLogin
+         onSuccess={async (credentialResponse) => {
+           try {
+            if (!credentialResponse.credential) {
+            throw new Error(
+          "Google credential missing"
+        );
+      }
+
+       await loginWithGoogle(
+        credentialResponse.credential
+       );
+      } catch (error) {
+       console.error(error);
+      }
+     }}
+     onError={() => {
+     console.error(
+      "Google login failed"
+     );
+    }}
+   />
 
       <div className="mt-6 text-center">
         <p

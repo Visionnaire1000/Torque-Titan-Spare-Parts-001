@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from "react";
-import {Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
+
 const AccountManagement = (): React.JSX.Element => {
   const {
     user,
@@ -24,11 +25,6 @@ const AccountManagement = (): React.JSX.Element => {
   const [
     showChangePassword,
     setShowChangePassword,
-  ] = useState<boolean>(false);
-
-  const [
-    showDeletePassword,
-    setShowDeletePassword,
   ] = useState<boolean>(false);
 
   // ---------------- Change Password ----------------
@@ -73,11 +69,6 @@ const AccountManagement = (): React.JSX.Element => {
     deleteStep,
     setDeleteStep,
   ] = useState<number>(1);
-
-  const [
-    deletePassword,
-    setDeletePassword,
-  ] = useState<string>("");
 
   const [
     deleteOtp,
@@ -166,17 +157,19 @@ const AccountManagement = (): React.JSX.Element => {
       await resendOtp(user.email);
     };
 
+  // ---------------- Start Delete Account ----------------
+  const handleStartDeleteAccount =
+    (): void => {
+      setShowDeleteConfirm(true);
+      setDeleteStep(1);
+      setDeleteOtp("");
+    };
+
   // ---------------- Request Delete Account OTP ----------------
   const handleRequestDeleteOtp =
     async (): Promise<void> => {
-      if (!deletePassword) {
-        return;
-      }
-
       const success =
-        await sendDeleteAccountOtp(
-          deletePassword
-        );
+        await sendDeleteAccountOtp();
 
       if (success) {
         setDeleteStep(2);
@@ -186,21 +179,16 @@ const AccountManagement = (): React.JSX.Element => {
   // ---------------- Complete Delete Account ----------------
   const handleCompleteDeleteAccount =
     async (): Promise<void> => {
-      if (
-        !deletePassword ||
-        !deleteOtp
-      ) {
+      if (!deleteOtp) {
         return;
       }
 
       const success =
         await completeDeleteAccount(
-          deletePassword,
           deleteOtp
         );
 
       if (success) {
-        setDeletePassword("");
         setDeleteOtp("");
         setDeleteStep(1);
         setShowDeleteConfirm(false);
@@ -212,7 +200,6 @@ const AccountManagement = (): React.JSX.Element => {
     (): void => {
       setShowDeleteConfirm(false);
       setDeleteStep(1);
-      setDeletePassword("");
       setDeleteOtp("");
     };
 
@@ -617,8 +604,8 @@ const AccountManagement = (): React.JSX.Element => {
               duration-200
               hover:bg-[#b91c1c]
             "
-            onClick={() =>
-              setShowDeleteConfirm(true)
+            onClick={
+              handleStartDeleteAccount
             }
           >
             Delete Account
@@ -635,93 +622,38 @@ const AccountManagement = (): React.JSX.Element => {
               p-4
             "
           >
-            <p
-              className="
-                mb-3
-                text-[0.9rem]
-                text-[#7f1d1d]
-              "
-            >
-              This action is permanent.
-              {deleteStep === 1
-                ? " Enter your password to continue."
-                : " Enter the OTP sent to your email to permanently delete your account."}
-            </p>
-
+            {/* ================= Confirmation Step ================= */}
             {deleteStep === 1 && (
               <>
-                <input
-                  type={
-                    showDeletePassword
-                      ? "text"
-                      : "password"
-                  }
-                  placeholder="Confirm password"
-                  value={deletePassword}
-                  onChange={(
-                    e: ChangeEvent<HTMLInputElement>
-                  ) =>
-                    setDeletePassword(
-                      e.target.value
-                    )
-                  }
-                  required
-                  className="
-                    w-full
-                    rounded-[10px]
-                    border
-                    border-gray-200
-                    bg-gray-50
-                    px-[14px]
-                    py-3
-                    mb-[10px]
-                    text-[0.95rem]
-                    transition-all
-                    duration-200
-                    focus:border-indigo-500
-                    focus:bg-white
-                    focus:outline-none
-                    focus:ring-4
-                    focus:ring-indigo-500/15
-                  "
-                />
+                <div className="mb-5">
+                  <h4
+                    className="
+                      mb-2
+                      text-[1rem]
+                      font-bold
+                      text-[#991b1b]
+                    "
+                  >
+                    Are you sure you want to
+                    delete your account?
+                  </h4>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowDeletePassword(
-                      (previous) =>
-                        !previous
-                    )
-                  }
-                  className="
-                    flex
-                    w-full
-                    items-center
-                    justify-center
-                    gap-2
-                    rounded-[10px]
-                    bg-[rgb(0,64,128)]
-                    px-4
-                    py-3
-                    text-[0.95rem]
-                    font-semibold
-                    text-white
-                    transition-colors
-                    duration-200
-                    hover:bg-[rgba(0,58,115,0.466)]
-                  "
-                >
-                  {showDeletePassword ? (
-                    <EyeOff size={20} />
-                  ) : (
-                    <Eye size={20} />
-                  )}
-                </button>
+                  <p
+                    className="
+                      text-[0.9rem]
+                      leading-relaxed
+                      text-[#7f1d1d]
+                    "
+                  >
+                    This action is permanent
+                    and cannot be undone. Your
+                    account and associated data
+                    will be deleted.
+                  </p>
+                </div>
 
                 <div
                   className="
-                    mt-4
                     flex
                     gap-3
                   "
@@ -732,8 +664,7 @@ const AccountManagement = (): React.JSX.Element => {
                       handleRequestDeleteOtp
                     }
                     disabled={
-                      deleteAccountLoading ||
-                      !deletePassword
+                      deleteAccountLoading
                     }
                     className="
                       flex-1
@@ -753,7 +684,7 @@ const AccountManagement = (): React.JSX.Element => {
                   >
                     {deleteAccountLoading
                       ? "Sending OTP..."
-                      : "Send OTP"}
+                      : "Yes, Continue"}
                   </button>
 
                   <button
@@ -781,24 +712,36 @@ const AccountManagement = (): React.JSX.Element => {
               </>
             )}
 
+            {/* ================= OTP Step ================= */}
             {deleteStep === 2 && (
               <>
+                <h4
+                  className="
+                    mb-2
+                    text-[1rem]
+                    font-bold
+                    text-[#991b1b]
+                  "
+                >
+                  Confirm Account Deletion
+                </h4>
+
                 <p
                   className="
                     mb-3
                     text-[0.9rem]
-                    font-medium
                     text-[#7f1d1d]
                   "
                 >
-                  Enter the OTP sent to
-                  your email.
+                  Enter the OTP sent to your
+                  email to permanently delete
+                  your account.
                 </p>
 
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="OTP"
+                  placeholder="Enter OTP"
                   value={deleteOtp}
                   onChange={(
                     e: ChangeEvent<HTMLInputElement>
@@ -837,21 +780,21 @@ const AccountManagement = (): React.JSX.Element => {
                   "
                 >
                   {otpSent &&
-                  otpCountdown > 0 && (
-                    <span
-                      className="
-                        rounded-md
-                        bg-[#ffe6e6]
-                        px-2
-                        py-1
-                        font-bold
-                        text-[#e53935]
-                      "
-                    >
-                      Resend OTP in{" "}
-                      {otpCountdown}s
-                    </span>
-                  )}
+                    otpCountdown > 0 && (
+                      <span
+                        className="
+                          rounded-md
+                          bg-[#ffe6e6]
+                          px-2
+                          py-1
+                          font-bold
+                          text-[#e53935]
+                        "
+                      >
+                        Resend OTP in{" "}
+                        {otpCountdown}s
+                      </span>
+                    )}
 
                   <button
                     type="button"
@@ -876,10 +819,9 @@ const AccountManagement = (): React.JSX.Element => {
                       disabled:opacity-60
                     "
                   >
-                      {resendLoading
-                         ? "Resending OTP..."
-                         : "Resend OTP"
-                       }
+                    {resendLoading
+                      ? "Resending OTP..."
+                      : "Resend OTP"}
                   </button>
                 </div>
 
@@ -917,7 +859,7 @@ const AccountManagement = (): React.JSX.Element => {
                   >
                     {deleteAccountLoading
                       ? "Deleting Account..."
-                      : "Delete Account"}
+                      : "Permanently Delete"}
                   </button>
 
                   <button

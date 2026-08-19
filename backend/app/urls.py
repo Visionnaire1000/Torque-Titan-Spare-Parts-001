@@ -6,6 +6,7 @@ from app.views.authViews import (
     VerifyAccountView,
     ResendOTPView,
     LoginView,
+    GoogleLoginView,
     ChangePasswordView,
     DeleteAccountView,
     TokenRefreshView,
@@ -61,6 +62,12 @@ urlpatterns = [
     path(
         "login/",
         LoginView.as_view(),
+        name="login",
+    ),
+
+    path(
+        "auth/google",
+        GoogleLoginView.as_view(),
         name="login",
     ),
 

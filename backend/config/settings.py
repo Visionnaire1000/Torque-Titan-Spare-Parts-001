@@ -248,6 +248,10 @@ REFRESH_COOKIE_SAMESITE = env(
 )
 
 
+# --------------------------GOOGLE OAUTH--------------------------
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID")
+
+
 # -----------------------FRONTEND---------------------------------
 FRONTEND_ENDPOINT_URL = env("FRONTEND_ENDPOINT_URL")
 

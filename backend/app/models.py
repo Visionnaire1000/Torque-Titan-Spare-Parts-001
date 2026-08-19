@@ -105,6 +105,23 @@ class Users(
     email = models.EmailField(
         unique=True
     )
+    
+    # ------------------------------ AUTH PROVIDER -------------------------------
+    auth_provider = models.CharField(
+        max_length=20,
+        choices=[
+            ("local", "Local"),
+            ("google", "Google"),
+        ],
+        default="local",
+    )
+
+    google_id = models.CharField(
+        max_length=255,
+        unique=True,
+        null=True,
+        blank=True,
+    )
 
     # ------------------------------ PASSWORD -----------------------------------------
     password_hash = models.CharField(

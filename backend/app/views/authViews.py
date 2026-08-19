@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+import secrets
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -307,6 +308,183 @@ class LoginView(APIView):
 
         return response
 
+# ------------------------------ GOOGLE LOGIN ---------------------------------------
+class GoogleLoginView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        data = request.data or {}
+
+        credential = data.get("credential")
+
+        if not credential:
+            return Response(
+                {
+                    "error": "Google credential required"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+
+            # VERIFY GOOGLE ID TOKEN
+            from google.oauth2 import id_token
+            from google.auth.transport import requests
+
+            google_user = id_token.verify_oauth2_token(
+                credential,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+            )
+
+            # VERIFY AUDIENCE
+            if (
+                google_user.get("aud")
+                != settings.GOOGLE_CLIENT_ID
+            ):
+                return Response(
+                    {
+                        "error": "Invalid Google client"
+                    },
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
+            # GET GOOGLE ACCOUNT DATA
+            google_id = google_user.get("sub")
+            email = google_user.get("email")
+            email_verified = google_user.get(
+                "email_verified",
+                False,
+            )
+
+            if not google_id or not email:
+                return Response(
+                    {
+                        "error": (
+                            "Google account information "
+                            "is incomplete"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not email_verified:
+                return Response(
+                    {
+                        "error": (
+                            "Google email is not verified"
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            email = email.strip().lower()
+
+            # FIND USER BY GOOGLE ID FIRST
+            user = Users.objects.filter(
+                google_id=google_id
+            ).first()
+
+            # FALLBACK TO VERIFIED EMAIL
+            if not user:
+                user = Users.objects.filter(
+                    email=email
+                ).first()
+
+            # CREATES NEW USER
+            if not user:
+
+                user = Users(
+                    email=email,
+                    google_id=google_id,
+                    email_verified=True,
+                    auth_provider="google",
+                )
+
+                # Generates a random password so the Google account has no usable password known to the user
+                random_password = secrets.token_urlsafe(64)
+
+                user.set_password(random_password)
+
+                user.save()
+
+            # EXISTING USER
+            else:
+
+                # If this email was previously registered locally,securely link the Google account to it
+                if not user.google_id:
+                    user.google_id = google_id
+
+                # Google has verified this email.
+                user.email_verified = True
+
+                # continues to support both password login and Google login.
+                update_fields = [
+                    "google_id",
+                    "email_verified",
+                ]
+
+                user.save(
+                    update_fields=update_fields
+                )
+
+            # (CREATE REFRESH TOKEN)
+            refresh = RefreshToken.for_user(user)
+
+            # (ADDS STANDARD JWT CLAIMS)
+            refresh["user_id"] = str(user.id)
+            refresh["email"] = user.email
+            refresh["role"] = user.role
+            refresh["display_name"] = user.display_name
+
+            access = refresh.access_token
+
+            # (RESPONSE)
+            response = Response(
+                {
+                    "access_token": str(access),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+            # (HTTPONLY REFRESH COOKIE)
+            response.set_cookie(
+                key=settings.REFRESH_COOKIE_NAME,
+                value=str(refresh),
+                max_age=settings.REFRESH_COOKIE_MAX_AGE,
+                httponly=True,
+                secure=settings.REFRESH_COOKIE_SECURE,
+                samesite=settings.REFRESH_COOKIE_SAMESITE,
+                path="/token/refresh/",
+            )
+
+            return response
+
+        except ValueError:
+
+            # Google token is malformed, expired, has the wrong audience, etc.
+            return Response(
+                {
+                    "error": (
+                        "Invalid or expired Google credential"
+                    )
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        except Exception as exc:
+            print(
+                "Google login error:",
+                exc,
+            )
+
+            return Response(
+                {
+                    "error": "Google authentication failed"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        
 
 # ------------------------------ TOKEN REFRESH ---------------------------------------
 class TokenRefreshView(APIView):
@@ -570,72 +748,31 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-
-# ------------------------------DELETE ACCOUNT---------------------------------------
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
-    # ------------------------------ SEND OTP ---------------------------------------
     def post(self, request):
-
-        data = request.data or {}
-
-        password = data.get("password")
-
-        if not password:
-            return Response(
-                {
-                    "error": (
-                        "Password confirmation required"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         user = request.user
 
-        # ------------------------------ VERIFY PASSWORD -----------------------------
-        if not user.check_password(password):
-
-            return Response(
-                {
-                    "error": "Invalid password"
-                },
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        # ------------------------------ OTP LOCK ------------------------------------
+        # Check OTP lock
         if user.otp_locked_until:
-
             now = timezone.now()
 
             if now < user.otp_locked_until:
-
                 remaining = int(
-                    (
-                        user.otp_locked_until
-                        - now
-                    ).total_seconds()
+                    (user.otp_locked_until - now).total_seconds()
                 )
 
                 return Response(
                     {
-                        "error": (
-                            "Too many failed attempts. "
-                            "OTP locked for 15 minutes"
-                        ),
-                        "wait_seconds": max(
-                            remaining,
-                            0,
-                        ),
+                        "error": "Too many failed attempts. OTP locked for 15 minutes",
+                        "wait_seconds": max(remaining, 0),
                     },
                     status=423,
                 )
 
-        # ------------------------------ GENERATE OTP --------------------------------
-        raw_otp = (
-            user.generate_delete_account_otp()
-        )
+        # Generate and send deletion OTP
+        raw_otp = user.generate_delete_account_otp()
 
         send_email_task.delay(
             user.email,
@@ -645,95 +782,48 @@ class DeleteAccountView(APIView):
         return Response(
             {
                 "status": "otp_sent",
-                "message": (
-                    "OTP sent to your email"
-                ),
-                "wait_seconds": (
-                    Users.OTP_RESEND_COOLDOWN_SECONDS
-                ),
+                "message": "OTP sent to your email",
+                "wait_seconds": Users.OTP_RESEND_COOLDOWN_SECONDS,
             },
             status=status.HTTP_200_OK,
         )
 
-    # ------------------------------ DELETE ACCOUNT --------------------------------
     def delete(self, request):
-
+        user = request.user
         data = request.data or {}
 
-        password = data.get("password")
         otp = data.get("otp")
-
-        if not password:
-            return Response(
-                {
-                    "error": (
-                        "Password confirmation required"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         if not otp:
             return Response(
-                {
-                    "error": "OTP is required"
-                },
+                {"error": "OTP is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = request.user
-
-        # ------------------------------ VERIFY PASSWORD -----------------------------
-        if not user.check_password(password):
-
-            return Response(
-                {
-                    "error": "Invalid password"
-                },
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
-
-        # ------------------------------ OTP LOCK ------------------------------------
+        # Check OTP lock
         if user.otp_locked_until:
-
             now = timezone.now()
 
             if now < user.otp_locked_until:
-
                 remaining = int(
-                    (
-                        user.otp_locked_until
-                        - now
-                    ).total_seconds()
+                    (user.otp_locked_until - now).total_seconds()
                 )
 
                 return Response(
                     {
-                        "error": (
-                            "Too many failed attempts. "
-                            "OTP locked for 15 minutes"
-                        ),
-                        "wait_seconds": max(
-                            remaining,
-                            0,
-                        ),
+                        "error": "Too many failed attempts. OTP locked for 15 minutes",
+                        "wait_seconds": max(remaining, 0),
                     },
                     status=423,
                 )
 
-        # ------------------------------ VERIFY OTP ----------------------------------
-        result = (
-            user.verify_delete_account_otp(
-                otp
-            )
-        )
+        # Verify OTP
+        result = user.verify_delete_account_otp(otp)
 
         if result == "locked":
-
             remaining = 0
 
             if user.otp_locked_until:
-
                 remaining = int(
                     (
                         user.otp_locked_until
@@ -743,32 +833,20 @@ class DeleteAccountView(APIView):
 
             return Response(
                 {
-                    "error": (
-                        "Too many failed attempts. "
-                        "OTP locked for 15 minutes"
-                    ),
-                    "wait_seconds": max(
-                        remaining,
-                        0,
-                    ),
+                    "error": "Too many failed attempts. OTP locked for 15 minutes",
+                    "wait_seconds": max(remaining, 0),
                 },
                 status=423,
             )
 
         if not result:
-
             return Response(
-                {
-                    "error": (
-                        "Invalid or expired OTP"
-                    )
-                },
+                {"error": "Invalid or expired OTP"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # ------------------------------ DELETE USER ---------------------------------
+        # Delete account
         try:
-
             user.delete()
 
             response = Response(
@@ -787,15 +865,9 @@ class DeleteAccountView(APIView):
             return response
 
         except Exception as exc:
-
-            print(
-                "Delete error:",
-                exc,
-            )
+            print("Delete error:", exc)
 
             return Response(
-                {
-                    "error": "Internal server error"
-                },
+                {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
