@@ -47,8 +47,14 @@ interface AuthContextType {
   isAuthenticated: boolean;
 
   // Auth Actions
-  login: (email: string, password: string) => Promise<void>;
-  logout: (showToast?: boolean) => void;
+  login: (
+    email: string,
+    password: string
+  ) => Promise<void>;
+
+  logout: (
+    showToast?: boolean
+  ) => void;
 
   authFetch: (
     url: string,
@@ -66,8 +72,10 @@ interface AuthContextType {
     otp: string
   ) => Promise<boolean>;
 
-  // Resend OTP
-  resendOtp: (email: string | null) => Promise<boolean>;
+  // Resend registration OTP
+  resendOtp: (
+    email: string | null
+  ) => Promise<boolean>;
 
   // Password Change
   sendChangePasswordOtp: (
@@ -81,8 +89,16 @@ interface AuthContextType {
     otp: string
   ) => Promise<boolean | void>;
 
-  // Account
-  deleteAccount: (password: string) => Promise<void>;
+  // Account Deletion
+  sendDeleteAccountOtp: (
+    password: string,
+    resend?: boolean
+  ) => Promise<boolean>;
+
+  completeDeleteAccount: (
+    password: string,
+    otp: string
+  ) => Promise<boolean | void>;
 
   // Loading States
   changePasswordLoading: boolean;
@@ -107,24 +123,31 @@ interface AuthProviderProps {
 export const AuthProvider = ({
   children,
 }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
+
+  // ------------------------------ Auth State -------------------------------------------
+  const [user, setUser] =
+    useState<User | null>(null);
 
   const [isLoading, setIsLoading] =
     useState<boolean>(true);
 
+  // ------------------------------ Loading States -------------------------------------------
   const [
     changePasswordLoading,
     setChangePasswordLoading,
   ] = useState<boolean>(false);
 
-  const [resendLoading, setResendLoading] =
-    useState<boolean>(false);
+  const [
+    resendLoading,
+    setResendLoading,
+  ] = useState<boolean>(false);
 
   const [
     deleteAccountLoading,
     setDeleteAccountLoading,
   ] = useState<boolean>(false);
 
+  // ------------------------------ OTP State -------------------------------------------
   const [otpSent, setOtpSent] =
     useState<boolean>(false);
 
@@ -139,11 +162,12 @@ export const AuthProvider = ({
   const otpTimerRef = useRef<
     ReturnType<typeof setInterval> | null
   >(null);
+
   const refreshPromiseRef = useRef<
     Promise<string | null> | null
   >(null);
 
-  // ------------------------------ Token expiry -------------------------------------------
+  // ------------------------------ Token Expiry -------------------------------------------
   const isTokenExpired = (
     token: string
   ): boolean => {
@@ -164,15 +188,20 @@ export const AuthProvider = ({
   const scheduleTokenRefresh = (
     accessToken: string
   ): void => {
-    // Clear existing refresh timer
     if (refreshTimer.current) {
-      clearTimeout(refreshTimer.current);
+      clearTimeout(
+        refreshTimer.current
+      );
+
       refreshTimer.current = null;
     }
 
     try {
       const decoded =
-        jwtDecode<JwtPayload>(accessToken);
+        jwtDecode<JwtPayload>(
+          accessToken
+        );
+
       const refreshTime =
         decoded.exp * 1000 -
         Date.now() -
@@ -193,6 +222,105 @@ export const AuthProvider = ({
       );
     }
   };
+
+  // ------------------------------ Refresh Access Token -------------------------------------------
+  const refreshAccessToken =
+    async (): Promise<string | null> => {
+      if (
+        refreshPromiseRef.current
+      ) {
+        return refreshPromiseRef.current;
+      }
+
+      refreshPromiseRef.current =
+        (async (): Promise<
+          string | null
+        > => {
+          try {
+            const res = await fetch(
+              `${config.API_BASE_URL}/token/refresh/`,
+              {
+                method: "POST",
+                credentials: "include",
+
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
+              }
+            );
+
+            if (!res.ok) {
+              return null;
+            }
+
+            const data: RefreshResponse =
+              await res.json();
+
+            if (!data.access_token) {
+              return null;
+            }
+
+            const decoded =
+              jwtDecode<JwtPayload>(
+                data.access_token
+              );
+
+            // Makes sure the refreshed token contains all required claims.
+            if (
+              !decoded.user_id ||
+              !decoded.email ||
+              !decoded.role ||
+              !decoded.display_name ||
+              !decoded.exp
+            ) {
+              console.error(
+                "[AuthProvider] Refreshed token is missing required claims"
+              );
+
+              return null;
+            }
+
+            const refreshedUser: User = {
+              id: String(
+                decoded.user_id
+              ),
+
+              email: decoded.email,
+
+              role: decoded.role,
+
+              display_name:
+                decoded.display_name,
+
+              token:
+                data.access_token,
+            };
+
+            setUser(
+              refreshedUser
+            );
+
+            scheduleTokenRefresh(
+              data.access_token
+            );
+
+            return data.access_token;
+          } catch (err) {
+            console.error(
+              "[AuthProvider] Token refresh failed:",
+              err
+            );
+
+            return null;
+          } finally {
+            refreshPromiseRef.current =
+              null;
+          }
+        })();
+
+      return refreshPromiseRef.current;
+    };
 
   // ------------------------------ Login -------------------------------------------
   const login = async (
@@ -226,26 +354,52 @@ export const AuthProvider = ({
           await res.json();
 
         throw new Error(
-          data.error ?? "Login failed"
+          data.error ??
+            "Login failed"
         );
       }
 
       const data: LoginResponse =
         await res.json();
 
+      if (!data.access_token) {
+        throw new Error(
+          "Access token missing"
+        );
+      }
+
       const decoded =
         jwtDecode<JwtPayload>(
           data.access_token
         );
 
-      const userInfo: User = {
-        id: decoded.user_id,
-        email: decoded.email,
-        role: decoded.role,
-        display_name:decoded.display_name,
+      if (
+        !decoded.user_id ||
+        !decoded.email ||
+        !decoded.role ||
+        !decoded.display_name ||
+        !decoded.exp
+      ) {
+        throw new Error(
+          "Invalid authentication token"
+        );
+      }
 
-        // Access token stays in memory.
-        token: data.access_token,
+      const userInfo: User = {
+        id: String(
+          decoded.user_id
+        ),
+
+        email: decoded.email,
+
+        role: decoded.role,
+
+        display_name:
+          decoded.display_name,
+
+        // Access token remains memory-only
+        token:
+          data.access_token,
       };
 
       setUser(userInfo);
@@ -259,9 +413,13 @@ export const AuthProvider = ({
       );
     } catch (err) {
       if (err instanceof Error) {
-        toast.error(err.message);
+        toast.error(
+          err.message
+        );
       } else {
-        toast.error("Login failed");
+        toast.error(
+          "Login failed"
+        );
       }
     } finally {
       setIsLoading(false);
@@ -272,11 +430,13 @@ export const AuthProvider = ({
   const logout = (
     showToast: boolean = true
   ): void => {
-   
+    // Tell Django to remove
+    // the HttpOnly refresh cookie.
     fetch(
       `${config.API_BASE_URL}/logout/`,
       {
         method: "POST",
+
         credentials: "include",
 
         headers: {
@@ -291,10 +451,11 @@ export const AuthProvider = ({
       );
     });
 
-   
+    // Remove user immediately
+    // from frontend memory.
     setUser(null);
 
-   
+    // Stop scheduled access-token refresh.
     if (refreshTimer.current) {
       clearTimeout(
         refreshTimer.current
@@ -303,6 +464,7 @@ export const AuthProvider = ({
       refreshTimer.current = null;
     }
 
+    // Stop OTP countdown.
     if (otpTimerRef.current) {
       clearInterval(
         otpTimerRef.current
@@ -311,8 +473,12 @@ export const AuthProvider = ({
       otpTimerRef.current = null;
     }
 
-   
-    refreshPromiseRef.current = null;
+    setOtpCountdown(0);
+    setOtpSent(false);
+
+    // Clear any pending refresh reference.
+    refreshPromiseRef.current =
+      null;
 
     if (showToast) {
       toast.success(
@@ -321,104 +487,31 @@ export const AuthProvider = ({
     }
   };
 
- // ------------------------------ Refresh Access Token -------------------------------------------
-const refreshAccessToken = async (): Promise<string | null> => {
-  if (refreshPromiseRef.current) {
-    return refreshPromiseRef.current;
-  }
+  // ------------------------------ Restore Session -------------------------------------------
+  useEffect(() => {
+    const restoreSession =
+      async (): Promise<void> => {
+        try {
+          const accessToken =
+            await refreshAccessToken();
 
-  refreshPromiseRef.current = (async (): Promise<string | null> => {
-    try {
-      const res = await fetch(
-        `${config.API_BASE_URL}/token/refresh/`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          if (!accessToken) {
+            setUser(null);
+          }
+        } catch (err) {
+          console.error(
+            "[AuthProvider] Session restore error:",
+            err
+          );
+
+          setUser(null);
+        } finally {
+          setIsLoading(false);
         }
-      );
+      };
 
-      if (!res.ok) {
-        return null;
-      }
-
-      const data: RefreshResponse = await res.json();
-
-      if (!data.access_token) {
-        return null;
-      }
-
-      // The refreshed access token contains user_id, email, role, display_name, exp
-      const decoded = jwtDecode<JwtPayload>(
-        data.access_token
-      );
-
-      // Makes sure the required claims exist before rebuilding the authenticated user.
-      if (
-        !decoded.user_id ||
-        !decoded.email ||
-        !decoded.role ||
-        !decoded.display_name
-      ) {
-        console.error(
-          "[AuthProvider] Refreshed token is missing required claims"
-        );
-
-        return null;
-      }
-
-      setUser({
-        id: String(decoded.user_id),
-        email: decoded.email,
-        role: decoded.role,
-        display_name: decoded.display_name,
-        token: data.access_token,
-      });
-
-      scheduleTokenRefresh(data.access_token);
-
-      return data.access_token;
-    } catch (err) {
-      console.error(
-        "[AuthProvider] Token refresh failed:",
-        err
-      );
-
-      return null;
-    } finally {
-      refreshPromiseRef.current = null;
-    }
-  })();
-
-  return refreshPromiseRef.current;
-};
-
-// ------------------------------ Restore Session -------------------------------------------
-useEffect(() => {
-  const restoreSession = async (): Promise<void> => {
-    try {
-      const accessToken = await refreshAccessToken();
-
-      if (!accessToken) {
-        setUser(null);
-      }
-    } catch (err) {
-      console.error(
-        "[AuthProvider] Session restore error:",
-        err
-      );
-
-      setUser(null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  void restoreSession();
-}, []);
-
+    void restoreSession();
+  }, []);
 
   // ------------------------------ Protected Fetch -------------------------------------------
   const authFetch = async (
@@ -427,8 +520,10 @@ useEffect(() => {
   ): Promise<Response> => {
     let tokenToUse:
       | string
-      | null = user?.token ?? null;
+      | null =
+      user?.token ?? null;
 
+    // No access token in memory.
     if (!tokenToUse) {
       tokenToUse =
         await refreshAccessToken();
@@ -440,9 +535,11 @@ useEffect(() => {
       }
     }
 
-  
+    // Existing access token expired.
     else if (
-      isTokenExpired(tokenToUse)
+      isTokenExpired(
+        tokenToUse
+      )
     ) {
       tokenToUse =
         await refreshAccessToken();
@@ -470,15 +567,19 @@ useEffect(() => {
     headers.Authorization =
       `Bearer ${tokenToUse}`;
 
-   
-    let res = await fetch(url, {
-      ...options,
+    let res = await fetch(
+      url,
+      {
+        ...options,
 
-      headers,
+        headers,
 
-      credentials: "include",
-    });
+        credentials:
+          "include",
+      }
+    );
 
+    // Access token may have expired between the initial check and the request.
     if (res.status === 401) {
       const newToken =
         await refreshAccessToken();
@@ -489,18 +590,22 @@ useEffect(() => {
         );
       }
 
-      res = await fetch(url, {
-        ...options,
+      res = await fetch(
+        url,
+        {
+          ...options,
 
-        headers: {
-          ...headers,
+          headers: {
+            ...headers,
 
-          Authorization:
-            `Bearer ${newToken}`,
-        },
+            Authorization:
+              `Bearer ${newToken}`,
+          },
 
-        credentials: "include",
-      });
+          credentials:
+            "include",
+        }
+      );
     }
 
     return res;
@@ -511,6 +616,7 @@ useEffect(() => {
     seconds: number
   ): void => {
     setOtpCountdown(seconds);
+
     setOtpSent(true);
 
     if (otpTimerRef.current) {
@@ -521,23 +627,28 @@ useEffect(() => {
 
     otpTimerRef.current =
       setInterval(() => {
-        setOtpCountdown((prev) => {
-          if (prev <= 1) {
-            if (otpTimerRef.current) {
-              clearInterval(
+        setOtpCountdown(
+          (prev) => {
+            if (prev <= 1) {
+              if (
                 otpTimerRef.current
-              );
+              ) {
+                clearInterval(
+                  otpTimerRef.current
+                );
 
-              otpTimerRef.current = null;
+                otpTimerRef.current =
+                  null;
+              }
+
+              setOtpSent(false);
+
+              return 0;
             }
 
-            setOtpSent(false);
-
-            return 0;
+            return prev - 1;
           }
-
-          return prev - 1;
-        });
+        );
       }, 1000);
   };
 
@@ -548,22 +659,23 @@ useEffect(() => {
       password: string
     ): Promise<boolean> => {
       try {
-        const res = await fetch(
-          `${config.API_BASE_URL}/register/`,
-          {
-            method: "POST",
+        const res =
+          await fetch(
+            `${config.API_BASE_URL}/register/`,
+            {
+              method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-            body: JSON.stringify({
-              email,
-              password,
-            }),
-          }
-        );
+              body: JSON.stringify({
+                email,
+                password,
+              }),
+            }
+          );
 
         const data: OtpResponse =
           await res.json();
@@ -576,7 +688,7 @@ useEffect(() => {
         }
 
         startOtpCountdown(
-          data.wait_seconds
+          data.wait_seconds || 60
         );
 
         toast.success(
@@ -602,22 +714,23 @@ useEffect(() => {
       otp: string
     ): Promise<boolean> => {
       try {
-        const res = await fetch(
-          `${config.API_BASE_URL}/verify-account/`,
-          {
-            method: "POST",
+        const res =
+          await fetch(
+            `${config.API_BASE_URL}/verify-account/`,
+            {
+              method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-            body: JSON.stringify({
-              email,
-              otp,
-            }),
-          }
-        );
+              body: JSON.stringify({
+                email,
+                otp,
+              }),
+            }
+          );
 
         const data: OtpResponse =
           await res.json();
@@ -665,6 +778,7 @@ useEffect(() => {
     try {
       let res: Response;
 
+      // Registration resend.
       if (email) {
         res = await fetch(
           `${config.API_BASE_URL}/resend-otp/`,
@@ -681,7 +795,10 @@ useEffect(() => {
             }),
           }
         );
-      } else {
+      }
+
+      // Logged-in email OTP resend.
+      else {
         res = await authFetch(
           `${config.API_BASE_URL}/resend-otp/`,
           {
@@ -728,26 +845,29 @@ useEffect(() => {
   const sendChangePasswordOtp =
     async (
       currentPassword: string,
-      resend: boolean = false
+      _resend: boolean = false
     ): Promise<boolean> => {
       if (!user?.email) {
-        toast.error("User not found");
+        toast.error(
+          "User not found"
+        );
+
         return false;
       }
 
       try {
-        const res = await authFetch(
-          `${config.API_BASE_URL}/change-password/`,
-          {
-            method: "POST",
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/change-password/`,
+            {
+              method: "POST",
 
-            body: JSON.stringify({
-              current_password:
-                currentPassword,
-              resend,
-            }),
-          }
-        );
+              body: JSON.stringify({
+                current_password:
+                  currentPassword,
+              }),
+            }
+          );
 
         const data: OtpResponse =
           await res.json();
@@ -760,7 +880,7 @@ useEffect(() => {
         }
 
         startOtpCountdown(
-          data.wait_seconds || 300
+          data.wait_seconds || 60
         );
 
         toast.success(
@@ -787,7 +907,10 @@ useEffect(() => {
       otp: string
     ): Promise<boolean> => {
       if (!user?.email) {
-        toast.error("User not found");
+        toast.error(
+          "User not found"
+        );
+
         return false;
       }
 
@@ -796,20 +919,23 @@ useEffect(() => {
       );
 
       try {
-        const res = await authFetch(
-          `${config.API_BASE_URL}/change-password/`,
-          {
-            method: "POST",
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/change-password/`,
+            {
+              method: "POST",
 
-            body: JSON.stringify({
-              current_password:
-                currentPassword,
-              new_password:
-                newPassword,
-              otp,
-            }),
-          }
-        );
+              body: JSON.stringify({
+                current_password:
+                  currentPassword,
+
+                new_password:
+                  newPassword,
+
+                otp,
+              }),
+            }
+          );
 
         const data: OtpResponse =
           await res.json();
@@ -825,6 +951,7 @@ useEffect(() => {
           data.message
         );
 
+        // Force a fresh login after successful password change
         logout(false);
 
         return true;
@@ -843,52 +970,127 @@ useEffect(() => {
       }
     };
 
-  // ------------------------------ Delete Account -------------------------------------------
-  const deleteAccount = async (
-    password: string
-  ): Promise<void> => {
-    setDeleteAccountLoading(
-      true
-    );
-
-    try {
-      const res = await authFetch(
-        `${config.API_BASE_URL}/delete-account/`,
-        {
-          method: "DELETE",
-
-          body: JSON.stringify({
-            password,
-          }),
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(
-          data.error ??
-            "Account deletion failed"
+  // ------------------------------ Delete Account OTP -------------------------------------------
+  const sendDeleteAccountOtp =
+    async (
+      password: string,
+      _resend: boolean = false
+    ): Promise<boolean> => {
+      if (!user?.email) {
+        toast.error(
+          "User not found"
         );
+
+        return false;
       }
 
-      toast.success(
-        "Account deleted"
+      try {
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/delete-account/`,
+            {
+              method: "POST",
+
+              body: JSON.stringify({
+                password,
+              }),
+            }
+          );
+
+        const data: OtpResponse =
+          await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.error ??
+              "Failed to send OTP"
+          );
+        }
+
+        startOtpCountdown(
+          data.wait_seconds || 60
+        );
+
+        toast.success(
+          data.message
+        );
+
+        return true;
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Failed to send OTP"
+        );
+
+        return false;
+      }
+    };
+
+  // ------------------------------ Complete Delete Account -------------------------------------------
+  const completeDeleteAccount =
+    async (
+      password: string,
+      otp: string
+    ): Promise<boolean> => {
+      if (!user?.email) {
+        toast.error(
+          "User not found"
+        );
+
+        return false;
+      }
+
+      setDeleteAccountLoading(
+        true
       );
 
-      logout(false);
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Account deletion failed"
-      );
-    } finally {
-      setDeleteAccountLoading(
-        false
-      );
-    }
-  };
+      try {
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/delete-account/`,
+            {
+              method: "DELETE",
+
+              body: JSON.stringify({
+                password,
+                otp,
+              }),
+            }
+          );
+
+        const data =
+          await res.json();
+
+        if (!res.ok) {
+          throw new Error(
+            data.error ??
+              "Account deletion failed"
+          );
+        }
+
+        toast.success(
+          data.message ??
+            "Account deleted"
+        );
+
+        logout(false);
+
+        return true;
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Account deletion failed"
+        );
+
+        return false;
+      } finally {
+        setDeleteAccountLoading(
+          false
+        );
+      }
+    };
 
   // ------------------------------ Cleanup -------------------------------------------
   useEffect(() => {
@@ -898,7 +1100,8 @@ useEffect(() => {
           otpTimerRef.current
         );
 
-        otpTimerRef.current = null;
+        otpTimerRef.current =
+          null;
       }
 
       if (refreshTimer.current) {
@@ -906,7 +1109,8 @@ useEffect(() => {
           refreshTimer.current
         );
 
-        refreshTimer.current = null;
+        refreshTimer.current =
+          null;
       }
     };
   }, []);
@@ -936,13 +1140,14 @@ useEffect(() => {
         sendChangePasswordOtp,
         completeChangePassword,
 
-        // Account
-        deleteAccount,
+        // Account deletion
+        sendDeleteAccountOtp,
+        completeDeleteAccount,
 
         // Loading states
         changePasswordLoading,
-        deleteAccountLoading,
         resendLoading,
+        deleteAccountLoading,
 
         // OTP state
         otpSent,
@@ -955,7 +1160,6 @@ useEffect(() => {
 };
 
 // ------------------------------ Hook -------------------------------------------
-
 export const useAuth =
   (): AuthContextType => {
     const ctx =

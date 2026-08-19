@@ -31,6 +31,11 @@ from app.views.adminViews import (
     AdminReviewsBySparePartView,
 )
 
+from app.views.stripeViews import (
+    CreateCheckoutSessionView,
+    StripeWebhookView,
+)
+
 
 urlpatterns = [
 
@@ -202,6 +207,19 @@ urlpatterns = [
     path(
         "admin/orders/<str:order_id>/",
         AdminOrdersView.as_view(),
+        name="admin-order-detail",
+    ),
+
+    # ---------------------- STRIPE CHECKOUT -------------------------------------
+    path(
+        "create-checkout-session/",
+        CreateCheckoutSessionView.as_view(),
+        name="create-checkout-session",
+    ),
+    
+    path(
+        "webhook/",
+        StripeWebhookView.as_view(),
         name="admin-order-detail",
     ),
 ]

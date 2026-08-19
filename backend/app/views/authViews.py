@@ -56,7 +56,6 @@ class RegisterView(APIView):
 
                 user.set_password(password)
 
-                # generate_email_otp() saves the OTP data.
                 raw_otp = user.generate_email_otp()
 
             send_email_task.delay(
@@ -128,7 +127,6 @@ class ResendOTPView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # prevents resending registration OTP for an already verified account.
         if not is_logged_in and user.email_verified:
             return Response(
                 {
@@ -178,6 +176,7 @@ class ResendOTPView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
 
 # ------------------------------VERIFY ACCOUNT---------------------------------------
 class VerifyAccountView(APIView):
@@ -239,6 +238,7 @@ class VerifyAccountView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
 # ------------------------------ LOGIN ---------------------------------------
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -272,21 +272,20 @@ class LoginView(APIView):
         if not user.email_verified:
             return Response(
                 {
-                    "error": "Please verify your email first"
+                    "error": (
+                        "Please verify your email first"
+                    )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Create refresh token.
         refresh = RefreshToken.for_user(user)
 
-        # Adds user claims to the refresh token.
         refresh["user_id"] = str(user.id)
         refresh["email"] = user.email
         refresh["role"] = user.role
         refresh["display_name"] = user.display_name
 
-        # Creates access token from the refresh token.
         access = refresh.access_token
 
         response = Response(
@@ -296,7 +295,6 @@ class LoginView(APIView):
             status=status.HTTP_200_OK,
         )
 
-        # HttpOnly refresh-token cookie.
         response.set_cookie(
             key=settings.REFRESH_COOKIE_NAME,
             value=str(refresh),
@@ -330,13 +328,20 @@ class TokenRefreshView(APIView):
         try:
             refresh = RefreshToken(refresh_token)
 
-            # Creates a new access token.
             access = refresh.access_token
 
-            # Copies the user claims from the refresh token to the new access token.
-            access["user_id"] = refresh.get("user_id")
-            access["email"] = refresh.get("email")
-            access["role"] = refresh.get("role")
+            access["user_id"] = refresh.get(
+                "user_id"
+            )
+
+            access["email"] = refresh.get(
+                "email"
+            )
+
+            access["role"] = refresh.get(
+                "role"
+            )
+
             access["display_name"] = refresh.get(
                 "display_name"
             )
@@ -358,7 +363,7 @@ class TokenRefreshView(APIView):
                 },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-        
+
 
 # ------------------------------LOGOUT---------------------------------------
 class LogoutView(APIView):
@@ -410,6 +415,7 @@ class ChangePasswordView(APIView):
 
         user = request.user
 
+        # ------------------------------ VERIFY PASSWORD ------------------------------
         if not user.check_password(
             current_password
         ):
@@ -420,8 +426,9 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-
+        # ------------------------------ OTP LOCK -------------------------------------
         if user.otp_locked_until:
+
             now = timezone.now()
 
             if now < user.otp_locked_until:
@@ -447,12 +454,11 @@ class ChangePasswordView(APIView):
                     status=423,
                 )
 
-    
-
+        # ------------------------------ SEND OTP -------------------------------------
         if not otp and not new_password:
 
             raw_otp = (
-                user.generate_email_otp()
+                user.generate_change_password_otp()
             )
 
             send_email_task.delay(
@@ -473,8 +479,9 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-
+        # ------------------------------ VALIDATE INPUT -------------------------------
         if not otp or not new_password:
+
             return Response(
                 {
                     "error": (
@@ -485,13 +492,19 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        result = user.verify_email_otp(otp)
+        # ------------------------------ VERIFY OTP -----------------------------------
+        result = (
+            user.verify_change_password_otp(
+                otp
+            )
+        )
 
         if result == "locked":
 
             remaining = 0
 
             if user.otp_locked_until:
+
                 remaining = int(
                     (
                         user.otp_locked_until
@@ -514,6 +527,7 @@ class ChangePasswordView(APIView):
             )
 
         if not result:
+
             return Response(
                 {
                     "error": (
@@ -523,8 +537,9 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-
+        # ------------------------------ CHANGE PASSWORD ------------------------------
         try:
+
             user.set_password(
                 new_password
             )
@@ -542,6 +557,7 @@ class ChangePasswordView(APIView):
             )
 
         except Exception as exc:
+
             print(
                 "Password change error:",
                 exc,
@@ -559,7 +575,9 @@ class ChangePasswordView(APIView):
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def delete(self, request):
+    # ------------------------------ SEND OTP ---------------------------------------
+    def post(self, request):
+
         data = request.data or {}
 
         password = data.get("password")
@@ -576,7 +594,9 @@ class DeleteAccountView(APIView):
 
         user = request.user
 
+        # ------------------------------ VERIFY PASSWORD -----------------------------
         if not user.check_password(password):
+
             return Response(
                 {
                     "error": "Invalid password"
@@ -584,7 +604,171 @@ class DeleteAccountView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # ------------------------------ OTP LOCK ------------------------------------
+        if user.otp_locked_until:
+
+            now = timezone.now()
+
+            if now < user.otp_locked_until:
+
+                remaining = int(
+                    (
+                        user.otp_locked_until
+                        - now
+                    ).total_seconds()
+                )
+
+                return Response(
+                    {
+                        "error": (
+                            "Too many failed attempts. "
+                            "OTP locked for 15 minutes"
+                        ),
+                        "wait_seconds": max(
+                            remaining,
+                            0,
+                        ),
+                    },
+                    status=423,
+                )
+
+        # ------------------------------ GENERATE OTP --------------------------------
+        raw_otp = (
+            user.generate_delete_account_otp()
+        )
+
+        send_email_task.delay(
+            user.email,
+            raw_otp,
+        )
+
+        return Response(
+            {
+                "status": "otp_sent",
+                "message": (
+                    "OTP sent to your email"
+                ),
+                "wait_seconds": (
+                    Users.OTP_RESEND_COOLDOWN_SECONDS
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    # ------------------------------ DELETE ACCOUNT --------------------------------
+    def delete(self, request):
+
+        data = request.data or {}
+
+        password = data.get("password")
+        otp = data.get("otp")
+
+        if not password:
+            return Response(
+                {
+                    "error": (
+                        "Password confirmation required"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not otp:
+            return Response(
+                {
+                    "error": "OTP is required"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = request.user
+
+        # ------------------------------ VERIFY PASSWORD -----------------------------
+        if not user.check_password(password):
+
+            return Response(
+                {
+                    "error": "Invalid password"
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # ------------------------------ OTP LOCK ------------------------------------
+        if user.otp_locked_until:
+
+            now = timezone.now()
+
+            if now < user.otp_locked_until:
+
+                remaining = int(
+                    (
+                        user.otp_locked_until
+                        - now
+                    ).total_seconds()
+                )
+
+                return Response(
+                    {
+                        "error": (
+                            "Too many failed attempts. "
+                            "OTP locked for 15 minutes"
+                        ),
+                        "wait_seconds": max(
+                            remaining,
+                            0,
+                        ),
+                    },
+                    status=423,
+                )
+
+        # ------------------------------ VERIFY OTP ----------------------------------
+        result = (
+            user.verify_delete_account_otp(
+                otp
+            )
+        )
+
+        if result == "locked":
+
+            remaining = 0
+
+            if user.otp_locked_until:
+
+                remaining = int(
+                    (
+                        user.otp_locked_until
+                        - timezone.now()
+                    ).total_seconds()
+                )
+
+            return Response(
+                {
+                    "error": (
+                        "Too many failed attempts. "
+                        "OTP locked for 15 minutes"
+                    ),
+                    "wait_seconds": max(
+                        remaining,
+                        0,
+                    ),
+                },
+                status=423,
+            )
+
+        if not result:
+
+            return Response(
+                {
+                    "error": (
+                        "Invalid or expired OTP"
+                    )
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # ------------------------------ DELETE USER ---------------------------------
         try:
+
             user.delete()
 
             response = Response(
@@ -603,6 +787,7 @@ class DeleteAccountView(APIView):
             return response
 
         except Exception as exc:
+
             print(
                 "Delete error:",
                 exc,

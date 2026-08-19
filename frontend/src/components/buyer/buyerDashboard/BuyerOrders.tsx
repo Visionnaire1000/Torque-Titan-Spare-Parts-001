@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ChevronUp, ChevronDown, PackageOpen, RefreshCw } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
@@ -127,28 +127,61 @@ const BuyerOrders: React.FC = () => {
     });
 
   const prevOrdersRef = useRef<Order[]>([]);
-
   const timeZone =
-    Intl.DateTimeFormat().resolvedOptions().timeZone;
+   Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-  const formatOrderTime = (dateString: string): string => {
-    if (!dateString) return "";
+  const formatOrderTime = (
+   dateString: string | null | undefined
+ ): string => {
+  if (!dateString) {
+    return "";
+  }
 
-    const utcDate = dateString.endsWith("Z")
-      ? new Date(dateString)
-      : new Date(`${dateString}Z`);
+  const value = String(dateString).trim();
 
-    return new Intl.DateTimeFormat(undefined, {
-      timeZone,
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    }).format(utcDate);
-  };
+  if (!value) {
+    return "";
+  }
+
+  let utcDate: Date;
+  // Already contains timezone information:
+  // Django: 2026-08-18T10:30:00+00:00
+  // Flask:  2026-08-18T10:30:00.000000+00:00
+  // ISO:    2026-08-18T10:30:00Z
+  if (
+    value.endsWith("Z") ||
+    /[+-]\d{2}:?\d{2}$/.test(value)
+  ) {
+    utcDate = new Date(value);
+
+  } else {
+    // Naive datetime:
+    // 2026-08-18T10:30:00
+    // Treats it as UTC.
+    utcDate = new Date(`${value}Z`);
+  }
+
+  // Prevents Invalid Date from crashing the App
+  if (Number.isNaN(utcDate.getTime())) {
+    console.error(
+      "Invalid order date:",
+      dateString
+    );
+
+    return "";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(utcDate);
+ };
 
     const fetchOrders = async (): Promise<void> => {
     setLoading(true);
