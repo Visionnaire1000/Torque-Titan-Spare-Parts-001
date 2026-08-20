@@ -1,6 +1,6 @@
 venv/
 .env
-titanspares.db
+titan.db
 instance/
 __pycache__/
 .pytest_cache/

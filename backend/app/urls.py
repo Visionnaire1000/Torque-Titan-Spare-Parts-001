@@ -66,7 +66,7 @@ urlpatterns = [
     ),
 
     path(
-        "auth/google",
+        "auth/google/",
         GoogleLoginView.as_view(),
         name="login",
     ),
