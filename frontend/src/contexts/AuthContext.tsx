@@ -183,35 +183,36 @@ export const AuthProvider = ({
     }
   };
 
+
   // ------------------------------ Build User From Token -------------------------------------------
-  const buildUserFromToken = (
-    accessToken: string
+ const buildUserFromToken = (
+  accessToken: string
   ): User => {
-    const decoded =
-      jwtDecode<JwtPayload>(accessToken);
+  const decoded =
+    jwtDecode<JwtPayload>(accessToken);
 
-    if (
-      !decoded.user_id ||
-      !decoded.email ||
-      !decoded.role ||
-      !decoded.display_name ||
-      !decoded.auth_provider ||
-      !decoded.exp
-    ) {
-      throw new Error(
-        "Invalid authentication token"
-      );
-    }
+  // Only require claims essential for authentication.
+  if (
+    !decoded.user_id ||
+    !decoded.role ||
+    !decoded.exp
+  ) {
+    throw new Error(
+      "Invalid authentication token"
+    );
+  }
 
-    return {
-      id: String(decoded.user_id),
-      email: decoded.email,
-      role: decoded.role,
-      display_name: decoded.display_name,
-      auth_provider: decoded.auth_provider,
-      token: accessToken,
-    };
+  return {
+    id: String(decoded.user_id),
+    email: decoded.email ?? "",
+    role: decoded.role,
+    display_name:
+      decoded.display_name ?? "",
+    auth_provider:
+      decoded.auth_provider ?? "local",
+    token: accessToken,
   };
+ };
 
   // ------------------------------ Schedule Refresh -------------------------------------------
   const scheduleTokenRefresh = (
@@ -547,6 +548,7 @@ export const AuthProvider = ({
 
     void restoreSession();
   }, []);
+  
 
   // ------------------------------ Protected Fetch -------------------------------------------
   const authFetch = async (
@@ -631,6 +633,7 @@ export const AuthProvider = ({
 
     return res;
   };
+
 
   // ------------------------------ OTP Countdown -------------------------------------------
   const startOtpCountdown = (

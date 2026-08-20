@@ -33,7 +33,6 @@ import SuperAdminAccount from "./components/admin/adminDashboard/SuperAdminAccou
 import AdminManagement from "./components/admin/adminDashboard/AdminManagement";
 
 
-
 //pages(categories)
 import SedanTyres from "./components/buyer/categories/tyres/SedanTyres";
 import SUVTyres from "./components/buyer/categories/tyres/SUVTyres";

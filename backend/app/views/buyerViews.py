@@ -27,7 +27,7 @@ class ReviewsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 def serialize_review(review, include_likes=False):
-    
+
     data = ReviewsSerializer(review).data
 
     # Always return IDs as strings
@@ -50,8 +50,7 @@ def serialize_review(review, include_likes=False):
     return data
 
 def serialize_sparepart(part, include_reviews=False):
-    """Serialize a SpareParts instance without relying on Flask SerializerMixin."""
-
+    
     data = SparePartsSerializer(part).data
 
     if include_reviews:

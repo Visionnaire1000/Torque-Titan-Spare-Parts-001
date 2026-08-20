@@ -53,6 +53,7 @@ class RegisterView(APIView):
                 user = Users(
                     email=email,
                     email_verified=False,
+                    auth_provider="local",
                 )
 
                 user.set_password(password)
@@ -282,10 +283,12 @@ class LoginView(APIView):
 
         refresh = RefreshToken.for_user(user)
 
+        # Custom JWT claims
         refresh["user_id"] = str(user.id)
         refresh["email"] = user.email
         refresh["role"] = user.role
         refresh["display_name"] = user.display_name
+        refresh["auth_provider"] = user.auth_provider
 
         access = refresh.access_token
 
@@ -307,6 +310,7 @@ class LoginView(APIView):
         )
 
         return response
+
 
 # ------------------------------ GOOGLE LOGIN ---------------------------------------
 class GoogleLoginView(APIView):
@@ -391,7 +395,7 @@ class GoogleLoginView(APIView):
                     email=email
                 ).first()
 
-            # CREATES NEW USER
+            # CREATE NEW USER
             if not user:
 
                 user = Users(
@@ -401,7 +405,8 @@ class GoogleLoginView(APIView):
                     auth_provider="google",
                 )
 
-                # Generates a random password so the Google account has no usable password known to the user
+                # Random password so the Google account
+                # has no usable password known to the user
                 random_password = secrets.token_urlsafe(64)
 
                 user.set_password(random_password)
@@ -411,35 +416,45 @@ class GoogleLoginView(APIView):
             # EXISTING USER
             else:
 
-                # If this email was previously registered locally,securely link the Google account to it
+                # If this email was previously registered
+                # locally, securely link the Google account.
                 if not user.google_id:
                     user.google_id = google_id
 
                 # Google has verified this email.
                 user.email_verified = True
 
-                # continues to support both password login and Google login.
+                # Existing Google account should remain Google.
+                # Existing local account remains local.
+                if user.auth_provider not in (
+                    "local",
+                    "google",
+                ):
+                    user.auth_provider = "google"
+
                 update_fields = [
                     "google_id",
                     "email_verified",
+                    "auth_provider",
                 ]
 
                 user.save(
                     update_fields=update_fields
                 )
 
-            # (CREATE REFRESH TOKEN)
+            # CREATE REFRESH TOKEN
             refresh = RefreshToken.for_user(user)
 
-            # (ADDS STANDARD JWT CLAIMS)
+            # CUSTOM JWT CLAIMS
             refresh["user_id"] = str(user.id)
             refresh["email"] = user.email
             refresh["role"] = user.role
             refresh["display_name"] = user.display_name
+            refresh["auth_provider"] = user.auth_provider
 
             access = refresh.access_token
 
-            # (RESPONSE)
+            # RESPONSE
             response = Response(
                 {
                     "access_token": str(access),
@@ -447,7 +462,7 @@ class GoogleLoginView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-            # (HTTPONLY REFRESH COOKIE)
+            # HTTPONLY REFRESH COOKIE
             response.set_cookie(
                 key=settings.REFRESH_COOKIE_NAME,
                 value=str(refresh),
@@ -462,7 +477,8 @@ class GoogleLoginView(APIView):
 
         except ValueError:
 
-            # Google token is malformed, expired, has the wrong audience, etc.
+            # Google token is malformed, expired,
+            # has the wrong audience, etc.
             return Response(
                 {
                     "error": (
@@ -484,7 +500,7 @@ class GoogleLoginView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        
+
 
 # ------------------------------ TOKEN REFRESH ---------------------------------------
 class TokenRefreshView(APIView):
@@ -508,6 +524,8 @@ class TokenRefreshView(APIView):
 
             access = refresh.access_token
 
+            # Preserve all custom claims
+            # from the refresh token.
             access["user_id"] = refresh.get(
                 "user_id"
             )
@@ -522,6 +540,10 @@ class TokenRefreshView(APIView):
 
             access["display_name"] = refresh.get(
                 "display_name"
+            )
+
+            access["auth_provider"] = refresh.get(
+                "auth_provider"
             )
 
             return Response(
@@ -593,7 +615,7 @@ class ChangePasswordView(APIView):
 
         user = request.user
 
-        # ------------------------------ VERIFY PASSWORD ------------------------------
+        # VERIFY PASSWORD
         if not user.check_password(
             current_password
         ):
@@ -604,7 +626,7 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # ------------------------------ OTP LOCK -------------------------------------
+        # OTP LOCK
         if user.otp_locked_until:
 
             now = timezone.now()
@@ -632,7 +654,7 @@ class ChangePasswordView(APIView):
                     status=423,
                 )
 
-        # ------------------------------ SEND OTP -------------------------------------
+        # SEND OTP
         if not otp and not new_password:
 
             raw_otp = (
@@ -657,7 +679,7 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_200_OK,
             )
 
-        # ------------------------------ VALIDATE INPUT -------------------------------
+        # VALIDATE INPUT
         if not otp or not new_password:
 
             return Response(
@@ -670,7 +692,7 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ------------------------------ VERIFY OTP -----------------------------------
+        # VERIFY OTP
         result = (
             user.verify_change_password_otp(
                 otp
@@ -715,7 +737,7 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # ------------------------------ CHANGE PASSWORD ------------------------------
+        # CHANGE PASSWORD
         try:
 
             user.set_password(
@@ -748,31 +770,43 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
+# ------------------------------DELETE ACCOUNT---------------------------------------
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         user = request.user
 
-        # Check OTP lock
+        # CHECK OTP LOCK
         if user.otp_locked_until:
             now = timezone.now()
 
             if now < user.otp_locked_until:
                 remaining = int(
-                    (user.otp_locked_until - now).total_seconds()
+                    (
+                        user.otp_locked_until - now
+                    ).total_seconds()
                 )
 
                 return Response(
                     {
-                        "error": "Too many failed attempts. OTP locked for 15 minutes",
-                        "wait_seconds": max(remaining, 0),
+                        "error": (
+                            "Too many failed attempts. "
+                            "OTP locked for 15 minutes"
+                        ),
+                        "wait_seconds": max(
+                            remaining,
+                            0,
+                        ),
                     },
                     status=423,
                 )
 
-        # Generate and send deletion OTP
-        raw_otp = user.generate_delete_account_otp()
+        # GENERATE AND SEND DELETION OTP
+        raw_otp = (
+            user.generate_delete_account_otp()
+        )
 
         send_email_task.delay(
             user.email,
@@ -783,7 +817,9 @@ class DeleteAccountView(APIView):
             {
                 "status": "otp_sent",
                 "message": "OTP sent to your email",
-                "wait_seconds": Users.OTP_RESEND_COOLDOWN_SECONDS,
+                "wait_seconds": (
+                    Users.OTP_RESEND_COOLDOWN_SECONDS
+                ),
             },
             status=status.HTTP_200_OK,
         )
@@ -800,25 +836,37 @@ class DeleteAccountView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Check OTP lock
+        # CHECK OTP LOCK
         if user.otp_locked_until:
             now = timezone.now()
 
             if now < user.otp_locked_until:
                 remaining = int(
-                    (user.otp_locked_until - now).total_seconds()
+                    (
+                        user.otp_locked_until - now
+                    ).total_seconds()
                 )
 
                 return Response(
                     {
-                        "error": "Too many failed attempts. OTP locked for 15 minutes",
-                        "wait_seconds": max(remaining, 0),
+                        "error": (
+                            "Too many failed attempts. "
+                            "OTP locked for 15 minutes"
+                        ),
+                        "wait_seconds": max(
+                            remaining,
+                            0,
+                        ),
                     },
                     status=423,
                 )
 
-        # Verify OTP
-        result = user.verify_delete_account_otp(otp)
+        # VERIFY OTP
+        result = (
+            user.verify_delete_account_otp(
+                otp
+            )
+        )
 
         if result == "locked":
             remaining = 0
@@ -833,19 +881,27 @@ class DeleteAccountView(APIView):
 
             return Response(
                 {
-                    "error": "Too many failed attempts. OTP locked for 15 minutes",
-                    "wait_seconds": max(remaining, 0),
+                    "error": (
+                        "Too many failed attempts. "
+                        "OTP locked for 15 minutes"
+                    ),
+                    "wait_seconds": max(
+                        remaining,
+                        0,
+                    ),
                 },
                 status=423,
             )
 
         if not result:
             return Response(
-                {"error": "Invalid or expired OTP"},
+                {
+                    "error": "Invalid or expired OTP"
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Delete account
+        # DELETE ACCOUNT
         try:
             user.delete()
 
@@ -865,9 +921,14 @@ class DeleteAccountView(APIView):
             return response
 
         except Exception as exc:
-            print("Delete error:", exc)
+            print(
+                "Delete error:",
+                exc,
+            )
 
             return Response(
-                {"error": "Internal server error"},
+                {
+                    "error": "Internal server error"
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

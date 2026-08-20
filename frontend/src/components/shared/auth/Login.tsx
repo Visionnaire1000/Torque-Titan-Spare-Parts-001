@@ -155,6 +155,7 @@ const Login = () => {
             rounded-md
             bg-[rgb(0,64,128)]
             py-3
+            mb-[20px]
             text-base
             font-bold
             text-white

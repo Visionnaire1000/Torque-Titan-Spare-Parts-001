@@ -14,7 +14,7 @@ type OrderStatus =
   | "cancelled";
 
 interface SparePart {
-  id: number;
+  id: string;
   brand: string;
   category: string;
   vehicle_type: string;
@@ -22,15 +22,15 @@ interface SparePart {
 }
 
 interface OrderItem {
-  id: number;
+  id: string;
   quantity: number;
   price: number;
   subtotal: number;
-  sparepart: SparePart;
+  sparepart?: SparePart | null;
 }
 
 interface Order {
-  id: number;
+  id: string;
   status: OrderStatus;
   total_items: number;
   total_price: number;
@@ -44,10 +44,10 @@ interface OrdersResponse {
 }
 
 interface SeenOrderIds {
-  pending: number[];
-  shipped: number[];
-  delivered: number[];
-  cancelled: number[];
+  pending: string[];
+  shipped: string[];
+  delivered: string[];
+  cancelled: string[];
 }
 
 interface ErrorStateProps {
@@ -56,6 +56,7 @@ interface ErrorStateProps {
 
 interface ErrorResponse {
   message?: string;
+  error?: string;
 }
 
 const tabs: OrderStatus[] = [
@@ -86,26 +87,18 @@ const SkeletonOrderCard = (): ReactElement => (
       after:animate-[shimmer_1.4s_infinite]
     "
   >
-    {/* Header */}
     <div className="mb-[10px] flex justify-between">
       <div className="my-2 h-4 w-1/2 rounded-md bg-[#e0e0e0]" />
-
       <div className="h-4 w-4 rounded bg-[#e0e0e0]" />
     </div>
 
-    {/* Text */}
     <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[30%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[60%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-1/2 rounded-md bg-[#e0e0e0]" />
 
-    {/* Button */}
     <div className="mt-[10px] h-8 w-[140px] rounded-lg bg-[#e0e0e0]" />
 
-    {/* Order Items */}
     <div className="mt-[15px] border-t border-[#eee] pt-[10px]">
       {[1, 2].map((i) => (
         <div
@@ -132,11 +125,8 @@ const SkeletonOrderCard = (): ReactElement => (
 
           <div className="flex-1">
             <div className="my-2 h-3 w-[80%] rounded-md bg-[#e0e0e0]" />
-
             <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
-
             <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
-
             <div className="my-2 h-3 w-1/2 rounded-md bg-[#e0e0e0]" />
           </div>
         </div>
@@ -210,6 +200,7 @@ const ErrorState = ({
   </div>
 );
 
+/* ---------------- Admin Orders ---------------- */
 const AdminOrders = (): ReactElement => {
   const { authFetch } = useAuth();
   const location = useLocation();
@@ -217,32 +208,39 @@ const AdminOrders = (): ReactElement => {
   /* ---------------- State ---------------- */
   const [orders, setOrders] = useState<Order[]>([]);
 
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] =
+    useState<boolean>(true);
 
-  const [error, setError] = useState<string>("");
+  const [error, setError] =
+    useState<string>("");
 
   const [activeTab, setActiveTab] =
     useState<OrderStatus>("pending");
 
   const [expandedOrderId, setExpandedOrderId] =
-    useState<number | null>(null);
+    useState<string | null>(null);
 
   const [seenOrderIds, setSeenOrderIds] =
     useState<SeenOrderIds>(() => {
       try {
-        const raw = localStorage.getItem(
-          "admin_seen_order_ids"
-        );
+        const raw =
+          localStorage.getItem(
+            "admin_seen_order_ids"
+          );
 
         const stored = raw
-          ? (JSON.parse(raw) as Partial<SeenOrderIds>)
+          ? (JSON.parse(
+              raw
+            ) as Partial<SeenOrderIds>)
           : {};
 
         return {
           pending: stored.pending ?? [],
           shipped: stored.shipped ?? [],
-          delivered: stored.delivered ?? [],
-          cancelled: stored.cancelled ?? [],
+          delivered:
+            stored.delivered ?? [],
+          cancelled:
+            stored.cancelled ?? [],
         };
       } catch {
         return {
@@ -254,10 +252,13 @@ const AdminOrders = (): ReactElement => {
       }
     });
 
-  const prevOrdersRef = useRef<Order[]>([]);
+  const prevOrdersRef =
+    useRef<Order[]>([]);
 
   const timeZone =
-    Intl.DateTimeFormat().resolvedOptions().timeZone;
+    Intl.DateTimeFormat()
+      .resolvedOptions()
+      .timeZone;
 
   /* ---------------- Persist Seen ---------------- */
   useEffect(() => {
@@ -267,25 +268,35 @@ const AdminOrders = (): ReactElement => {
     );
 
     window.dispatchEvent(
-      new CustomEvent("admin_orders_updated", {
-        detail: {
-          type: "seen_update",
-        },
-      })
+      new CustomEvent(
+        "admin_orders_updated",
+        {
+          detail: {
+            type: "seen_update",
+          },
+        }
+      )
     );
   }, [seenOrderIds]);
 
-  /* ---------------- Set Tab from URL ---------------- */
+  /* ---------------- Set Tab From URL ---------------- */
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    const params =
+      new URLSearchParams(
+        location.search
+      );
 
     const tab = params.get("tab");
 
     if (
       tab &&
-      tabs.includes(tab as OrderStatus)
+      tabs.includes(
+        tab as OrderStatus
+      )
     ) {
-      setActiveTab(tab as OrderStatus);
+      setActiveTab(
+        tab as OrderStatus
+      );
     }
   }, [location.search]);
 
@@ -293,22 +304,34 @@ const AdminOrders = (): ReactElement => {
   const formatOrderTime = (
     dateString: string
   ): string => {
-    if (!dateString) return "";
+    if (!dateString) {
+      return "";
+    }
 
-    const utcDate = dateString.endsWith("Z")
-      ? new Date(dateString)
-      : new Date(`${dateString}Z`);
+    const parsedDate =
+      dateString.endsWith("Z")
+        ? new Date(dateString)
+        : new Date(`${dateString}Z`);
 
-    return new Intl.DateTimeFormat(undefined, {
-      timeZone,
-      year: "numeric",
-      month: "short",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    }).format(utcDate);
+    if (
+      Number.isNaN(parsedDate.getTime())
+    ) {
+      return "";
+    }
+
+    return new Intl.DateTimeFormat(
+      undefined,
+      {
+        timeZone,
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }
+    ).format(parsedDate);
   };
 
   /* ---------------- Detect Order Changes ---------------- */
@@ -316,14 +339,23 @@ const AdminOrders = (): ReactElement => {
     oldOrders: Order[],
     newOrders: Order[]
   ): boolean => {
-    if (oldOrders.length !== newOrders.length) {
+    if (
+      oldOrders.length !==
+      newOrders.length
+    ) {
       return true;
     }
 
-    for (let i = 0; i < newOrders.length; i++) {
+    for (
+      let i = 0;
+      i < newOrders.length;
+      i++
+    ) {
       if (
-        oldOrders[i].id !== newOrders[i].id ||
-        oldOrders[i].status !== newOrders[i].status ||
+        oldOrders[i].id !==
+          newOrders[i].id ||
+        oldOrders[i].status !==
+          newOrders[i].status ||
         oldOrders[i].total_items !==
           newOrders[i].total_items ||
         oldOrders[i].total_price !==
@@ -338,30 +370,77 @@ const AdminOrders = (): ReactElement => {
 
   /* ---------------- Group Orders ---------------- */
   const groupedOrders = orders.reduce<
-    Partial<Record<OrderStatus, Order[]>>
+    Partial<
+      Record<OrderStatus, Order[]>
+    >
   >((acc, order) => {
+    const rawStatus =
+      typeof order.status === "string"
+        ? order.status.toLowerCase()
+        : "";
+
+    if (
+      !tabs.includes(
+        rawStatus as OrderStatus
+      )
+    ) {
+      return acc;
+    }
+
     const status =
-      order.status.toLowerCase() as OrderStatus;
+      rawStatus as OrderStatus;
 
     if (!acc[status]) {
       acc[status] = [];
     }
 
-    acc[status]?.push(order);
+    acc[status]!.push(order);
 
     return acc;
   }, {});
 
   /* ---------------- Sort Orders ---------------- */
-  Object.keys(groupedOrders).forEach((status) => {
-    const orderStatus = status as OrderStatus;
+  Object.keys(groupedOrders).forEach(
+    (status) => {
+      const orderStatus =
+        status as OrderStatus;
 
-    groupedOrders[orderStatus]?.sort(
-      (a, b) =>
-        new Date(`${b.created_at}Z`).getTime() -
-        new Date(`${a.created_at}Z`).getTime()
-    );
-  });
+      groupedOrders[
+        orderStatus
+      ]?.sort((a, b) => {
+        const dateA =
+          a.created_at
+            ? new Date(
+                a.created_at.endsWith(
+                  "Z"
+                )
+                  ? a.created_at
+                  : `${a.created_at}Z`
+              ).getTime()
+            : 0;
+
+        const dateB =
+          b.created_at
+            ? new Date(
+                b.created_at.endsWith(
+                  "Z"
+                )
+                  ? b.created_at
+                  : `${b.created_at}Z`
+              ).getTime()
+            : 0;
+
+        return (
+          (Number.isFinite(dateB)
+            ? dateB
+            : 0) -
+          (Number.isFinite(dateA)
+            ? dateA
+            : 0)
+        );
+      });
+    }
+  );
 
   /* ---------------- Fetch Orders ---------------- */
   const fetchOrders = async (
@@ -374,18 +453,46 @@ const AdminOrders = (): ReactElement => {
     setError("");
 
     try {
-      const res = await authFetch(
-        `${config.API_BASE_URL}/admin/orders/`
-      );
+      const res =
+        await authFetch(
+          `${config.API_BASE_URL}/admin/orders/`
+        );
 
       if (!res.ok) {
-        throw new Error("Failed to fetch orders");
+        let message =
+          "Failed to fetch orders";
+
+        try {
+          const data =
+            (await res.json()) as ErrorResponse;
+
+          message =
+            data.message ||
+            data.error ||
+            message;
+        } catch {
+          // Ignore invalid error response.
+        }
+
+        throw new Error(message);
       }
 
       const data =
         (await res.json()) as OrdersResponse;
 
-      const newOrders = data.orders ?? [];
+      const newOrders: Order[] =
+        Array.isArray(data.orders)
+          ? data.orders.filter(
+              (
+                order
+              ): order is Order =>
+                !!order &&
+                typeof order ===
+                  "object" &&
+                typeof order.id ===
+                  "string"
+            )
+          : [];
 
       if (
         hasOrdersChanged(
@@ -395,19 +502,25 @@ const AdminOrders = (): ReactElement => {
       ) {
         setOrders(newOrders);
 
-        prevOrdersRef.current = newOrders;
+        prevOrdersRef.current =
+          newOrders;
 
         localStorage.setItem(
           "admin_orders_cache",
-          JSON.stringify(newOrders)
+          JSON.stringify(
+            newOrders
+          )
         );
 
         window.dispatchEvent(
-          new CustomEvent("admin_orders_updated", {
-            detail: {
-              type: "data_update",
-            },
-          })
+          new CustomEvent(
+            "admin_orders_updated",
+            {
+              detail: {
+                type: "data_update",
+              },
+            }
+          )
         );
       }
     } catch (err: unknown) {
@@ -430,113 +543,136 @@ const AdminOrders = (): ReactElement => {
 
   /* ---------------- Update Status ---------------- */
   const updateOrderStatus = (
-    orderId: number,
-    status: OrderStatus
+    orderId: string,
+    newStatus: OrderStatus
   ): void => {
-    const toastId = toast.info(
-      <div>
+    const toastId =
+      toast.info(
         <div>
-          Mark order #{orderId} as {status}?
-        </div>
+          <div>
+            Mark order #{orderId} as{" "}
+            {newStatus}?
+          </div>
 
-        <div className="mt-2 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              toast.dismiss(toastId);
-
-              try {
-                const res = await authFetch(
-                  `${config.API_BASE_URL}/admin/orders/${orderId}/`,
-                  {
-                    method: "PATCH",
-                    headers: {
-                      "Content-Type":
-                        "application/json",
-                    },
-                    body: JSON.stringify({
-                      status,
-                    }),
-                  }
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                toast.dismiss(
+                  toastId
                 );
 
-                const data =
-                  (await res.json()) as ErrorResponse;
+                try {
+                  const res =
+                    await authFetch(
+                      `${config.API_BASE_URL}/admin/orders/${orderId}/`,
+                      {
+                        method:
+                          "PATCH",
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+                        },
+                        body: JSON.stringify(
+                          {
+                            status:
+                              newStatus,
+                          }
+                        ),
+                      }
+                    );
 
-                if (!res.ok) {
-                  throw new Error(
-                    data.message || "Failed"
+                  const data =
+                    (await res.json()) as ErrorResponse;
+
+                  if (!res.ok) {
+                    throw new Error(
+                      data.message ||
+                        data.error ||
+                        "Failed to update order"
+                    );
+                  }
+
+                  toast.success(
+                    `Order #${orderId} marked as ${newStatus}`
+                  );
+
+                  await fetchOrders(
+                    true
+                  );
+                } catch (
+                  err: unknown
+                ) {
+                  const message =
+                    err instanceof
+                    Error
+                      ? err.message
+                      : "Failed to update order";
+
+                  toast.error(
+                    message
                   );
                 }
+              }}
+              className="
+                cursor-pointer
+                rounded
+                border-0
+                bg-[#28a745]
+                px-3
+                py-1.5
+                text-white
+                transition-all
+                duration-200
+                hover:bg-[#218838]
+              "
+            >
+              Confirm
+            </button>
 
-                toast.success(
-                  `Order #${orderId} marked as ${status}`
-                );
-
-                await fetchOrders(true);
-              } catch (err: unknown) {
-                const message =
-                  err instanceof Error
-                    ? err.message
-                    : "Failed to update order";
-
-                toast.error(message);
+            <button
+              type="button"
+              onClick={() =>
+                toast.dismiss(
+                  toastId
+                )
               }
-            }}
-            className="
-              cursor-pointer
-              rounded
-              border-0
-              bg-[#28a745]
-              px-3
-              py-1.5
-              text-white
-              transition-all
-              duration-200
-              hover:bg-[#218838]
-            "
-          >
-            Confirm
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              toast.dismiss(toastId)
-            }
-            className="
-              cursor-pointer
-              rounded
-              border-0
-              bg-[#dc3545]
-              px-3
-              py-1.5
-              text-white
-              transition-all
-              duration-200
-              hover:bg-[#c82333]
-            "
-          >
-            Cancel
-          </button>
-        </div>
-      </div>,
-      {
-        autoClose: false,
-      }
-    );
+              className="
+                cursor-pointer
+                rounded
+                border-0
+                bg-[#dc3545]
+                px-3
+                py-1.5
+                text-white
+                transition-all
+                duration-200
+                hover:bg-[#c82333]
+              "
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        {
+          autoClose: false,
+        }
+      );
   };
 
   /* ---------------- Polling ---------------- */
   useEffect(() => {
     void fetchOrders();
 
-    const interval = window.setInterval(() => {
-      void fetchOrders(true);
-    }, 30000);
+    const interval =
+      window.setInterval(() => {
+        void fetchOrders(true);
+      }, 30000);
 
     return () => {
-      window.clearInterval(interval);
+      window.clearInterval(
+        interval
+      );
     };
   }, []);
 
@@ -599,9 +735,13 @@ const AdminOrders = (): ReactElement => {
         </div>
 
         <div>
-          {[1, 2, 3].map((i) => (
-            <SkeletonOrderCard key={i} />
-          ))}
+          {[1, 2, 3].map(
+            (i) => (
+              <SkeletonOrderCard
+                key={i}
+              />
+            )
+          )}
         </div>
       </div>
     );
@@ -611,7 +751,9 @@ const AdminOrders = (): ReactElement => {
   if (error) {
     return (
       <ErrorState
-        onRetry={() => fetchOrders()}
+        onRetry={() =>
+          fetchOrders()
+        }
       />
     );
   }
@@ -666,14 +808,15 @@ const AdminOrders = (): ReactElement => {
               text-[#6b7280]
             "
           >
-            No customer orders have been placed yet.
+            No customer orders have been
+            placed yet.
           </p>
         </div>
       </div>
     );
   }
 
-    return (
+  return (
     <div
       className="
         mt-[90px]
@@ -688,7 +831,7 @@ const AdminOrders = (): ReactElement => {
         max-[768px]:ml-0
         max-[768px]:mt-[100px]
 
-        max-[640px]:px-3 
+        max-[640px]:px-3
       "
     >
       <ToastContainer
@@ -709,14 +852,18 @@ const AdminOrders = (): ReactElement => {
           const ordersInTab =
             groupedOrders[tab] ?? [];
 
-          const seenIds = new Set(
-            seenOrderIds[tab] ?? []
-          );
+          const seenIds =
+            new Set(
+              seenOrderIds[tab] ?? []
+            );
 
-          const count = ordersInTab.filter(
-            (order) =>
-              !seenIds.has(order.id)
-          ).length;
+          const count =
+            ordersInTab.filter(
+              (order) =>
+                !seenIds.has(
+                  order.id
+                )
+            ).length;
 
           const isActive =
             activeTab === tab;
@@ -785,229 +932,238 @@ const AdminOrders = (): ReactElement => {
 
       {/* ================= ORDERS ================= */}
       <div>
-        {groupedOrders[activeTab]?.length ? (
-          groupedOrders[activeTab]?.map(
-            (order) => (
+        {groupedOrders[
+          activeTab
+        ]?.length ? (
+          groupedOrders[
+            activeTab
+          ]!.map((order) => (
+            <div
+              key={order.id}
+              className="
+                mb-[15px]
+                rounded-lg
+                border
+                border-[#ddd]
+                bg-[#fafafa]
+                p-[15px]
+                transition-shadow
+                duration-300
+                hover:shadow-[0_2px_8px_rgba(0,0,0,0.1)]
+              "
+            >
+              {/* ORDER HEADER */}
               <div
-                key={order.id}
+                onClick={() =>
+                  setExpandedOrderId(
+                    expandedOrderId ===
+                      order.id
+                      ? null
+                      : order.id
+                  )
+                }
                 className="
-                  mb-[15px]
-                  rounded-lg
-                  border
-                  border-[#ddd]
-                  bg-[#fafafa]
-                  p-[15px]
-                  transition-shadow
-                  duration-300
-                  hover:shadow-[0_2px_8px_rgba(0,0,0,0.1)]
+                  mb-[10px]
+                  flex
+                  cursor-pointer
+                  items-center
+                  justify-between
+                  gap-3
+                  text-base
                 "
               >
-                {/* ORDER HEADER */}
-                <div
-                  onClick={() =>
-                    setExpandedOrderId(
-                      expandedOrderId ===
-                        order.id
-                        ? null
-                        : order.id
-                    )
-                  }
+                <div>
+                  <strong>
+                    Order #{order.id}
+                  </strong>{" "}
+                  —{" "}
+                  {order.status.toUpperCase()}
+                </div>
+
+                <span
                   className="
-                    mb-[10px]
-                    flex
+                    shrink-0
                     cursor-pointer
-                    items-center
-                    justify-between
-                    gap-3
-                    text-base
+                    font-bold
                   "
                 >
-                  <div>
-                    <strong>
-                      Order #{order.id}
-                    </strong>{" "}
-                    —{" "}
-                    {order.status.toUpperCase()}
-                  </div>
+                  {expandedOrderId ===
+                  order.id ? (
+                    <ChevronUp
+                      size={16}
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={16}
+                    />
+                  )}
+                </span>
+              </div>
 
-                  <span
+              {/* ORDER DETAILS */}
+              <div className="space-y-1 text-sm sm:text-base">
+                <div>
+                  Total Items:{" "}
+                  {order.total_items}
+                </div>
+
+                <div>
+                  Total Cost: KES{" "}
+                  {order.total_price?.toLocaleString()}
+                </div>
+
+                <div className="break-words">
+                  Shipping Address:{" "}
+                  {order.address ||
+                    "N/A"}
+                </div>
+
+                <div>
+                  Created At:{" "}
+                  {formatOrderTime(
+                    order.created_at
+                  )}
+
+                  <small
                     className="
-                      shrink-0
-                      cursor-pointer
-                      font-bold
+                      ml-1.5
+                      text-xs
+                      opacity-70
                     "
                   >
-                    {expandedOrderId ===
-                    order.id ? (
-                      <ChevronUp size={16} />
-                    ) : (
-                      <ChevronDown
-                        size={16}
-                      />
-                    )}
-                  </span>
+                    ({timeZone})
+                  </small>
                 </div>
+              </div>
 
-                {/* ORDER DETAILS */}
-                <div className="space-y-1 text-sm sm:text-base">
-                  <div>
-                    Total Items:{" "}
-                    {order.total_items}
-                  </div>
+              {/* PENDING ACTION */}
+              {order.status ===
+                "pending" && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateOrderStatus(
+                        order.id,
+                        "shipped"
+                      )
+                    }
+                    className="
+                      mt-[16px]
+                      cursor-pointer
+                      rounded-[5px]
+                      border-0
+                      bg-[#004080]
+                      px-[14px]
+                      py-2
+                      font-bold
+                      text-white
+                      transition-all
+                      duration-300
 
-                  <div>
-                    Total Cost: KES{" "}
-                    {order.total_price?.toLocaleString()}
-                  </div>
+                      hover:-translate-y-px
+                      hover:bg-[#004080]/60
 
-                  <div className="break-words">
-                    Shipping Address:{" "}
-                    {order.address}
-                  </div>
+                      active:translate-y-0
+                      active:bg-[#004080]/60
+                      active:text-[#ccc]
 
-                  <div>
-                    Created At:{" "}
-                    {formatOrderTime(
-                      order.created_at
-                    )}
-
-                    <small
-                      className="
-                        ml-1.5
-                        text-xs
-                        opacity-70
-                      "
-                    >
-                      ({timeZone})
-                    </small>
-                  </div>
+                      max-[640px]:w-full
+                    "
+                  >
+                    Mark as Shipped
+                  </button>
                 </div>
+              )}
 
-                {/* PENDING ACTION */}
-                {order.status ===
-                  "pending" && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateOrderStatus(
-                          order.id,
-                          "shipped"
-                        )
-                      }
-                      className="
-                        mt-[16px]
-                        cursor-pointer
-                        rounded-[5px]
-                        border-0
-                        bg-[#004080]
-                        px-[14px]
-                        py-2
-                        font-bold
-                        text-white
-                        transition-all
-                        duration-300
+              {/* SHIPPED ACTION */}
+              {order.status ===
+                "shipped" && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateOrderStatus(
+                        order.id,
+                        "delivered"
+                      )
+                    }
+                    className="
+                      mt-[16px]
+                      cursor-pointer
+                      rounded-[5px]
+                      border-0
+                      bg-[#004080]
+                      px-[14px]
+                      py-2
+                      font-bold
+                      text-white
+                      transition-all
+                      duration-300
 
-                        hover:-translate-y-px
-                        hover:bg-[#004080]/60
+                      hover:-translate-y-px
+                      hover:bg-[#004080]/60
 
-                        active:translate-y-0
-                        active:bg-[#004080]/60
-                        active:text-[#ccc]
+                      active:translate-y-0
+                      active:bg-[#004080]/60
+                      active:text-[#ccc]
 
-                        max-[640px]:w-full
-                      "
-                    >
-                      Mark as Shipped
-                    </button>
-                  </div>
-                )}
+                      max-[640px]:w-full
+                    "
+                  >
+                    Mark as Delivered
+                  </button>
+                </div>
+              )}
 
-                {/* SHIPPED ACTION */}
-                {order.status ===
-                  "shipped" && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updateOrderStatus(
-                          order.id,
-                          "delivered"
-                        )
-                      }
-                      className="
-                        mt-[16px]
-                        cursor-pointer
-                        rounded-[5px]
-                        border-0
-                        bg-[#004080]
-                        px-[14px]
-                        py-2
-                        font-bold
-                        text-white
-                        transition-all
-                        duration-300
+              {/* ================= ORDER ITEMS ================= */}
+              {expandedOrderId ===
+                order.id &&
+                Array.isArray(
+                  order.order_items
+                ) &&
+                order.order_items.length >
+                  0 && (
+                  <div
+                    className="
+                      mt-[15px]
+                      border-t
+                      border-[#eee]
+                      pt-[10px]
+                    "
+                  >
+                    {order.order_items.map(
+                      (item) => (
+                        <div
+                          key={item.id}
+                          className="
+                            mb-[10px]
+                            flex
+                            gap-3
+                            border-b
+                            border-dashed
+                            border-[#ddd]
+                            py-[5px]
 
-                        hover:-translate-y-px
-                        hover:bg-[#004080]/60
-
-                        active:translate-y-0
-                        active:bg-[#004080]/60
-                        active:text-[#ccc]
-
-                        max-[640px]:w-full
-                      "
-                    >
-                      Mark as Delivered
-                    </button>
-                  </div>
-                )}
-
-                {/* ================= ORDER ITEMS ================= */}
-                {expandedOrderId ===
-                  order.id &&
-                  order.order_items &&
-                  order.order_items.length >
-                    0 && (
-                    <div
-                      className="
-                        mt-[15px]
-                        border-t
-                        border-[#eee]
-                        pt-[10px]
-                      "
-                    >
-                      {order.order_items.map(
-                        (item) => (
-                          <div
-                            key={item.id}
-                            className="
-                              mb-[10px]
-                              flex
-                              gap-3
-                              border-b
-                              border-dashed
-                              border-[#ddd]
-                              py-[5px]
-
-                              max-[500px]:items-start
-                            "
-                          >
-                            {/* IMAGE */}
+                            max-[500px]:items-start
+                          "
+                        >
+                          {/* IMAGE */}
+                          {item.sparepart ? (
                             <Link
                               to={`/items/${item.sparepart.id}`}
                               className="shrink-0"
                             >
                               <img
                                 src={
-                                  item
-                                    .sparepart
-                                    .image_url
+                                  item.sparepart
+                                    .image_url ||
+                                  "/placeholder.png"
                                 }
                                 alt={
-                                  item
-                                    .sparepart
-                                    .brand
+                                  item.sparepart
+                                    .brand ||
+                                  "Spare part"
                                 }
                                 className="
                                   h-20
@@ -1020,15 +1176,30 @@ const AdminOrders = (): ReactElement => {
                                 "
                               />
                             </Link>
-
-                            {/* ITEM INFORMATION */}
+                          ) : (
                             <div
                               className="
-                                min-w-0
-                                flex-1
-                                text-sm
+                                h-20
+                                w-20
+                                shrink-0
+                                rounded
+                                bg-[#e5e7eb]
+
+                                max-[500px]:h-[70px]
+                                max-[500px]:w-[70px]
                               "
-                            >
+                            />
+                          )}
+
+                          {/* ITEM INFORMATION */}
+                          <div
+                            className="
+                              min-w-0
+                              flex-1
+                              text-sm
+                            "
+                          >
+                            {item.sparepart ? (
                               <strong
                                 className="
                                   block
@@ -1045,37 +1216,44 @@ const AdminOrders = (): ReactElement => {
                                     .sparepart
                                     .category
                                 }{" "}
-                                for{" "}
-                                {
-                                  item
-                                    .sparepart
-                                    .vehicle_type
-                                }
+                                {item
+                                  .sparepart
+                                  .vehicle_type
+                                  ? `for ${item.sparepart.vehicle_type}`
+                                  : ""}
                               </strong>
+                            ) : (
+                              <strong className="block break-words">
+                                Spare part unavailable
+                              </strong>
+                            )}
 
-                              <p>
-                                Quantity:{" "}
-                                {item.quantity}
-                              </p>
+                            <p>
+                              Quantity:{" "}
+                              {item.quantity}
+                            </p>
 
-                              <p>
-                                Unit Price: KES{" "}
-                                {item.price?.toLocaleString()}
-                              </p>
+                            <p>
+                              Unit Price:
+                              {" "}
+                              KES{" "}
+                              {item.price?.toLocaleString()}
+                            </p>
 
-                              <p>
-                                Subtotal: KES{" "}
-                                {item.subtotal?.toLocaleString()}
-                              </p>
-                            </div>
+                            <p>
+                              Subtotal:
+                              {" "}
+                              KES{" "}
+                              {item.subtotal?.toLocaleString()}
+                            </p>
                           </div>
-                        )
-                      )}
-                    </div>
-                  )}
-              </div>
-            )
-          )
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+            </div>
+          ))
         ) : (
 
           /* ================= EMPTY TAB ================= */
