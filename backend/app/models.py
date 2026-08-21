@@ -4,17 +4,17 @@ import uuid
 from datetime import timedelta
 
 from django.contrib.auth.base_user import BaseUserManager
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser
 from django.contrib.auth.hashers import make_password, check_password
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Avg
 from django.utils import timezone
 
+import hashlib
+import secrets
 
-# ------------------------------ UUID HELPER ------------------------------------------
-def generate_uuid():
-    return str(uuid.uuid4())
+from datetime import timedelta
 
 
 # ------------------------------ USERS MANAGER -----------------------------------------
@@ -28,9 +28,15 @@ class UsersManager(BaseUserManager):
     ):
 
         if not email:
-            raise ValueError("Email is required")
+            raise ValueError(
+                "Email is required"
+            )
 
-        email = email.lower().strip()
+        email = (
+            email
+            .lower()
+            .strip()
+        )
 
         user = self.model(
             email=email,
@@ -40,72 +46,26 @@ class UsersManager(BaseUserManager):
         if password:
             user.set_password(password)
 
-        user.save(using=self._db)
+        user.save(
+            using=self._db
+        )
 
         return user
 
-    def create_superuser(
-        self,
-        email,
-        password=None,
-        **extra_fields
-    ):
-
-        extra_fields.setdefault(
-            "is_staff",
-            True
-        )
-
-        extra_fields.setdefault(
-            "is_superuser",
-            True
-        )
-
-        extra_fields.setdefault(
-            "is_active",
-            True
-        )
-
-        if extra_fields.get(
-            "is_staff"
-        ) is not True:
-
-            raise ValueError(
-                "Superuser must have is_staff=True"
-            )
-
-        if extra_fields.get(
-            "is_superuser"
-        ) is not True:
-
-            raise ValueError(
-                "Superuser must have is_superuser=True"
-            )
-
-        return self.create_user(
-            email=email,
-            password=password,
-            **extra_fields
-        )
-
 
 # ------------------------------ USERS MODEL ------------------------------------------
-class Users(
-    AbstractBaseUser,
-    PermissionsMixin
-):
+class Users(AbstractBaseUser):
 
-    id = models.CharField(
-        max_length=36,
+    id = models.UUIDField(
         primary_key=True,
-        default=generate_uuid,
-        editable=False
+        default=uuid.uuid4,
+        editable=False,
     )
 
     email = models.EmailField(
         unique=True
     )
-    
+
     # ------------------------------ AUTH PROVIDER -------------------------------
     auth_provider = models.CharField(
         max_length=20,
@@ -123,7 +83,7 @@ class Users(
         blank=True,
     )
 
-    # ------------------------------ PASSWORD -----------------------------------------
+    # ------------------------------ PASSWORD -------------------------------------
     password_hash = models.CharField(
         max_length=255
     )
@@ -133,16 +93,12 @@ class Users(
         default="buyer"
     )
 
-    # Django authentication fields
+    # Django authentication field
     is_active = models.BooleanField(
         default=True
     )
 
-    is_staff = models.BooleanField(
-        default=False
-    )
-
-    # ------------------------------ EMAIL VERIFICATION -------------------------------
+    # ------------------------------ EMAIL VERIFICATION ---------------------------
     email_verified = models.BooleanField(
         default=False
     )
@@ -158,7 +114,7 @@ class Users(
         blank=True
     )
 
-    # ------------------------------ CHANGE PASSWORD OTP ------------------------------
+    # ------------------------------ CHANGE PASSWORD OTP ---------------------------
     change_password_otp_hash = models.CharField(
         max_length=255,
         null=True,
@@ -170,7 +126,7 @@ class Users(
         blank=True
     )
 
-    # ------------------------------ DELETE ACCOUNT OTP -------------------------------
+    # ------------------------------ DELETE ACCOUNT OTP ----------------------------
     delete_account_otp_hash = models.CharField(
         max_length=255,
         null=True,
@@ -182,7 +138,7 @@ class Users(
         blank=True
     )
 
-    # ------------------------------ OTP CONTROL --------------------------------------
+    # ------------------------------ OTP CONTROL -----------------------------------
     otp_last_sent = models.DateTimeField(
         null=True,
         blank=True
@@ -201,7 +157,7 @@ class Users(
         blank=True
     )
 
-    # ------------------------------ OTP CONSTANTS ------------------------------------
+    # ------------------------------ OTP CONSTANTS ---------------------------------
     OTP_EXPIRY_MINUTES = 5
 
     OTP_RESEND_COOLDOWN_SECONDS = 60
@@ -212,7 +168,7 @@ class Users(
 
     OTP_LOCK_MINUTES = 5
 
-    # ------------------------------ AUTH CONFIGURATION -------------------------------
+    # ------------------------------ AUTH CONFIGURATION ----------------------------
     USERNAME_FIELD = "email"
 
     REQUIRED_FIELDS = []
@@ -222,11 +178,13 @@ class Users(
     class Meta:
         db_table = "users"
 
-    # ------------------------------ VALIDATION ---------------------------------------
+    # ------------------------------ VALIDATION ------------------------------------
     def clean(self):
 
-        if not self.email or "@" not in self.email:
-
+        if (
+            not self.email
+            or "@" not in self.email
+        ):
             raise ValidationError(
                 "Invalid email address"
             )
@@ -237,7 +195,7 @@ class Users(
             .strip()
         )
 
-    # ------------------------------ PASSWORD -----------------------------------------
+    # ------------------------------ PASSWORD --------------------------------------
     def set_password(
         self,
         password: str
@@ -262,7 +220,7 @@ class Users(
 
         return self.password_hash
 
-    # ------------------------------ OTP HASH -----------------------------------------
+    # ------------------------------ OTP HASH --------------------------------------
     def _hash_otp(
         self,
         otp: str
@@ -272,7 +230,7 @@ class Users(
             otp.encode()
         ).hexdigest()
 
-    # ------------------------------ GENERIC ACTION OTP ------------------------------
+    # ------------------------------ GENERIC ACTION OTP ----------------------------
     def _generate_action_otp(
         self,
         hash_field: str,
@@ -280,7 +238,8 @@ class Users(
     ):
 
         raw_otp = str(
-            secrets.randbelow(900000) + 100000
+            secrets.randbelow(900000)
+            + 100000
         )
 
         setattr(
@@ -307,11 +266,12 @@ class Users(
 
         return raw_otp
 
-    # ------------------------------ EMAIL OTP ----------------------------------------
+    # ------------------------------ EMAIL OTP -------------------------------------
     def generate_email_otp(self):
 
         raw_otp = str(
-            secrets.randbelow(900000) + 100000
+            secrets.randbelow(900000)
+            + 100000
         )
 
         self.email_otp_hash = (
@@ -350,14 +310,12 @@ class Users(
 
         return raw_otp
 
-    # ------------------------------ CHANGE PASSWORD OTP -----------------------------
+    # ------------------------------ CHANGE PASSWORD OTP ---------------------------
     def generate_change_password_otp(self):
 
-        raw_otp = (
-            self._generate_action_otp(
-                "change_password_otp_hash",
-                "change_password_otp_expires",
-            )
+        raw_otp = self._generate_action_otp(
+            "change_password_otp_hash",
+            "change_password_otp_expires",
         )
 
         self.otp_last_sent = timezone.now()
@@ -381,14 +339,12 @@ class Users(
 
         return raw_otp
 
-    # ------------------------------ DELETE ACCOUNT OTP ------------------------------
+    # ------------------------------ DELETE ACCOUNT OTP ----------------------------
     def generate_delete_account_otp(self):
 
-        raw_otp = (
-            self._generate_action_otp(
-                "delete_account_otp_hash",
-                "delete_account_otp_expires",
-            )
+        raw_otp = self._generate_action_otp(
+            "delete_account_otp_hash",
+            "delete_account_otp_expires",
         )
 
         self.otp_last_sent = timezone.now()
@@ -412,7 +368,7 @@ class Users(
 
         return raw_otp
 
-    # ------------------------------ RESEND CONTROL ----------------------------------
+    # ------------------------------ RESEND CONTROL --------------------------------
     def can_resend_otp(
         self,
         cooldown_seconds=60,
@@ -443,7 +399,7 @@ class Users(
 
         return False, remaining
 
-    # ------------------------------ EMAIL OTP VERIFY --------------------------------
+    # ------------------------------ EMAIL OTP VERIFY ------------------------------
     def verify_email_otp(
         self,
         otp: str
@@ -477,7 +433,6 @@ class Users(
                 self.otp_attempts
                 >= self.MAX_OTP_ATTEMPTS
             ):
-
                 self.otp_locked_until = (
                     now
                     + timedelta(
@@ -494,17 +449,11 @@ class Users(
 
             return False
 
-        # Successful email verification
         self.email_verified = True
-
         self.email_otp_hash = None
-
         self.email_otp_expires = None
-
         self.otp_attempts = 0
-
         self.otp_resend_count = 0
-
         self.otp_locked_until = None
 
         self.save(
@@ -520,7 +469,7 @@ class Users(
 
         return True
 
-    # ------------------------------ CHANGE PASSWORD VERIFY --------------------------
+    # ------------------------------ CHANGE PASSWORD VERIFY ------------------------
     def verify_change_password_otp(
         self,
         otp: str
@@ -540,10 +489,7 @@ class Users(
         ):
             return False
 
-        if (
-            self.change_password_otp_expires
-            < now
-        ):
+        if self.change_password_otp_expires < now:
             return False
 
         if (
@@ -557,7 +503,6 @@ class Users(
                 self.otp_attempts
                 >= self.MAX_OTP_ATTEMPTS
             ):
-
                 self.otp_locked_until = (
                     now
                     + timedelta(
@@ -574,13 +519,9 @@ class Users(
 
             return False
 
-        # Successful verification
         self.change_password_otp_hash = None
-
         self.change_password_otp_expires = None
-
         self.otp_attempts = 0
-
         self.otp_locked_until = None
 
         self.save(
@@ -594,7 +535,7 @@ class Users(
 
         return True
 
-    # ------------------------------ DELETE ACCOUNT VERIFY ---------------------------
+    # ------------------------------ DELETE ACCOUNT VERIFY -------------------------
     def verify_delete_account_otp(
         self,
         otp: str
@@ -614,10 +555,7 @@ class Users(
         ):
             return False
 
-        if (
-            self.delete_account_otp_expires
-            < now
-        ):
+        if self.delete_account_otp_expires < now:
             return False
 
         if (
@@ -631,7 +569,6 @@ class Users(
                 self.otp_attempts
                 >= self.MAX_OTP_ATTEMPTS
             ):
-
                 self.otp_locked_until = (
                     now
                     + timedelta(
@@ -648,13 +585,9 @@ class Users(
 
             return False
 
-        # Successful verification
         self.delete_account_otp_hash = None
-
         self.delete_account_otp_expires = None
-
         self.otp_attempts = 0
-
         self.otp_locked_until = None
 
         self.save(
@@ -668,21 +601,9 @@ class Users(
 
         return True
 
-    # ------------------------------ DISPLAY NAME ------------------------------------
+    # ------------------------------ DISPLAY NAME ----------------------------------
     @property
     def display_name(self):
-
-        if (
-            hasattr(self, "first_name")
-            and hasattr(self, "last_name")
-            and self.first_name
-            and self.last_name
-        ):
-
-            return (
-                f"{self.first_name} "
-                f"{self.last_name}"
-            )
 
         if self.email:
 
@@ -704,7 +625,7 @@ class Users(
 
         return "User"
 
-    # ------------------------------ SAVE --------------------------------------------
+    # ------------------------------ SAVE -------------------------------------------
     def save(
         self,
         *args,
@@ -726,20 +647,19 @@ class Users(
             **kwargs
         )
 
-    # ------------------------------ STRING ------------------------------------------
+    # ------------------------------ STRING -----------------------------------------
     def __str__(self):
 
         return self.email
 
-    
-# ------------------------------SPAREPARTS MODEL------------------------------------------
+
+# ------------------------------ SPAREPARTS MODEL ------------------------------------------
 class SpareParts(models.Model):
 
-    id = models.CharField(
-        max_length=36,
+    id = models.UUIDField(
         primary_key=True,
-        default=generate_uuid,
-        editable=False
+        default=uuid.uuid4,
+        editable=False,
     )
 
     category = models.CharField(
@@ -830,13 +750,17 @@ class SpareParts(models.Model):
                 2
             )
 
-            self.discount_percentage = round(
-                (
-                    self.discount_amount
-                    / self.marked_price
-                ) * 100,
-                2
-            ) if self.marked_price > 0 else 0.0
+            self.discount_percentage = (
+                round(
+                    (
+                        self.discount_amount
+                        / self.marked_price
+                    ) * 100,
+                    2
+                )
+                if self.marked_price > 0
+                else 0.0
+            )
 
         else:
 
@@ -849,12 +773,16 @@ class SpareParts(models.Model):
 
         self.total_reviews = reviews.count()
 
-        average = reviews.filter(
-            rating__gte=1,
-            rating__lte=5
-        ).aggregate(
-            average=Avg("rating")
-        )["average"]
+        average = (
+            reviews
+            .filter(
+                rating__gte=1,
+                rating__lte=5
+            )
+            .aggregate(
+                average=Avg("rating")
+            )["average"]
+        )
 
         self.average_rating = (
             round(float(average), 1)
@@ -872,21 +800,28 @@ class SpareParts(models.Model):
     def save(self, *args, **kwargs):
 
         self.full_clean()
+
         self.calculate_discount()
 
-        super().save(*args, **kwargs)
+        super().save(
+            *args,
+            **kwargs
+        )
 
     def __str__(self):
-        return f"{self.brand} - {self.category}"
+
+        return (
+            f"{self.brand} - "
+            f"{self.category}"
+        )
 
 
 # ------------------------------ REVIEWS MODEL ------------------------------------------
 class Reviews(models.Model):
 
-    id = models.CharField(
-        max_length=36,
+    id = models.UUIDField(
         primary_key=True,
-        default=generate_uuid,
+        default=uuid.uuid4,
         editable=False,
     )
 
@@ -920,6 +855,7 @@ class Reviews(models.Model):
         db_table = "reviews"
 
     def clean(self):
+
         if (
             self.rating is not None
             and not 1 <= self.rating <= 5
@@ -938,18 +874,21 @@ class Reviews(models.Model):
 
     @property
     def total_likes(self):
+
         return self.likes.filter(
             is_like=True
         ).count()
 
     @property
     def total_dislikes(self):
+
         return self.likes.filter(
             is_like=False
         ).count()
 
     @property
     def user_display_name(self):
+
         return (
             self.user.display_name
             if self.user
@@ -957,13 +896,18 @@ class Reviews(models.Model):
         )
 
     def save(self, *args, **kwargs):
+
         self.full_clean()
 
-        super().save(*args, **kwargs)
+        super().save(
+            *args,
+            **kwargs
+        )
 
         self.sparepart.update_review_stats()
 
     def delete(self, *args, **kwargs):
+
         sparepart = self.sparepart
 
         result = super().delete(
@@ -976,6 +920,7 @@ class Reviews(models.Model):
         return result
 
     def __str__(self):
+
         return (
             f"Review by "
             f"{self.user_display_name}"
@@ -985,10 +930,9 @@ class Reviews(models.Model):
 # ------------------------------ REVIEW REACTIONS MODEL ------------------------------------------
 class ReviewReactions(models.Model):
 
-    id = models.CharField(
-        max_length=36,
+    id = models.UUIDField(
         primary_key=True,
-        default=generate_uuid,
+        default=uuid.uuid4,
         editable=False,
     )
 
@@ -1020,6 +964,7 @@ class ReviewReactions(models.Model):
         ]
 
     def clean(self):
+
         if not isinstance(
             self.is_like,
             bool,
@@ -1029,30 +974,36 @@ class ReviewReactions(models.Model):
             )
 
     def save(self, *args, **kwargs):
+
         self.full_clean()
 
-        super().save(*args, **kwargs)
+        super().save(
+            *args,
+            **kwargs
+        )
 
     def delete(self, *args, **kwargs):
+
         return super().delete(
             *args,
             **kwargs
         )
 
     def __str__(self):
+
         return (
             f"{self.user.email} - "
             f"{'Like' if self.is_like else 'Dislike'}"
         )
-    
-# ------------------------------ORDERS MODEL------------------------------------------
+
+
+# ------------------------------ ORDERS MODEL ------------------------------------------
 class Orders(models.Model):
 
-    id = models.CharField(
-        max_length=36,
+    id = models.UUIDField(
         primary_key=True,
-        default=generate_uuid,
-        editable=False
+        default=uuid.uuid4,
+        editable=False,
     )
 
     user = models.ForeignKey(
@@ -1128,17 +1079,17 @@ class Orders(models.Model):
         return self.total_price
 
     def __str__(self):
+
         return f"Order {self.id}"
 
 
-# ------------------------------ORDER ITEMS MODEL------------------------------------------
+# ------------------------------ ORDER ITEMS MODEL ------------------------------------------
 class OrderItems(models.Model):
 
-    id = models.CharField(
-        max_length=36,
+    id = models.UUIDField(
         primary_key=True,
-        default=generate_uuid,
-        editable=False
+        default=uuid.uuid4,
+        editable=False,
     )
 
     order = models.ForeignKey(
@@ -1191,19 +1142,19 @@ class OrderItems(models.Model):
 
         return self.subtotal
 
-    # --------------------------------SAVE-----------------------------------------
     def save(self, *args, **kwargs):
 
         self.calculate_subtotal(
             use_sparepart_price_if_empty=True
         )
 
-        super().save(*args, **kwargs)
+        super().save(
+            *args,
+            **kwargs
+        )
 
         self.order.calculate_total()
 
-    
-    # --------------------------------DELETE----------------------------------------
     def delete(self, *args, **kwargs):
 
         order = self.order
@@ -1222,5 +1173,4 @@ class OrderItems(models.Model):
         return (
             f"{self.sparepart.brand} "
             f"x {self.quantity}"
-        )
-
+        )    

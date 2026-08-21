@@ -18,6 +18,7 @@ from app.views.buyerViews import (
     ReviewsView,
     ReviewEditView,
     ReviewReactionsView,
+    MyReviewsView,
     OrdersView,
 )
 
@@ -131,8 +132,14 @@ urlpatterns = [
 
     path(
         "reviews/<str:review_id>/delete/",
-        ReviewReactionsView.as_view(),
+        ReviewEditView.as_view(),
         name="review-reaction",
+    ),
+
+    path(
+        "buyer-reviews/",
+       MyReviewsView.as_view(),
+       name="buyer-reviews",
     ),
 
 
@@ -189,12 +196,6 @@ urlpatterns = [
         "admin/reviews/",
         AdminReviewsView.as_view(),
         name="admin-reviews",
-    ),
-
-    path(
-        "admin/reviews/<str:review_id>/reactions/",
-        AdminReviewReactionsView.as_view(),
-        name="admin-review-reactions",
     ),
 
     path(

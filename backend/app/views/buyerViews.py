@@ -26,22 +26,47 @@ class ReviewsSerializer(serializers.ModelSerializer):
         model = Reviews
         fields = "__all__"
 
-def serialize_review(review, include_likes=False):
 
+def serialize_review(
+    review,
+    include_likes=False,
+    current_user=None,
+):
     data = ReviewsSerializer(review).data
 
-    # Always return IDs as strings
+    # --------------------------- IDs ---------------------------
     data["id"] = str(review.id)
     data["user_id"] = str(review.user_id)
 
+    # --------------------------- USER ---------------------------
     data["user_display_name"] = review.user_display_name
+
+    # --------------------------- COUNTS ---------------------------
     data["total_likes"] = review.total_likes
     data["total_dislikes"] = review.total_dislikes
 
+    # --------------------------- CURRENT USER REACTION ---------------------------
+    data["user_reaction"] = None
+
+    if current_user is not None:
+        reaction = (
+            review.likes
+            .filter(
+                user=current_user
+            )
+            .first()
+        )
+
+        if reaction is not None:
+            data["user_reaction"] = reaction.is_like
+
+    # --------------------------- ALL REACTIONS ---------------------------
     if include_likes:
         data["likes"] = [
             {
-                "user_id": str(reaction.user_id),
+                "user_id": str(
+                    reaction.user_id
+                ),
                 "is_like": reaction.is_like,
             }
             for reaction in review.likes.all()
@@ -49,13 +74,20 @@ def serialize_review(review, include_likes=False):
 
     return data
 
-def serialize_sparepart(part, include_reviews=False):
-    
+
+def serialize_sparepart(
+    part,
+    include_reviews=False,
+    current_user=None,
+):
     data = SparePartsSerializer(part).data
 
     if include_reviews:
         data["reviews"] = [
-            serialize_review(review)
+            serialize_review(
+                review,
+                current_user=current_user,
+            )
             for review in part.reviews.all()
         ]
 
@@ -68,32 +100,86 @@ class SparePartsListView(APIView):
 
     PRICE_RANGES = {
         "tyre": {
-            "sedan": {"low": 15000, "medium": 30000},
-            "suv": {"low": 25000, "medium": 40000},
-            "truck": {"low": 35000, "medium": 45000},
-            "bus": {"low": 25000, "medium": 30000},
+            "sedan": {
+                "low": 15000,
+                "medium": 30000,
+            },
+            "suv": {
+                "low": 25000,
+                "medium": 40000,
+            },
+            "truck": {
+                "low": 35000,
+                "medium": 45000,
+            },
+            "bus": {
+                "low": 25000,
+                "medium": 30000,
+            },
         },
+
         "rim": {
-            "sedan": {"low": 20000, "medium": 30000},
-            "suv": {"low": 25000, "medium": 35000},
-            "truck": {"low": 30000, "medium": 35000},
-            "bus": {"low": 25000, "medium": 30000},
+            "sedan": {
+                "low": 20000,
+                "medium": 30000,
+            },
+            "suv": {
+                "low": 25000,
+                "medium": 35000,
+            },
+            "truck": {
+                "low": 30000,
+                "medium": 35000,
+            },
+            "bus": {
+                "low": 25000,
+                "medium": 30000,
+            },
         },
+
         "battery": {
-            "sedan": {"low": 20000, "medium": 30000},
-            "suv": {"low": 26000, "medium": 35000},
-            "truck": {"low": 26000, "medium": 35000},
-            "bus": {"low": 35000, "medium": 40000},
+            "sedan": {
+                "low": 20000,
+                "medium": 30000,
+            },
+            "suv": {
+                "low": 26000,
+                "medium": 35000,
+            },
+            "truck": {
+                "low": 26000,
+                "medium": 35000,
+            },
+            "bus": {
+                "low": 35000,
+                "medium": 40000,
+            },
         },
+
         "oil filter": {
-            "default": {"low": 7500, "medium": 8500},
+            "default": {
+                "low": 7500,
+                "medium": 8500,
+            },
         },
     }
 
-    def get(self, request, part_id=None):
+    def get(
+        self,
+        request,
+        part_id=None,
+    ):
+
+        # --------------------------- CURRENT USER ---------------------------
+        current_user = (
+            request.user
+            if request.user.is_authenticated
+            else None
+        )
 
         # --------------------------- SINGLE ITEM ---------------------------
         if part_id:
+
             part = get_object_or_404(
                 SpareParts,
                 pk=part_id,
@@ -102,6 +188,7 @@ class SparePartsListView(APIView):
             result = serialize_sparepart(
                 part,
                 include_reviews=True,
+                current_user=current_user,
             )
 
             return Response(
@@ -112,34 +199,66 @@ class SparePartsListView(APIView):
         # --------------------------- PAGINATION ---------------------------
         try:
             page = int(
-                request.query_params.get("page", 1)
+                request.query_params.get(
+                    "page",
+                    1,
+                )
             )
-        except (ValueError, TypeError):
+
+        except (
+            ValueError,
+            TypeError,
+        ):
             page = 1
 
         try:
             per_page = int(
-                request.query_params.get("per_page", 16)
+                request.query_params.get(
+                    "per_page",
+                    16,
+                )
             )
-        except (ValueError, TypeError):
+
+        except (
+            ValueError,
+            TypeError,
+        ):
             per_page = 16
 
-        page = max(page, 1)
-        per_page = max(per_page, 1)
+        page = max(
+            page,
+            1,
+        )
+
+        per_page = max(
+            per_page,
+            1,
+        )
 
         queryset = SpareParts.objects.all()
 
         # --------------------------- BASIC FILTERS ---------------------------
         category = (
-            request.query_params.get("category") or ""
+            request.query_params.get(
+                "category"
+            )
+            or ""
         ).lower()
 
         vehicle_type = (
-            request.query_params.get("vehicle_type") or ""
+            request.query_params.get(
+                "vehicle_type"
+            )
+            or ""
         ).lower()
 
-        brand = request.query_params.get("brand")
-        colour = request.query_params.get("colour")
+        brand = request.query_params.get(
+            "brand"
+        )
+
+        colour = request.query_params.get(
+            "colour"
+        )
 
         if category:
             queryset = queryset.filter(
@@ -162,34 +281,47 @@ class SparePartsListView(APIView):
             )
 
         # --------------------------- PRICE FILTER ---------------------------
-        price_filter = request.query_params.get("price")
+        price_filter = request.query_params.get(
+            "price"
+        )
 
-        category_ranges = self.PRICE_RANGES.get(category)
+        category_ranges = self.PRICE_RANGES.get(
+            category
+        )
 
         ranges = None
 
         if category_ranges:
+
             ranges = (
-                category_ranges.get(vehicle_type)
-                or category_ranges.get("default")
+                category_ranges.get(
+                    vehicle_type
+                )
+                or category_ranges.get(
+                    "default"
+                )
             )
 
         if price_filter and ranges:
+
             low = ranges["low"]
             medium = ranges["medium"]
 
             if price_filter == "low":
+
                 queryset = queryset.filter(
                     buying_price__lt=low
                 )
 
             elif price_filter == "medium":
+
                 queryset = queryset.filter(
                     buying_price__gte=low,
                     buying_price__lte=medium,
                 )
 
             elif price_filter == "high":
+
                 queryset = queryset.filter(
                     buying_price__gt=medium
                 )
@@ -197,13 +329,21 @@ class SparePartsListView(APIView):
         # --------------------------- PAGINATION ---------------------------
         total = queryset.count()
 
-        start = (page - 1) * per_page
+        start = (
+            page - 1
+        ) * per_page
+
         end = start + per_page
 
         items = queryset[start:end]
 
         pages = (
-            (total + per_page - 1) // per_page
+            (
+                total
+                + per_page
+                - 1
+            )
+            // per_page
             if total
             else 0
         )
@@ -211,7 +351,10 @@ class SparePartsListView(APIView):
         return Response(
             {
                 "items": [
-                    serialize_sparepart(part)
+                    serialize_sparepart(
+                        part,
+                        current_user=current_user,
+                    )
                     for part in items
                 ],
                 "total": total,
@@ -226,7 +369,11 @@ class SparePartsListView(APIView):
 class ReviewsView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request, part_id):
+    def get(
+        self,
+        request,
+        part_id,
+    ):
         """Get all reviews for a spare part."""
 
         part = get_object_or_404(
@@ -234,9 +381,19 @@ class ReviewsView(APIView):
             pk=part_id,
         )
 
+        # --------------------------- CURRENT USER ---------------------------
+        current_user = (
+            request.user
+            if request.user.is_authenticated
+            else None
+        )
+
+        # --------------------------- REVIEWS ---------------------------
         reviews = (
             Reviews.objects
-            .filter(sparepart_id=part.id)
+            .filter(
+                sparepart_id=part.id
+            )
             .select_related("user")
             .prefetch_related("likes")
             .order_by("-created_at")
@@ -245,22 +402,32 @@ class ReviewsView(APIView):
         result = []
 
         for review in reviews:
+
             review_dict = serialize_review(
                 review,
                 include_likes=True,
+                current_user=current_user,
             )
 
-            result.append(review_dict)
+            result.append(
+                review_dict
+            )
 
         return Response(
             result,
             status=status.HTTP_200_OK,
         )
 
-    def post(self, request, part_id):
+    def post(
+        self,
+        request,
+        part_id,
+    ):
         """Create a review."""
 
+        # --------------------------- AUTHENTICATION ---------------------------
         if not request.user.is_authenticated:
+
             return Response(
                 {
                     "detail": (
@@ -273,6 +440,7 @@ class ReviewsView(APIView):
 
         user = request.user
 
+        # --------------------------- SPARE PART ---------------------------
         part = get_object_or_404(
             SpareParts,
             pk=part_id,
@@ -282,13 +450,21 @@ class ReviewsView(APIView):
 
         # --------------------------- RATING ---------------------------
         parsed_rating = None
-        rating = data.get("rating")
+
+        rating = data.get(
+            "rating"
+        )
 
         if rating is not None:
+
             try:
-                parsed_rating = int(rating)
+
+                parsed_rating = int(
+                    rating
+                )
 
                 if not 1 <= parsed_rating <= 5:
+
                     return Response(
                         {
                             "error": (
@@ -298,7 +474,11 @@ class ReviewsView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            except (ValueError, TypeError):
+            except (
+                ValueError,
+                TypeError,
+            ):
+
                 return Response(
                     {
                         "error": (
@@ -310,12 +490,27 @@ class ReviewsView(APIView):
 
         # --------------------------- COMMENT ---------------------------
         parsed_comment = None
-        comment = data.get("comment")
 
-        if isinstance(comment, str) and comment.strip():
+        comment = data.get(
+            "comment"
+        )
+
+        if (
+            isinstance(
+                comment,
+                str,
+            )
+            and comment.strip()
+        ):
+
             parsed_comment = comment.strip()
 
-        if parsed_rating is None and not parsed_comment:
+        # --------------------------- EMPTY REVIEW ---------------------------
+        if (
+            parsed_rating is None
+            and not parsed_comment
+        ):
+
             return Response(
                 {
                     "error": (
@@ -326,12 +521,17 @@ class ReviewsView(APIView):
             )
 
         # --------------------------- DUPLICATE REVIEW ---------------------------
-        existing = Reviews.objects.filter(
-            user_id=user.id,
-            sparepart_id=part.id,
-        ).first()
+        existing = (
+            Reviews.objects
+            .filter(
+                user_id=user.id,
+                sparepart_id=part.id,
+            )
+            .first()
+        )
 
         if existing:
+
             return Response(
                 {
                     "error": (
@@ -343,7 +543,9 @@ class ReviewsView(APIView):
 
         # --------------------------- CREATE REVIEW ---------------------------
         try:
+
             with transaction.atomic():
+
                 review = Reviews.objects.create(
                     user_id=user.id,
                     sparepart_id=part.id,
@@ -352,6 +554,7 @@ class ReviewsView(APIView):
                 )
 
         except Exception:
+
             return Response(
                 {
                     "error": "Failed to save review"
@@ -359,25 +562,33 @@ class ReviewsView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # --------------------------- RESPONSE ---------------------------
         review_dict = serialize_review(
             review,
             include_likes=True,
+            current_user=user,
         )
 
         review_dict["total_likes"] = 0
         review_dict["total_dislikes"] = 0
         review_dict["likes"] = []
+        review_dict["user_reaction"] = None
 
         return Response(
             review_dict,
             status=status.HTTP_201_CREATED,
         )
 
+
 # --------------------------- REVIEW EDIT ----------------------------------------------
 class ReviewEditView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, review_id):
+    def patch(
+        self,
+        request,
+        review_id,
+    ):
         """Edit a review. Owner only."""
 
         review = get_object_or_404(
@@ -389,9 +600,7 @@ class ReviewEditView(APIView):
         if review.user_id != request.user.id:
             return Response(
                 {
-                    "error": (
-                        "Cannot edit others' reviews"
-                    )
+                    "error": "Cannot edit others' reviews"
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -400,14 +609,12 @@ class ReviewEditView(APIView):
 
         # --------------------------- RATING ---------------------------
         if "rating" in data:
-
             rating = data.get("rating")
 
             if rating is None:
                 review.rating = None
 
             else:
-
                 try:
                     rating = int(rating)
 
@@ -417,9 +624,7 @@ class ReviewEditView(APIView):
                 ):
                     return Response(
                         {
-                            "error": (
-                                "Rating must be an integer"
-                            )
+                            "error": "Rating must be an integer"
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
@@ -438,7 +643,6 @@ class ReviewEditView(APIView):
 
         # --------------------------- COMMENT ---------------------------
         if "comment" in data:
-
             comment = data.get("comment")
 
             if (
@@ -479,15 +683,21 @@ class ReviewEditView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+        # --------------------------- RESPONSE ---------------------------
         return Response(
             serialize_review(
                 review,
                 include_likes=True,
+                current_user=request.user,
             ),
             status=status.HTTP_200_OK,
         )
 
-    def delete(self, request, review_id):
+    def delete(
+        self,
+        request,
+        review_id,
+    ):
         """Delete a review. Owner only."""
 
         review = get_object_or_404(
@@ -499,13 +709,12 @@ class ReviewEditView(APIView):
         if review.user_id != request.user.id:
             return Response(
                 {
-                    "error": (
-                        "Cannot delete others' reviews"
-                    )
+                    "error": "Cannot delete others' reviews"
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # --------------------------- DELETE ---------------------------
         try:
             with transaction.atomic():
                 review.delete()
@@ -525,11 +734,16 @@ class ReviewEditView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
 # --------------------------- REVIEW REACTIONS ----------------------------------------------
 class ReviewReactionsView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, review_id):
+    def post(
+        self,
+        request,
+        review_id,
+    ):
 
         review = get_object_or_404(
             Reviews,
@@ -540,6 +754,7 @@ class ReviewReactionsView(APIView):
 
         # --------------------------- OWN REVIEW ---------------------------
         if review.user_id == current_user.id:
+
             return Response(
                 {
                     "error": (
@@ -553,6 +768,7 @@ class ReviewReactionsView(APIView):
         data = request.data or {}
 
         if "is_like" not in data:
+
             return Response(
                 {
                     "error": "is_like is required"
@@ -560,9 +776,15 @@ class ReviewReactionsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        is_like = data.get("is_like")
+        is_like = data.get(
+            "is_like"
+        )
 
-        if not isinstance(is_like, bool):
+        if not isinstance(
+            is_like,
+            bool,
+        ):
+
             return Response(
                 {
                     "error": (
@@ -589,9 +811,9 @@ class ReviewReactionsView(APIView):
 
             with transaction.atomic():
 
+                # Same reaction -> remove
                 if existing:
 
-                    # Same reaction -> remove
                     if existing.is_like == is_like:
 
                         existing.delete()
@@ -611,6 +833,7 @@ class ReviewReactionsView(APIView):
 
                         action = "switched"
 
+                # No reaction -> add
                 else:
 
                     ReviewReactions.objects.create(
@@ -620,6 +843,7 @@ class ReviewReactionsView(APIView):
                     )
 
         except Exception:
+
             return Response(
                 {
                     "error": (
@@ -662,12 +886,15 @@ class ReviewReactionsView(APIView):
             .first()
         )
 
+        # --------------------------- RESPONSE ---------------------------
         return Response(
             {
                 "action": action,
 
                 "review": {
-                    "id": review.id,
+                    "id": str(
+                        review.id
+                    ),
 
                     "total_likes": (
                         total_likes
@@ -688,11 +915,89 @@ class ReviewReactionsView(APIView):
         )
 
 
+# --------------------------- MY REVIEWS ----------------------------------------------
+class MyReviewsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(
+        self,
+        request,
+    ):
+        """Get all reviews created by the currently authenticated buyer."""
+
+        current_user = request.user
+
+        reviews = (
+            Reviews.objects
+            .filter(
+                user_id=current_user.id
+            )
+            .select_related(
+                "user",
+                "sparepart",
+            )
+            .prefetch_related("likes")
+            .order_by("-created_at")
+        )
+
+        result = []
+
+        for review in reviews:
+
+            review_dict = serialize_review(
+                review,
+                include_likes=True,
+                current_user=current_user,
+            )
+
+            # --------------------------- SPAREPART ID ---------------------------
+            review_dict["sparepart_id"] = str(
+                review.sparepart.id
+            )
+
+            # --------------------------- SPAREPART DETAILS ---------------------------
+            review_dict["sparepart"] = {
+                "id": str(
+                    review.sparepart.id
+                ),
+                "brand": (
+                    review.sparepart.brand
+                ),
+                "category": (
+                    review.sparepart.category
+                ),
+                "vehicle_type": (
+                    review.sparepart.vehicle_type
+                ),
+                "buying_price": (
+                    review.sparepart.buying_price
+                ),
+                "discount_percentage": (
+                    review.sparepart.discount_percentage
+                ),
+                "image_url": (
+                    review.sparepart.image
+                ),
+            }
+
+            result.append(
+                review_dict
+            )
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
+
+
 # --------------------------- ORDERS ----------------------------------------------
 class OrdersView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
+    def get(
+        self,
+        request,
+    ):
         """Get logged-in user's orders."""
 
         current_user = request.user
@@ -716,56 +1021,96 @@ class OrdersView(APIView):
                 order.order_items.all()
             )
 
-            # Calculate in memory.
+            # --------------------------- TOTAL PRICE ---------------------------
             total_price = sum(
-                float(item.subtotal or 0)
+                float(
+                    item.subtotal or 0
+                )
                 for item in order_items
             )
 
+            # --------------------------- TOTAL ITEMS ---------------------------
             total_items = sum(
-                int(item.quantity or 0)
+                int(
+                    item.quantity or 0
+                )
                 for item in order_items
             )
 
+            # --------------------------- CREATED AT ---------------------------
             created_at = (
                 order.created_at.isoformat()
-                if hasattr(order, "created_at")
+                if hasattr(
+                    order,
+                    "created_at",
+                )
                 and order.created_at
                 else None
             )
 
+            # --------------------------- ORDER DATA ---------------------------
             order_data = {
                 "id": order.id,
-                "status": order.status,
-                "paid": order.paid,
-                "total_items": total_items,
-                "total_price": total_price,
+
+                "status": (
+                    order.status
+                ),
+
+                "paid": (
+                    order.paid
+                ),
+
+                "total_items": (
+                    total_items
+                ),
+
+                "total_price": (
+                    total_price
+                ),
+
                 "address": (
                     f"{order.street}, "
                     f"{order.city}, "
                     f"{order.country}"
                 ),
-                "created_at": created_at,
+
+                "created_at": (
+                    created_at
+                ),
 
                 "order_items": [
                     {
                         "id": item.id,
+
                         "quantity": int(
                             item.quantity or 0
                         ),
+
                         "price": float(
                             item.unit_price or 0
                         ),
+
                         "subtotal": float(
                             item.subtotal or 0
                         ),
+
                         "sparepart": {
-                            "id": item.sparepart.id,
-                            "brand": item.sparepart.brand,
-                            "category": item.sparepart.category,
+                            "id": (
+                                item.sparepart.id
+                            ),
+
+                            "brand": (
+                                item.sparepart.brand
+                            ),
+
+                            "category": (
+                                item.sparepart.category
+                            ),
+
                             "vehicle_type": (
                                 item.sparepart.vehicle_type
                             ),
+
                             "image_url": (
                                 item.sparepart.image
                             ),
@@ -775,7 +1120,9 @@ class OrdersView(APIView):
                 ],
             }
 
-            summary.append(order_data)
+            summary.append(
+                order_data
+            )
 
         return Response(
             {
@@ -784,7 +1131,11 @@ class OrdersView(APIView):
             status=status.HTTP_200_OK,
         )
 
-    def patch(self, request, order_id):
+    def patch(
+        self,
+        request,
+        order_id,
+    ):
         """Cancel a pending order."""
 
         current_user = request.user
@@ -796,6 +1147,7 @@ class OrdersView(APIView):
 
         # --------------------------- OWNER CHECK ---------------------------
         if order.user_id != current_user.id:
+
             return Response(
                 {
                     "error": (
@@ -808,9 +1160,13 @@ class OrdersView(APIView):
 
         data = request.data or {}
 
-        new_status = data.get("status")
+        new_status = data.get(
+            "status"
+        )
 
+        # --------------------------- STATUS REQUIRED ---------------------------
         if not new_status:
+
             return Response(
                 {
                     "error": "Missing status field"
@@ -820,6 +1176,7 @@ class OrdersView(APIView):
 
         # --------------------------- ONLY PENDING ---------------------------
         if order.status != "pending":
+
             return Response(
                 {
                     "error": (
@@ -831,7 +1188,10 @@ class OrdersView(APIView):
             )
 
         # --------------------------- VALID STATUS ---------------------------
-        if new_status not in ["cancelled"]:
+        if new_status not in [
+            "cancelled"
+        ]:
+
             return Response(
                 {
                     "error": "Invalid status change"
@@ -843,7 +1203,9 @@ class OrdersView(APIView):
         order.status = new_status
 
         order.save(
-            update_fields=["status"]
+            update_fields=[
+                "status"
+            ]
         )
 
         return Response(

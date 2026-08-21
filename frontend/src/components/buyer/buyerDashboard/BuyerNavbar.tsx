@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate, Link, NavLink } from "react-router-dom";
-import { ShoppingCart, Menu, Home, User, Package, MapPin, Search, ChevronDown } from "lucide-react";
+import { ShoppingCart, Menu, Home, User, Package, MapPin, MessageSquare, Search,ChevronDown} from "lucide-react";
+
 import { useCart } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
+import config from "../../../config";
 import "../../../styles/buyer/buyerNavbar.css";
-
 
 interface SelectedCategory {
   tyres: string;
@@ -24,6 +25,10 @@ interface Order {
   status: string;
 }
 
+interface Review {
+  id: string;
+}
+
 interface GroupedOrders {
   [key: string]: Order[];
 }
@@ -36,38 +41,32 @@ interface SeenOrderIds {
   [key: string]: string[];
 }
 
-
 const BuyerNavbar = () => {
-
-  const { user, logout } = useAuth();
+  const { user, logout, authFetch } = useAuth();
   const { items } = useCart();
 
   const navigate = useNavigate();
   const location = useLocation();
 
-
   const [showDropdown, setShowDropdown] =
     useState<boolean>(false);
-
 
   const [ordersCount, setOrdersCount] =
     useState<number>(0);
 
+  const [newReviewsCount, setNewReviewsCount] =
+    useState<number>(0);
 
   const [openDropdown, setOpenDropdown] =
     useState<keyof SelectedCategory | null>(null);
 
-
-  const [menuPosition, setMenuPosition] =
-    useState({
-      top: 0,
-      left: 0,
-    });
-
+  const [menuPosition, setMenuPosition] = useState({
+    top: 0,
+    left: 0,
+  });
 
   const [menuWidth, setMenuWidth] =
     useState<number>(150);
-
 
   const [selectedCategory, setSelectedCategory] =
     useState<SelectedCategory>({
@@ -76,7 +75,6 @@ const BuyerNavbar = () => {
       batteries: "",
       filters: "",
     });
-
 
   const categories: Category[] = [
     {
@@ -97,193 +95,188 @@ const BuyerNavbar = () => {
     },
   ];
 
+  // -------------------- CATEGORY --------------------
   useEffect(() => {
+    const pathSegment =
+      location.pathname.slice(1);
 
-  const pathSegment =
-    location.pathname.slice(1);
+    if (!pathSegment) {
+      setSelectedCategory({
+        tyres: "",
+        rims: "",
+        batteries: "",
+        filters: "",
+      });
 
+      return;
+    }
 
-  if (!pathSegment) {
+    const parts = pathSegment.split("-");
 
-    setSelectedCategory({
-      tyres: "",
-      rims: "",
-      batteries: "",
-      filters: "",
+    if (parts.length !== 2) return;
+
+    const category =
+      parts[1] as keyof SelectedCategory;
+
+    setSelectedCategory((prev) => {
+      const updated = {} as SelectedCategory;
+
+      (
+        Object.keys(prev) as (keyof SelectedCategory)[]
+      ).forEach((key) => {
+        updated[key] =
+          key === category
+            ? pathSegment
+            : "";
+      });
+
+      return updated;
     });
+  }, [location.pathname]);
 
-    return;
-  }
+  // -------------------- CLOSE DROPDOWN --------------------
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenDropdown(null);
+    };
 
-
-  const parts =
-    pathSegment.split("-");
-
-
-  if (parts.length !== 2) return;
-
-
-  const category =
-    parts[1] as keyof SelectedCategory;
-
-
-  setSelectedCategory((prev) => {
-
-    const updated =
-      {} as SelectedCategory;
-
-
-    (
-      Object.keys(prev) as (keyof SelectedCategory)[]
-    ).forEach((key) => {
-
-      updated[key] =
-        key === category
-          ? pathSegment
-          : "";
-
-    });
-
-
-    return updated;
-
-  });
-
-
-}, [location.pathname]);
-
-
-
-useEffect(() => {
-
-  const handleClickOutside = () => {
-
-    setOpenDropdown(null);
-
-  };
-
-
-  document.addEventListener(
-    "click",
-    handleClickOutside
-  );
-
-
-  return () => {
-
-    document.removeEventListener(
+    document.addEventListener(
       "click",
       handleClickOutside
     );
 
+    return () => {
+      document.removeEventListener(
+        "click",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+  const handleCategorySelect = (
+    value: string,
+    path: keyof SelectedCategory
+  ): void => {
+    navigate(`/${value}`);
+
+    setSelectedCategory((prev) => {
+      const updated = {} as SelectedCategory;
+
+      (
+        Object.keys(prev) as (keyof SelectedCategory)[]
+      ).forEach((key) => {
+        updated[key] =
+          key === path
+            ? value
+            : "";
+      });
+
+      return updated;
+    });
+
+    setOpenDropdown(null);
   };
 
 
-}, []);
+  // ---------------------ORDER NOTIFICATIONS-------------------------
+  const calculateNotifications = (): void => {
+    const seenOrderIds: Partial<SeenOrderIds> =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_seen_order_ids"
+        ) || "{}"
+      );
 
-const handleCategorySelect = (
-  value: string,
-  path: keyof SelectedCategory
-): void => {
+    const orders: Order[] =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_orders_cache"
+        ) || "[]"
+      );
 
+    const groupedOrders =
+      orders.reduce<GroupedOrders>(
+        (acc, order) => {
+          const status =
+            order.status.toLowerCase();
 
-  navigate(`/${value}`);
+          if (!acc[status]) {
+            acc[status] = [];
+          }
 
+          acc[status].push(order);
 
-  setSelectedCategory((prev) => {
+          return acc;
+        },
+        {}
+      );
 
-    const updated =
-      {} as SelectedCategory;
-
-
-    (
-      Object.keys(prev) as (keyof SelectedCategory)[]
-    ).forEach((key) => {
-
-      updated[key] =
-        key === path
-          ? value
-          : "";
-
-    });
-
-
-    return updated;
-
-  });
-
-
-  setOpenDropdown(null);
-
- };
-
-   const calculateNotifications = (): void => {
-    const seenOrderIds: Partial<SeenOrderIds> = JSON.parse(
-      localStorage.getItem("buyer_seen_order_ids") || "{}"
-    );
-
-    const orders: Order[] = JSON.parse(
-      localStorage.getItem("buyer_orders_cache") || "[]"
-    );
-
-    const groupedOrders = orders.reduce<GroupedOrders>((acc, order) => {
-      const status = order.status.toLowerCase();
-
-      if (!acc[status]) {
-        acc[status] = [];
-      }
-
-      acc[status].push(order);
-
-      return acc;
-    }, {});
-
-    const tabsToCount = ["shipped", "delivered"];
+    const tabsToCount = [
+      "shipped",
+      "delivered",
+    ];
 
     let total = 0;
 
     tabsToCount.forEach((tab) => {
-      const allOrders = groupedOrders[tab] || [];
-      const seenIds = new Set(seenOrderIds[tab] || []);
+      const allOrders =
+        groupedOrders[tab] || [];
+
+      const seenIds = new Set(
+        seenOrderIds[tab] || []
+      );
 
       total += allOrders.filter(
-        (order) => !seenIds.has(order.id)
+        (order) =>
+          !seenIds.has(order.id)
       ).length;
     });
 
     setOrdersCount(total);
   };
 
-    const markPendingAsSeen = (): void => {
-    const orders: Order[] = JSON.parse(
-      localStorage.getItem("buyer_orders_cache") || "[]"
-    );
+  const markPendingAsSeen = (): void => {
+    const orders: Order[] =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_orders_cache"
+        ) || "[]"
+      );
 
-    const groupedOrders = orders.reduce<GroupedOrders>((acc, order) => {
-      const status = order.status.toLowerCase();
+    const groupedOrders =
+      orders.reduce<GroupedOrders>(
+        (acc, order) => {
+          const status =
+            order.status.toLowerCase();
 
-      if (!acc[status]) {
-        acc[status] = [];
-      }
+          if (!acc[status]) {
+            acc[status] = [];
+          }
 
-      acc[status].push(order);
+          acc[status].push(order);
 
-      return acc;
-    }, {});
+          return acc;
+        },
+        {}
+      );
 
-    const seenOrderIds: SeenOrderIds = JSON.parse(
-      localStorage.getItem("buyer_seen_order_ids") ||
-        JSON.stringify({
-          pending: [],
-          shipped: [],
-          delivered: [],
-          cancelled: [],
-        })
-    );
+    const seenOrderIds: SeenOrderIds =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_seen_order_ids"
+        ) ||
+          JSON.stringify({
+            pending: [],
+            shipped: [],
+            delivered: [],
+            cancelled: [],
+          })
+      );
 
-    seenOrderIds.pending = (groupedOrders.pending || []).map(
-      (order) => order.id
-    );
+    seenOrderIds.pending =
+      (groupedOrders.pending || []).map(
+        (order) => order.id
+      );
 
     localStorage.setItem(
       "buyer_seen_order_ids",
@@ -293,25 +286,166 @@ const handleCategorySelect = (
     calculateNotifications();
   };
 
-  useEffect(() => {
-    calculateNotifications();
+  
+  //--------------------------REVIEW NOTIFICATIONS--------------------------------
+  const calculateReviewNotifications = (
+    data: Review[] | null = null
+  ): void => {
+    const reviews: Review[] =
+      data ??
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_reviews_cache"
+        ) || "[]"
+      );
 
-    const handleOrdersUpdated = () => calculateNotifications();
+    const seen: string[] =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_seen_review_ids"
+        ) || "[]"
+      );
+
+    const seenSet = new Set(seen);
+
+    const unseen = reviews.filter(
+      (review) =>
+        !seenSet.has(review.id)
+    ).length;
+
+    setNewReviewsCount(unseen);
+  };
+
+  // -------------------- FETCH BUYER REVIEWS --------------------
+  const fetchReviewNotifications =
+    async (): Promise<void> => {
+      if (!user) {
+        setNewReviewsCount(0);
+        return;
+      }
+
+      try {
+        const res = await authFetch(
+          `${config.API_BASE_URL}/buyer-reviews/`
+        );
+
+        if (!res.ok) {
+          throw new Error(
+            `Failed to fetch reviews: ${res.status}`
+          );
+        }
+
+        const data: Review[] =
+          await res.json();
+
+        localStorage.setItem(
+          "buyer_reviews_cache",
+          JSON.stringify(data)
+        );
+
+        calculateReviewNotifications(data);
+      } catch (err) {
+        console.error(
+          "Failed to fetch buyer reviews:",
+          err
+        );
+      }
+    };
+
+  // -------------------- MARK REVIEWS AS SEEN --------------------
+  const markReviewsAsSeen = (): void => {
+    const reviews: Review[] =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_reviews_cache"
+        ) || "[]"
+      );
+
+    const allIds = reviews.map(
+      (review) => review.id
+    );
+
+    localStorage.setItem(
+      "buyer_seen_review_ids",
+      JSON.stringify(allIds)
+    );
+
+    setNewReviewsCount(0);
+
+    window.dispatchEvent(
+      new Event("buyer_reviews_updated")
+    );
+  };
+
+  // ----------------------NOTIFICATION EFFECTS----------------------------------
+  useEffect(() => {
+    if (!user) {
+      setOrdersCount(0);
+      setNewReviewsCount(0);
+      return;
+    }
+
+    // Initial fetch/calculation
+    calculateNotifications();
+    fetchReviewNotifications();
+
+    // -------------------- ORDERS --------------------
+    const handleOrdersUpdated = (): void => {
+      calculateNotifications();
+    };
+
+    const handleOrderStorageChange = (
+      e: StorageEvent
+    ): void => {
+      if (
+        e.key === "buyer_orders_cache" ||
+        e.key === "buyer_seen_order_ids"
+      ) {
+        calculateNotifications();
+      }
+    };
 
     window.addEventListener(
       "ordersUpdated",
       handleOrdersUpdated as EventListener
     );
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "buyer_orders_cache") {
-        calculateNotifications();
+    window.addEventListener(
+      "storage",
+      handleOrderStorageChange
+    );
+
+    // -------------------- REVIEWS --------------------
+    const handleReviewsUpdated = (): void => {
+      calculateReviewNotifications();
+    };
+
+    const handleReviewStorageChange = (
+      e: StorageEvent
+    ): void => {
+      if (
+        e.key === "buyer_reviews_cache" ||
+        e.key === "buyer_seen_review_ids"
+      ) {
+        calculateReviewNotifications();
       }
     };
 
-    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener(
+      "buyer_reviews_updated",
+      handleReviewsUpdated
+    );
 
-    const interval = setInterval(calculateNotifications, 30000);
+    window.addEventListener(
+      "storage",
+      handleReviewStorageChange
+    );
+
+    // -------------------- PERIODIC ORDER REFRESH --------------------
+    const interval = setInterval(
+      calculateNotifications,
+      30000
+    );
 
     return () => {
       clearInterval(interval);
@@ -323,11 +457,21 @@ const handleCategorySelect = (
 
       window.removeEventListener(
         "storage",
-        handleStorageChange
+        handleOrderStorageChange
+      );
+
+      window.removeEventListener(
+        "buyer_reviews_updated",
+        handleReviewsUpdated
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleReviewStorageChange
       );
     };
-   }, []);
-
+  }, [user]);
+    
   return (
    <nav className={`navbar ${user ? "logged-in" : "logged-out"}`}>
     <div className="logo">
@@ -375,7 +519,7 @@ const handleCategorySelect = (
 
               {ordersCount > 0 && (
 
-                <span className="orders-badge">
+                <span className="notification-badge">
                   {ordersCount}
                 </span>
 
@@ -405,6 +549,30 @@ const handleCategorySelect = (
             <User size={18} />
               Account Management
           </NavLink>
+
+          <NavLink
+            to="/buyer-reviews"
+            className={({ isActive }) =>
+              isActive
+                ? "tab active-tab"
+                : "tab"
+            }
+            onClick={markReviewsAsSeen}
+          >
+              <div className="icon-wrapper">
+                <MessageSquare size={18} />
+
+                {newReviewsCount > 0 && (
+                  <span className="notification-badge">
+                    {newReviewsCount > 9
+                      ? "9+"
+                      : newReviewsCount}
+                  </span>
+                )}
+              </div>
+
+              My Reviews
+            </NavLink>
 
           {user && (
             <button
@@ -491,6 +659,7 @@ const handleCategorySelect = (
         ))}
       </div>
     </div>
+
     {/* Category Portal Dropdown */}
     {openDropdown &&
       createPortal(
@@ -543,6 +712,7 @@ const handleCategorySelect = (
         document.body
       )
     }
+
     {/* Search */}
     <div className="navbar-smart-search">
       <button
@@ -556,6 +726,7 @@ const handleCategorySelect = (
         <Search />
       </button>
     </div>
+
     {/* Right Section */}
     <div className="right-section">
       <Link

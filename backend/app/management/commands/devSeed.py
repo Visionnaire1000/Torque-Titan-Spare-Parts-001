@@ -17,6 +17,26 @@ load_dotenv()
 
 
 class Command(BaseCommand):
+    help = "Clear the database and seed initial application data"
+
+    def clear_all_data(self):
+        """
+        Delete data in dependency order to avoid foreign-key problems.
+        """
+
+        self.stdout.write("Clearing all tables...")
+
+        OrderItems.objects.all().delete()
+        Orders.objects.all().delete()
+        ReviewReactions.objects.all().delete()
+        Reviews.objects.all().delete()
+        SpareParts.objects.all().delete()
+        Users.objects.all().delete()
+
+        self.stdout.write(
+            self.style.SUCCESS("All existing data cleared")
+        )
+
     def seed_super_admin(self):
         """
         Create the default super admin without OTP verification.
@@ -2095,7 +2115,9 @@ class Command(BaseCommand):
         )
 
         with transaction.atomic():
-            
+
+            self.clear_all_data()
+
             self.seed_super_admin()
 
             self.seed_buyer()

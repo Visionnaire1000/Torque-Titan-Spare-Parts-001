@@ -6,7 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import config from "../../config";
 
-/* ----------------------------- INTERFACES-------------------------*/
+/* ----------------------------- INTERFACES ------------------------- */
 interface ErrorStateProps {
   onRetry: () => void;
 }
@@ -80,8 +80,7 @@ interface ReviewActionOptions<T = unknown> {
   updateFn?: (data: T) => void;
 }
 
-
-/* -----------------------------ERROR STATE-------------------------*/
+/* ----------------------------- ERROR STATE ------------------------- */
 const ErrorState = ({
   onRetry,
 }: ErrorStateProps) => (
@@ -97,7 +96,18 @@ const ErrorState = ({
 
     <button
       onClick={onRetry}
-      className="flex items-center gap-2 rounded-md bg-[rgb(0,64,128)] px-5 py-2 text-white transition-colors hover:bg-[rgb(17,49,82)]"
+      className="
+        flex
+        items-center
+        gap-2
+        rounded-md
+        bg-[rgb(0,64,128)]
+        px-5
+        py-2
+        text-white
+        transition-colors
+        hover:bg-[rgb(17,49,82)]
+      "
     >
       <RefreshCw size={18} />
       Retry
@@ -105,8 +115,7 @@ const ErrorState = ({
   </div>
 );
 
-
-/* -----------------------------STAR RATING-------------------------*/
+/* ----------------------------- STAR RATING ------------------------- */
 const StarRating = ({
   value = 0,
   onChange,
@@ -192,7 +201,12 @@ const StarRating = ({
             />
 
             <div
-              className="absolute left-0 top-0 overflow-hidden"
+              className="
+                absolute
+                left-0
+                top-0
+                overflow-hidden
+              "
               style={{
                 width: `${fillPercent}%`,
               }}
@@ -210,8 +224,7 @@ const StarRating = ({
   );
 };
 
-
-/* -----------------------------SKELETON-------------------------*/
+/* ----------------------------- SKELETON ------------------------- */
 const Skeleton = ({
   width,
   height,
@@ -219,7 +232,12 @@ const Skeleton = ({
   style,
 }: SkeletonProps) => (
   <div
-    className="relative overflow-hidden bg-gray-200 shimmer"
+    className="
+      relative
+      overflow-hidden
+      bg-gray-200
+      shimmer
+    "
     style={{
       width,
       height,
@@ -391,8 +409,7 @@ const ItemDetailsSkeleton = () => (
   </div>
 );
 
-
-/* -----------------------------COMPONENT-------------------------*/
+/* ----------------------------- COMPONENT ------------------------- */
 const BuyerItemDetails = () => {
   const { id } = useParams<{ id: string }>();
 
@@ -404,7 +421,6 @@ const BuyerItemDetails = () => {
     authFetch,
   } = useAuth();
 
- 
   const currentUserId: string | null =
     user?.id != null
       ? String(user.id)
@@ -441,8 +457,7 @@ const BuyerItemDetails = () => {
     setEditComment,
   ] = useState<string>("");
 
-
-  // FETCH
+  /* ----------------------------- FETCH ------------------------- */
   const fetchItemAndReviews =
     async (): Promise<void> => {
       if (!id) return;
@@ -459,7 +474,7 @@ const BuyerItemDetails = () => {
             `${config.API_BASE_URL}/spareparts/${id}/`
           ),
 
-          fetch(
+          authFetch(
             `${config.API_BASE_URL}/reviews/${id}/`
           ),
         ]);
@@ -479,12 +494,14 @@ const BuyerItemDetails = () => {
         const reviewData: Review[] =
           await reviewsRes.json();
 
-        
+        /* --------------------------- NORMALIZE REVIEWS --------------------------- */
         const normalizedReviews =
           reviewData.map((review) => ({
             ...review,
 
-            id: String(review.id),
+            id: String(
+              review.id
+            ),
 
             user_id: String(
               review.user_id
@@ -499,8 +516,13 @@ const BuyerItemDetails = () => {
             ),
 
             user_reaction:
-              review.user_reaction ??
-              null,
+              review.user_reaction ===
+              true
+                ? true
+                : review.user_reaction ===
+                    false
+                  ? false
+                  : null,
 
             display_name:
               review.user_display_name ??
@@ -508,7 +530,10 @@ const BuyerItemDetails = () => {
               "User",
           }));
 
-        setItem(itemData);
+        setItem(
+          itemData
+        );
+
         setReviews(
           normalizedReviews
         );
@@ -520,27 +545,32 @@ const BuyerItemDetails = () => {
       }
     };
 
-  
+  /* ----------------------------- INITIAL LOAD ------------------------- */
   useEffect(() => {
     if (authLoading) return;
 
-    fetchItemAndReviews();
-  }, [authLoading, id]);
+    void fetchItemAndReviews();
+  }, [
+    authLoading,
+    id,
+  ]);
 
   const averageRating = Number(
     item?.average_rating ?? 0
   );
 
+  /* ----------------------------- USER REVIEW ------------------------- */
   const userReview =
     currentUserId !== null
       ? reviews.find(
           (review) =>
-            String(review.user_id) ===
-            currentUserId
+            String(
+              review.user_id
+            ) === currentUserId
         ) ?? null
       : null;
 
-
+  /* ----------------------------- REVIEW ACTION ------------------------- */
   const handleReviewAction = async <T,>({
     method,
     endpoint,
@@ -552,10 +582,12 @@ const BuyerItemDetails = () => {
         `${config.API_BASE_URL}${endpoint}`,
         {
           method,
+
           headers: {
             "Content-Type":
               "application/json",
           },
+
           body: body
             ? JSON.stringify(body)
             : undefined,
@@ -595,8 +627,7 @@ const BuyerItemDetails = () => {
     }
   };
 
-
-  /* -----------------------------CREATE REVIEW-------------------------*/
+  /* ----------------------------- CREATE REVIEW ------------------------- */
   const submitReview = (): void => {
     if (userReview) {
       toast.info(
@@ -617,7 +648,9 @@ const BuyerItemDetails = () => {
 
     void handleReviewAction<Review>({
       method: "POST",
+
       endpoint: `/reviews/${id}/`,
+
       body: {
         rating:
           rating || undefined,
@@ -626,6 +659,7 @@ const BuyerItemDetails = () => {
           comment.trim() ||
           undefined,
       },
+
       successMessage:
         "Review added",
     }).then((success) => {
@@ -636,16 +670,18 @@ const BuyerItemDetails = () => {
     });
   };
 
-  
-  /* -----------------------------EDIT-------------------------*/
+  /* ----------------------------- EDIT ------------------------- */
   const startEdit = (
     review: Review
   ): void => {
-    
-    if (userReview?.id !== review.id) {
+    if (
+      userReview?.id !==
+      review.id
+    ) {
       toast.error(
         "You can only edit your own review."
       );
+
       return;
     }
 
@@ -671,11 +707,14 @@ const BuyerItemDetails = () => {
   const saveEdit = (
     review: Review
   ): void => {
-    
-    if (userReview?.id !== review.id) {
+    if (
+      userReview?.id !==
+      review.id
+    ) {
       toast.error(
         "You can only edit your own review."
       );
+
       return;
     }
 
@@ -686,12 +725,15 @@ const BuyerItemDetails = () => {
       toast.error(
         "Add a rating or comment"
       );
+
       return;
     }
 
     void handleReviewAction<Review>({
       method: "PATCH",
+
       endpoint: `/reviews/${review.id}/edit/`,
+
       body: {
         rating:
           editRating ||
@@ -701,6 +743,7 @@ const BuyerItemDetails = () => {
           editComment.trim() ||
           undefined,
       },
+
       successMessage:
         "Review updated",
     }).then((success) => {
@@ -710,41 +753,53 @@ const BuyerItemDetails = () => {
     });
   };
 
-  /* -----------------------------DELETE-------------------------*/
+  /* ----------------------------- DELETE ------------------------- */
   const deleteReview = (
     review: Review
   ): void => {
-    
-    if (userReview?.id !== review.id) {
+    if (
+      userReview?.id !==
+      review.id
+    ) {
       toast.error(
         "You can only delete your own review."
       );
+
       return;
     }
 
     void handleReviewAction<void>({
       method: "DELETE",
+
       endpoint: `/reviews/${review.id}/delete/`,
+
       successMessage:
         "Review deleted",
     });
   };
 
-
-  /* -----------------------------REACTION-------------------------*/
+  /* ----------------------------- REACTION ------------------------- */
   const reactToReview = async (
     review: Review,
     isLike: boolean
   ): Promise<void> => {
-    
-    if (userReview?.id === review.id) {
+
+    //The owner cannot react to their own review.
+    if (
+      userReview?.id ===
+      review.id
+    ) {
       return;
     }
 
-    if (currentUserId === null) {
+   
+    if (
+      currentUserId === null
+    ) {
       toast.info(
         "Please log in to react to reviews."
       );
+
       return;
     }
 
@@ -754,12 +809,15 @@ const BuyerItemDetails = () => {
           `${config.API_BASE_URL}/reviews/${review.id}/react/`,
           {
             method: "POST",
+
             headers: {
               "Content-Type":
                 "application/json",
             },
+
             body: JSON.stringify({
-              is_like: isLike,
+              is_like:
+                isLike,
             }),
           }
         );
@@ -781,22 +839,41 @@ const BuyerItemDetails = () => {
         await res.json();
 
       setReviews((prev) =>
-        prev.map((existingReview) =>
-          String(existingReview.id) ===
-          String(review.id)
-            ? {
-                ...existingReview,
-                total_likes:
-                  data.review
-                    .total_likes,
-                total_dislikes:
-                  data.review
-                    .total_dislikes,
-                user_reaction:
-                  data.review
-                    .user_reaction,
-              }
-            : existingReview
+        prev.map(
+          (
+            existingReview
+          ) =>
+            String(
+              existingReview.id
+            ) ===
+            String(review.id)
+              ? {
+                  ...existingReview,
+
+                  total_likes:
+                    Number(
+                      data.review
+                        .total_likes
+                    ),
+
+                  total_dislikes:
+                    Number(
+                      data.review
+                        .total_dislikes
+                    ),
+
+                  user_reaction:
+                    data.review
+                      .user_reaction ===
+                    true
+                      ? true
+                      : data.review
+                            .user_reaction ===
+                          false
+                        ? false
+                        : null,
+                }
+              : existingReview
         )
       );
     } catch (err) {
@@ -806,23 +883,33 @@ const BuyerItemDetails = () => {
           : "Failed to react"
       );
 
+      // refetch
       await fetchItemAndReviews();
     }
   };
 
-  /*-----------------------------LOADING-------------------------*/
-  if (loading || authLoading) {
-    return <ItemDetailsSkeleton />;
+  /* ----------------------------- LOADING ------------------------- */
+  if (
+    loading ||
+    authLoading
+  ) {
+    return (
+      <ItemDetailsSkeleton />
+    );
   }
 
+  /* ----------------------------- ERROR ------------------------- */
   if (error) {
     return (
       <ErrorState
-        onRetry={fetchItemAndReviews}
+        onRetry={
+          fetchItemAndReviews
+        }
       />
     );
   }
 
+  /* ----------------------------- NOT FOUND ------------------------- */
   if (!item) {
     return (
       <div
@@ -844,22 +931,29 @@ const BuyerItemDetails = () => {
     );
   }
 
-  
-  /* -----------------------------SORT REVIEWS-------------------------*/
+  /* ----------------------------- SORT REVIEWS ------------------------- */
   const sortedReviews =
     [...reviews].sort(
       (a, b) => {
         const aIsOwner =
-          userReview?.id === a.id;
+          userReview?.id ===
+          a.id;
 
         const bIsOwner =
-          userReview?.id === b.id;
+          userReview?.id ===
+          b.id;
 
-        if (aIsOwner && !bIsOwner) {
+        if (
+          aIsOwner &&
+          !bIsOwner
+        ) {
           return -1;
         }
 
-        if (!aIsOwner && bIsOwner) {
+        if (
+          !aIsOwner &&
+          bIsOwner
+        ) {
           return 1;
         }
 
@@ -867,6 +961,7 @@ const BuyerItemDetails = () => {
       }
     );
 
+  /* ----------------------------- RENDER ------------------------- */
   return (
     <div
       className="
@@ -883,7 +978,7 @@ const BuyerItemDetails = () => {
         max-[480px]:mb-[30px]
       "
     >
-     
+      {/* ----------------------------- ITEM DETAILS ------------------------- */}
       <div
         className="
           mb-8
@@ -928,8 +1023,10 @@ const BuyerItemDetails = () => {
               max-[480px]:text-xl
             "
           >
-            {item.brand} {item.category}{" "}
-            for {item.vehicle_type}
+            {item.brand}{" "}
+            {item.category}{" "}
+            for{" "}
+            {item.vehicle_type}
           </h2>
 
           <p className="mb-2 text-lg font-semibold text-red-600">
@@ -954,13 +1051,17 @@ const BuyerItemDetails = () => {
 
           <div className="mt-2 flex items-center gap-[5px]">
             <StarRating
-              value={averageRating}
+              value={
+                averageRating
+              }
               readonly
               size={22}
             />
 
             <span className="text-sm text-gray-700">
-              {averageRating.toFixed(1)}{" "}
+              {averageRating.toFixed(
+                1
+              )}{" "}
               (
               {
                 reviews.filter(
@@ -995,7 +1096,7 @@ const BuyerItemDetails = () => {
         </div>
       </div>
 
-      {/*ADD REVIEW*/}
+      {/* ----------------------------- ADD REVIEW ------------------------- */}
       {!userReview ? (
         <div className="mb-8 border-y border-[#eee] p-4">
           <h3 className="mb-2 text-xl font-semibold">
@@ -1004,14 +1105,18 @@ const BuyerItemDetails = () => {
 
           <StarRating
             value={rating}
-            onChange={setRating}
+            onChange={
+              setRating
+            }
           />
 
           <textarea
             placeholder="Write a comment (optional)"
             value={comment}
             onChange={(e) =>
-              setComment(e.target.value)
+              setComment(
+                e.target.value
+              )
             }
             className="
               my-2
@@ -1029,7 +1134,9 @@ const BuyerItemDetails = () => {
           />
 
           <button
-            onClick={submitReview}
+            onClick={
+              submitReview
+            }
             className="
               rounded-md
               bg-[rgb(0,64,128)]
@@ -1051,7 +1158,7 @@ const BuyerItemDetails = () => {
         </p>
       )}
 
-      {/*REVIEWS*/}
+      {/* ----------------------------- REVIEWS ------------------------- */}
       <div>
         <h3 className="mb-4 text-2xl font-semibold">
           Customer Reviews (
@@ -1066,9 +1173,9 @@ const BuyerItemDetails = () => {
 
         {sortedReviews.map(
           (review) => {
-           
             const isOwner =
-              userReview?.id === review.id;
+              userReview?.id ===
+              review.id;
 
             return (
               <div
@@ -1082,8 +1189,7 @@ const BuyerItemDetails = () => {
                   p-3
                 "
               >
-
-                {/*EDIT MODE*/}
+                {/* ----------------------------- EDIT MODE ------------------------- */}
                 {editingReviewId ===
                 review.id ? (
                   <>
@@ -1163,8 +1269,7 @@ const BuyerItemDetails = () => {
                   </>
                 ) : (
                   <>
-                    {/* ================= REVIEW HEADER ================= */}
-
+                    {/* ----------------------------- REVIEW HEADER ------------------------- */}
                     <div className="mb-1.5 flex items-center justify-between">
                       <span className="ml-3 font-bold text-[rgb(0,64,128)]">
                         {isOwner ? (
@@ -1185,25 +1290,26 @@ const BuyerItemDetails = () => {
                       </span>
                     </div>
 
-                    
-                    {/*RATING*/}
+                    {/* ----------------------------- RATING ------------------------- */}
                     <StarRating
                       value={
-                        review.rating ?? 0
+                        review.rating ??
+                        0
                       }
                       readonly
                       size={20}
                     />
 
-                    
-                    {/*COMMENT*/}
+                    {/* ----------------------------- COMMENT ------------------------- */}
                     {review.comment && (
                       <p className="my-2 leading-6">
-                        {review.comment}
+                        {
+                          review.comment
+                        }
                       </p>
                     )}
 
-                    {/*OWNER*/}
+                    {/* ----------------------------- OWNER ACTIONS ------------------------- */}
                     {isOwner ? (
                       <div className="flex gap-3">
                         <button
@@ -1247,9 +1353,11 @@ const BuyerItemDetails = () => {
                         </button>
                       </div>
                     ) : (
-                     
-                      // OTHER USER
+                      
+                      /* ----------------------------- OTHER USER REACTIONS ------------------------- */
                       <div className="flex gap-3">
+
+                        {/* ----------------------------- LIKE ------------------------- */}
                         <button
                           type="button"
                           onClick={() =>
@@ -1258,12 +1366,23 @@ const BuyerItemDetails = () => {
                               true
                             )
                           }
-                          className={`inline-flex items-center gap-1 rounded bg-[#e0e0e0] px-[10px] py-1 transition-colors hover:bg-[#d5d5d5] ${
-                            review.user_reaction ===
-                            true
-                              ? "text-[#0f9d58]"
-                              : "text-[#333]"
-                          }`}
+                          className={`
+                            inline-flex
+                            items-center
+                            gap-1
+                            rounded
+                            bg-[#e0e0e0]
+                            px-[10px]
+                            py-1
+                            transition-colors
+                            hover:bg-[#d5d5d5]
+                            ${
+                              review.user_reaction ===
+                              true
+                                ? "text-[#0f9d58]"
+                                : "text-[#333]"
+                            }
+                          `}
                         >
                           <ThumbsUp
                             size={16}
@@ -1274,6 +1393,7 @@ const BuyerItemDetails = () => {
                           }
                         </button>
 
+                        {/* ----------------------------- DISLIKE ------------------------- */}
                         <button
                           type="button"
                           onClick={() =>
@@ -1282,12 +1402,23 @@ const BuyerItemDetails = () => {
                               false
                             )
                           }
-                          className={`inline-flex items-center gap-1 rounded bg-[#e0e0e0] px-[10px] py-1 transition-colors hover:bg-[#d5d5d5] ${
-                            review.user_reaction ===
-                            false
-                              ? "text-[#d93025]"
-                              : "text-[#333]"
-                          }`}
+                          className={`
+                            inline-flex
+                            items-center
+                            gap-1
+                            rounded
+                            bg-[#e0e0e0]
+                            px-[10px]
+                            py-1
+                            transition-colors
+                            hover:bg-[#d5d5d5]
+                            ${
+                              review.user_reaction ===
+                              false
+                                ? "text-[#d93025]"
+                                : "text-[#333]"
+                            }
+                          `}
                         >
                           <ThumbsDown
                             size={16}

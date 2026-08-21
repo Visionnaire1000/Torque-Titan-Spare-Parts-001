@@ -107,7 +107,6 @@ const AdminNavbar = () => {
   };
 
    // -------------------- REVIEW NOTIFICATIONS --------------------
-
   const calculateReviewNotifications = (
     data: Review[] | null = null
   ): void => {
@@ -177,8 +176,9 @@ const AdminNavbar = () => {
       console.error(err);
     }
   };
-    // -------------------- INIT --------------------
+  
 
+   // -------------------- INIT --------------------
   useEffect(() => {
     calculateOrderNotifications();
     fetchReviewNotifications();

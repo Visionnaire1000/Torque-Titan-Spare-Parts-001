@@ -1,6 +1,6 @@
 venv/
 .env
-titan.db
+torque.db
 instance/
 __pycache__/
 .pytest_cache/

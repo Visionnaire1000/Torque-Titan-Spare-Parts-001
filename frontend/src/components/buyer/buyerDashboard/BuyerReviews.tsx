@@ -9,7 +9,18 @@ import { RefreshCw, Star, ThumbsUp, ThumbsDown } from "lucide-react";
 interface Review {
   id: string;
   sparepart_id: string;
-  sparepart_image?: string;
+
+  sparepart: {
+    id: string;
+    brand: string;
+    category: string;
+    vehicle_type: string;
+    image_url: string;
+    buying_price: number;
+    discount_percentage: number;
+
+  };
+
   user_display_name: string;
   rating: number;
   comment: string;
@@ -109,6 +120,7 @@ const EmptyState: FC = () => (
     className="
       py-10
       text-center
+      mt-[90px]
       text-base
       font-medium
       text-red-600
@@ -118,8 +130,9 @@ const EmptyState: FC = () => (
   </div>
 );
 
+
 /* ---------------- Component ---------------- */
-const Reviews: FC = () => {
+const BuyerReviews: FC = () => {
   const { authFetch, user } = useAuth();
 
   const [reviews, setReviews] = useState<Review[]>(
@@ -197,7 +210,7 @@ const Reviews: FC = () => {
 
     try {
       const res = await authFetch(
-        `${config.API_BASE_URL}/admin/reviews/`
+        `${config.API_BASE_URL}/buyer-reviews/`
       );
 
       if (!res.ok) {
@@ -212,12 +225,12 @@ const Reviews: FC = () => {
         reviewsRef.current = data;
 
         localStorage.setItem(
-          "admin_reviews_cache",
+          "buyer_reviews_cache",
           JSON.stringify(data)
         );
 
         window.dispatchEvent(
-          new Event("admin_reviews_updated")
+          new Event("buyer_reviews_updated")
         );
       }
     } catch (err) {
@@ -242,7 +255,7 @@ const Reviews: FC = () => {
 
     const existing: string[] = JSON.parse(
       localStorage.getItem(
-        "admin_seen_review_ids"
+        "buyer_seen_review_ids"
       ) || "[]"
     );
 
@@ -385,7 +398,6 @@ const Reviews: FC = () => {
                   break-words
                 "
               >
-                {review.user_display_name}
               </strong>
 
               <span
@@ -400,7 +412,7 @@ const Reviews: FC = () => {
             </div>
 
             {/* ---------- Image ---------- */}
-            {review.sparepart_image && (
+            {review.sparepart?.image_url && (
               <div
                 className="
                   my-3
@@ -410,14 +422,42 @@ const Reviews: FC = () => {
                 "
               >
                 <img
-                  src={review.sparepart_image}
-                  alt="review"
+                  src={review.sparepart.image_url}
+                  alt={`${review.sparepart.brand} spare part`}
                   className="
                     max-h-[150px]
                     max-w-[150px]
                     object-contain
                   "
                 />
+                <p
+                  className="
+                    mt-[10px]
+                    mb-2
+                    text-[rgb(0,64,128)]
+                    text-medium
+                    font-bold
+                    max-[480px]:mt-1
+                    max-[480px]:text-xl
+                "
+                >
+                  {review.sparepart.brand}{" "}{review.sparepart.category}{" "}
+                   for{" "} {review.sparepart.vehicle_type}
+                </p>
+                <p className="mb-2 text-lg font-semibold text-red-600">
+                  KES{" "}
+                 {review.sparepart.buying_price.toLocaleString()}
+                 {review.sparepart.discount_percentage >
+                  0 && (
+                 <span className="ml-[5px] text-sm text-[#e41a139b]">
+                  (-
+                  {review.sparepart.discount_percentage.toFixed(
+                   0
+                )}
+                %)
+               </span>
+               )}
+               </p>
               </div>
             )}
 
@@ -505,4 +545,4 @@ const Reviews: FC = () => {
   );
 };
 
-export default Reviews;
+export default BuyerReviews;

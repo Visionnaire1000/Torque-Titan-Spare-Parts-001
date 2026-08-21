@@ -22,6 +22,7 @@ import SearchResults from "./components/buyer/search/SearchResults";
 import ItemDetails from "./components/shared/ItemDetails";
 import BuyerAddress from "./components/buyer/buyerDashboard/BuyerAddress";
 import BuyerOrders from "./components/buyer/buyerDashboard/BuyerOrders";
+import BuyerReviews from "./components/buyer/buyerDashboard/BuyerReviews";
 import StripeCheckout from "./components/buyer/checkout/StripeCheckout";
 import PaymentSuccess from "./components/buyer/checkout/PaymentSuccess"; 
 import PaymentCancel from "./components/buyer/checkout/PaymentCancel"; 
@@ -95,6 +96,14 @@ function App() {
                element={
                  <RoleProtectedRoutes allowedRoles={['buyer']}>
                    <BuyerOrders />
+                 </RoleProtectedRoutes>
+               } 
+             />
+             <Route 
+               path="/buyer-reviews" 
+               element={
+                 <RoleProtectedRoutes allowedRoles={['buyer']}>
+                   <BuyerReviews />
                  </RoleProtectedRoutes>
                } 
              />

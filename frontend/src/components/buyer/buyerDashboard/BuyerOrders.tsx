@@ -43,6 +43,7 @@ interface ToastConfirmProps {
 
 type SeenOrders = Record<string, string[]>;
 
+
 /* ---------------- Skeleton Loader ---------------- */
 const SkeletonOrderCard: React.FC = () => (
   <div className="relative mb-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-4">
