@@ -16,10 +16,26 @@ let authState = {
   isAuthenticated: false,
 };
 
+// MOCK GOOGLE OAUTH                                                          
+vi.mock("@react-oauth/google", () => ({
+  GoogleLogin: () => (
+    <button type="button">
+      Continue with Google
+    </button>
+  ),
+  GoogleOAuthProvider: ({
+    children,
+  }: {
+    children: React.ReactNode;
+  }) => <>{children}</>,
+}));
+
+// MOCK ROUTER                                                                
 vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual<typeof import("react-router-dom")>(
-    "react-router-dom"
-  );
+  const actual =
+    await vi.importActual<
+      typeof import("react-router-dom")
+    >("react-router-dom");
 
   return {
     ...actual,
@@ -28,10 +44,12 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+// MOCK AUTH                                                                  
 vi.mock("../../../contexts/AuthContext", () => ({
   useAuth: () => authState,
 }));
 
+// RENDER                                                                     
 const renderComponent = () =>
   render(
     <MemoryRouter>
@@ -39,6 +57,7 @@ const renderComponent = () =>
     </MemoryRouter>
   );
 
+// RESET                                                                      
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -54,6 +73,7 @@ beforeEach(() => {
   };
 });
 
+// TESTS                                                                      
 describe("Login", () => {
   it("renders login form", () => {
     renderComponent();
@@ -66,17 +86,23 @@ describe("Login", () => {
   it("updates input values", () => {
     renderComponent();
 
-    fireEvent.change(screen.getByPlaceholderText(/email/i), {
-      target: {
-        value: "test@gmail.com",
-      },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/email/i),
+      {
+        target: {
+          value: "test@gmail.com",
+        },
+      }
+    );
 
-    fireEvent.change(screen.getByPlaceholderText(/password/i), {
-      target: {
-        value: "Password@1",
-      },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/password/i),
+      {
+        target: {
+          value: "Password@1",
+        },
+      }
+    );
 
     expect(
       screen.getByDisplayValue("test@gmail.com")
@@ -90,22 +116,30 @@ describe("Login", () => {
   it("calls login when submitted", async () => {
     renderComponent();
 
-    fireEvent.change(screen.getByPlaceholderText(/email/i), {
-      target: {
-        value: "test@gmail.com",
-      },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/email/i),
+      {
+        target: {
+          value: "test@gmail.com",
+        },
+      }
+    );
 
-    fireEvent.change(screen.getByPlaceholderText(/password/i), {
-      target: {
-        value: "Password@1",
-      },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/password/i),
+      {
+        target: {
+          value: "Password@1",
+        },
+      }
+    );
 
     fireEvent.submit(
-      screen.getByRole("button", {
-        name: /login/i,
-      }).closest("form")!
+      screen
+        .getByRole("button", {
+          name: /login/i,
+        })
+        .closest("form")!
     );
 
     await waitFor(() => {
@@ -128,9 +162,12 @@ describe("Login", () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(navigateMock).toHaveBeenCalledWith("/", {
-        replace: true,
-      });
+      expect(navigateMock).toHaveBeenCalledWith(
+        "/",
+        {
+          replace: true,
+        }
+      );
     });
   });
 

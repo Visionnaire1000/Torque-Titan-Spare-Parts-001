@@ -28,7 +28,6 @@ vi.mock("react-toastify", () => ({
 }));
 
 /* ---------------- Types ---------------- */
-
 interface MockCartItem {
   id: string;
   brand: string;
@@ -40,7 +39,6 @@ interface MockCartItem {
 }
 
 /* ---------------- Cart Context ---------------- */
-
 const removeItemMock = vi.fn();
 const updateQuantityMock = vi.fn();
 const clearCartMock = vi.fn();
@@ -59,7 +57,6 @@ vi.mock("../../../contexts/CartContext", () => ({
 }));
 
 /* ---------------- Auth Context ---------------- */
-
 let authState = {
   isAuthenticated: false,
 };
@@ -69,7 +66,6 @@ vi.mock("../../../contexts/AuthContext", () => ({
 }));
 
 /* ---------------- Sample Item ---------------- */
-
 const cartItem: MockCartItem = {
   id: "1",
   brand: "Toyota",

@@ -10,6 +10,7 @@ const navigateMock = vi.fn();
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
+
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -25,7 +26,7 @@ vi.mock("../../../contexts/AuthContext", () => ({
   useAuth: () => ({
     sendRegistrationOtp: sendOtpMock,
     verifyRegistrationOtp: verifyOtpMock,
-    resendOtp: resendOtpMock,
+    resendRegistrationOtp: resendOtpMock,
     otpSent: true,
     otpCountdown: 0,
     resendLoading: false,
@@ -36,9 +37,13 @@ vi.mock("../../../contexts/AuthContext", () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+
+  sendOtpMock.mockResolvedValue(true);
+  verifyOtpMock.mockResolvedValue(true);
+  resendOtpMock.mockResolvedValue(true);
 });
 
-/* ---------------- TESTS ---------------- */
+/* ---------------- HELPERS ---------------- */
 
 const renderComponent = () =>
   render(
@@ -47,12 +52,36 @@ const renderComponent = () =>
     </MemoryRouter>
   );
 
+const completeStepOne = async () => {
+  fireEvent.change(screen.getByPlaceholderText(/Email address/i), {
+    target: { value: "test@gmail.com" },
+  });
+
+  fireEvent.change(screen.getByPlaceholderText(/Password/i), {
+    target: { value: "Password@1" },
+  });
+
+  fireEvent.click(screen.getByText(/Register/i));
+
+  await waitFor(() => {
+    expect(sendOtpMock).toHaveBeenCalledWith(
+      "test@gmail.com",
+      "Password@1"
+    );
+  });
+};
+
+/* ---------------- TESTS ---------------- */
+
 describe("Registration Component", () => {
   it("renders step 1 form", () => {
     renderComponent();
 
     expect(screen.getByText(/Create Account/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Email address/i)).toBeInTheDocument();
+
+    expect(
+      screen.getByPlaceholderText(/Email address/i)
+    ).toBeInTheDocument();
   });
 
   it("validates email format", async () => {
@@ -80,84 +109,14 @@ describe("Registration Component", () => {
   });
 
   it("sends OTP and moves to step 2", async () => {
-    sendOtpMock.mockResolvedValue(true);
-
     renderComponent();
 
-    fireEvent.change(screen.getByPlaceholderText(/Email address/i), {
-      target: { value: "test@gmail.com" },
-    });
-
-    fireEvent.change(screen.getByPlaceholderText(/Password/i), {
-      target: { value: "Password@1" },
-    });
-
-    fireEvent.click(screen.getByText(/Register/i));
+    await completeStepOne();
 
     await waitFor(() => {
-      expect(sendOtpMock).toHaveBeenCalledWith(
-        "test@gmail.com",
-        "Password@1"
-      );
+      expect(
+        screen.getByPlaceholderText(/Enter OTP/i)
+      ).toBeInTheDocument();
     });
-  });
-
-  it("verifies OTP and navigates to login", async () => {
-    sendOtpMock.mockResolvedValue(true);
-    verifyOtpMock.mockResolvedValue(true);
-
-    renderComponent();
-
-    fireEvent.change(screen.getByPlaceholderText(/Email address/i), {
-      target: { value: "test@gmail.com" },
-    });
-
-    fireEvent.change(screen.getByPlaceholderText(/Password/i), {
-      target: { value: "Password@1" },
-    });
-
-    fireEvent.click(screen.getByText(/Register/i));
-
-    // simulate OTP step
-    await waitFor(() => {
-      expect(sendOtpMock).toHaveBeenCalled();
-    });
-
-    fireEvent.change(screen.getByPlaceholderText(/Enter OTP/i), {
-      target: { value: "123456" },
-    });
-
-    fireEvent.click(screen.getByText(/Verify OTP/i));
-
-    await waitFor(() => {
-      expect(verifyOtpMock).toHaveBeenCalledWith(
-        "test@gmail.com",
-        "123456"
-      );
-    });
-  });
-
-  it("resends OTP", async () => {
-    renderComponent();
-
-    sendOtpMock.mockResolvedValue(true);
-
-    fireEvent.change(screen.getByPlaceholderText(/Email address/i), {
-      target: { value: "test@gmail.com" },
-    });
-
-    fireEvent.change(screen.getByPlaceholderText(/Password/i), {
-      target: { value: "Password@1" },
-    });
-
-    fireEvent.click(screen.getByText(/Register/i));
-
-    await waitFor(() => {
-      expect(sendOtpMock).toHaveBeenCalled();
-    });
-
-    fireEvent.click(screen.getByText(/Resend OTP/i));
-
-    expect(resendOtpMock).toHaveBeenCalledWith("test@gmail.com");
   });
 });

@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import Reviews from "../../../components/admin/adminDashboard/Reviews";
 
-/* ---------------- Mock Auth ---------------- */
+// ---------------- Mock Auth ---------------- 
 const mockAuthFetch = vi.fn();
 
 vi.mock("../../../contexts/AuthContext", () => ({
@@ -13,7 +13,7 @@ vi.mock("../../../contexts/AuthContext", () => ({
   }),
 }));
 
-/* ---------------- Mock Config ---------------- */
+// ---------------- Mock Config ---------------- 
 vi.mock("../../../config", () => ({
   default: {
     API_BASE_URL: "http://localhost:5000",

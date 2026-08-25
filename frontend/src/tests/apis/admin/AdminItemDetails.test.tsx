@@ -5,8 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import AdminItemDetails from "../../../components/admin/AdminItemDetails";
 import config from "../../../config";
 
-/* ---------------- MOCKS ---------------- */
-
+// ---------------- MOCKS ----------------
 vi.mock("../../../config", () => ({
   default: {
     API_BASE_URL: "http://test-api",
@@ -30,8 +29,7 @@ vi.mock("../../../contexts/AuthContext", () => ({
   }),
 }));
 
-/* ---------------- DATA ---------------- */
-
+//---------------- DATA ---------------- 
 interface MockItem {
   id: string;
   brand: string;
@@ -84,8 +82,7 @@ const mockReviews: MockReview[] = [
   },
 ];
 
-/* ---------------- HELPERS ---------------- */
-
+// ---------------- HELPERS ----------------
 const renderComponent = (): ReturnType<typeof render> =>
   render(
     <MemoryRouter initialEntries={["/item/1"]}>
@@ -98,8 +95,7 @@ const renderComponent = (): ReturnType<typeof render> =>
     </MemoryRouter>
   );
 
-/* ---------------- SETUP ---------------- */
-
+//---------------- SETUP ----------------
 beforeEach(() => {
   vi.clearAllMocks();
 
@@ -135,8 +131,7 @@ beforeEach(() => {
   );
 });
 
-/* ---------------- TESTS ---------------- */
-
+//---------------- TESTS ----------------
 describe("AdminItemDetails", () => {
   it("renders item details", async () => {
     renderComponent();
