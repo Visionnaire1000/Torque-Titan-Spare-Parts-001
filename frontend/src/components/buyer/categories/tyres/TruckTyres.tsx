@@ -1,6 +1,6 @@
-import { useEffect, useState, type MouseEvent, type ReactElement } from "react";
+import { useEffect, useState,useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -25,7 +25,6 @@ interface ErrorStateProps {
 }
 
 /* ---------------- Skeleton Card ---------------- */
-
 const SkeletonCard = (): ReactElement => (
   <div
     className="
@@ -98,6 +97,11 @@ const TruckTyres = (): ReactElement => {
   const [brand, setBrand] = useState<string>("");
   const [price, setPrice] = useState<string>("");
 
+  const [brandOpen, setBrandOpen] = useState<boolean>(false);
+  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
+
   const [currentPage, setCurrentPage] =
     useState<number>(1);
 
@@ -123,7 +127,6 @@ const TruckTyres = (): ReactElement => {
   ];
 
   /* ---------------- Fetch Tyres ---------------- */
-
   const fetchTyres = async (): Promise<void> => {
     setLoading(true);
     setError(false);
@@ -162,7 +165,6 @@ const TruckTyres = (): ReactElement => {
   };
 
   /* ---------------- Effects ---------------- */
-
   useEffect(() => {
     void fetchTyres();
   }, [
@@ -188,6 +190,32 @@ const TruckTyres = (): ReactElement => {
 
     addItem(item);
   };
+
+  // Dropdown Filters
+  useEffect(() => {
+  const handleClickOutside = (event: globalThis.MouseEvent): void => {
+    if (
+      brandDropdownRef.current &&
+      !brandDropdownRef.current.contains(event.target as Node)
+    ) {
+      setBrandOpen(false);
+    }
+
+    if (
+      priceDropdownRef.current &&
+      !priceDropdownRef.current.contains(event.target as Node)
+    ) {
+      setPriceOpen(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+   };
+  }, []);
+
 
   /* ---------------- Pagination ---------------- */
   const getVisiblePages = (): number[] => {
@@ -238,104 +266,343 @@ const TruckTyres = (): ReactElement => {
       max-[480px]:pb-5
     "
   >
+
     {/* -------- Filters -------- */}
-    {!error && (
-      <div
+       {!error && (
+       <div
         className="
           mt-5
           mb-[25px]
           flex
-          flex-wrap
+          w-full
           justify-center
-          gap-[15px]
         "
       >
-        <select
-          value={brand}
-          onChange={(e) => setBrand(e.target.value)}
+        <div
           className="
-            cursor-pointer
-            rounded-md
-            border
-            border-[#ccc]
-            bg-white
-            px-3
-            py-2
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            max-[480px]:px-4
-            max-[480px]:py-1
-            max-[480px]:text-base
+            flex
+            flex-row
+            items-center
+            justify-center
+            gap-4
+            max-[480px]:w-full
+            max-[480px]:flex-col
+            max-[480px]:items-center
           "
         >
-          <option
-            value=""
-            className="max-[480px]:text-[10px]"
+          {/* Brand Dropdown */}
+          <div
+            ref={brandDropdownRef}
+            className="
+              relative
+              w-[180px]
+              max-[480px]:w-[160px]
+            "
           >
-            All Brands
-          </option>
-
-          {availableBrands.map((itemBrand) => (
-            <option
-              key={itemBrand}
-              value={itemBrand}
-              className="max-[480px]:text-[10px]"
+            <button
+              type="button"
+              onClick={() => {
+                setBrandOpen((open) => !open);
+                setPriceOpen(false);
+              }}
+              className="
+                flex
+                w-full
+                items-center
+                justify-between
+                rounded-md
+                border
+                border-[#ccc]
+                bg-white
+                px-3
+                py-2
+                text-left
+                text-[14px]
+                transition-colors
+                hover:border-[#0077ff]
+                focus:border-[#0077ff]
+                focus:outline-none
+                max-[480px]:px-4
+                max-[480px]:py-1
+                max-[480px]:text-base
+              "
             >
-              {itemBrand}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="
-            cursor-pointer
-            rounded-md
-            border
-            border-[#ccc]
-            bg-white
-            px-3
-            py-2
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            max-[480px]:px-4
-            max-[480px]:py-1
-            max-[480px]:text-base
-          "
-        >
-          <option
-            value=""
-            className="max-[480px]:text-[10px]"
+              <span className="truncate">
+                {brand || "All Brands"}
+              </span>
+    
+              {brandOpen ? (
+                <ChevronUp
+                  size={18}
+                  className="ml-2 shrink-0 text-gray-600"
+                />
+              ) : (
+                <ChevronDown
+                  size={18}
+                  className="ml-2 shrink-0 text-gray-600"
+                />
+              )}
+            </button>
+    
+            {brandOpen && (
+              <div
+                className="
+                  absolute
+                  left-0
+                  z-50
+                  mt-1
+                  w-full
+                  overflow-hidden
+                  rounded-md
+                  border
+                  border-[#ddd]
+                  bg-white
+                  shadow-lg
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrand("");
+                    setBrandOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    max-[480px]:text-base
+                    ${
+                      brand === ""
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  All Brands
+                </button>
+    
+                {availableBrands.map((itemBrand) => (
+                  <button
+                    key={itemBrand}
+                    type="button"
+                    onClick={() => {
+                      setBrand(itemBrand);
+                      setBrandOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        brand === itemBrand
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    {itemBrand}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+    
+          {/* Price Dropdown */}
+          <div
+            ref={priceDropdownRef}
+            className="
+              relative
+              w-[180px]
+              max-[480px]:w-[160px]
+            "
           >
-            All Prices
-          </option>
+            <button
+              type="button"
+              onClick={() => {
+                setPriceOpen((open) => !open);
+                setBrandOpen(false);
+              }}
+              className="
+                flex
+                w-full
+                items-center
+                justify-between
+                rounded-md
+                border
+                border-[#ccc]
+                bg-white
+                px-3
+                py-2
+                text-left
+                text-[14px]
+                transition-colors
+                hover:border-[#0077ff]
+                focus:border-[#0077ff]
+                focus:outline-none
+                max-[480px]:px-4
+                max-[480px]:py-1
+                max-[480px]:text-base
+              "
+            >
+              <span className="truncate">
+                {price === ""
+                  ? "All Prices"
+                  : price === "low"
+                    ? "Low (< 25k)"
+                    : price === "medium"
+                      ? "Medium (25k–40k)"
+                      : "High (> 40k)"}
+              </span>
+    
+              {priceOpen ? (
+                <ChevronUp
+                  size={18}
+                  className="ml-2 shrink-0 text-gray-600"
+                />
+              ) : (
+                <ChevronDown
+                  size={18}
+                  className="ml-2 shrink-0 text-gray-600"
+                />
+              )}
+            </button>
+    
+            {priceOpen && (
+              <div
+                className="
+                  absolute
+                  left-0
+                  z-50
+                  mt-1
+                  w-full
+                  overflow-hidden
+                  rounded-md
+                  border
+                  border-[#ddd]
+                  bg-white
+                  shadow-lg
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrice("");
+                    setPriceOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    max-[480px]:text-base
+                    ${
+                      price === ""
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  All Prices
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrice("low");
+                    setPriceOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    max-[480px]:text-base
+                    ${
+                      price === "low"
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  Low (&lt; 35k)
+                </button>
+    
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrice("medium");
+                    setPriceOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    max-[480px]:text-base
+                    ${
+                      price === "medium"
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  Medium (35k–45k)
+                </button>
+    
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrice("high");
+                    setPriceOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    max-[480px]:text-base
+                    ${
+                      price === "high"
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  High (&gt; 45k)
+                </button>
+              </div>
+             )}
+           </div>
+          </div>
+        </div>
+       )}
 
-          <option
-            value="low"
-            className="max-[480px]:text-[10px]"
-          >
-            Low (&lt; 35k)
-          </option>
-
-          <option
-            value="medium"
-            className="max-[480px]:text-[10px]"
-          >
-            Medium (35k–45k)
-          </option>
-
-          <option
-            value="high"
-            className="max-[480px]:text-[10px]"
-          >
-            High (&gt; 45k)
-          </option>
-        </select>
-      </div>
-    )}
     {/* -------- Error State -------- */}
     {error ? (
       <ErrorState onRetry={fetchTyres} />
