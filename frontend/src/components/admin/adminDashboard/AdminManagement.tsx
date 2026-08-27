@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import { Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
 
+/* ---------------- Types ---------------- */
 interface Admin {
   id: number;
   email: string;
@@ -21,6 +22,7 @@ interface ApiResponse {
   error?: string;
 }
 
+/* ---------------- Component ---------------- */
 const AdminManagement = () => {
   const { user, authFetch } = useAuth();
 
@@ -29,20 +31,37 @@ const AdminManagement = () => {
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
   const [selectedId, setSelectedId] = useState("");
+
+  const [deleteDropdownOpen, setDeleteDropdownOpen] =
+    useState(false);
+
+  const deleteDropdownRef =
+    useRef<HTMLDivElement>(null);
+
   const [loading, setLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] =
+    useState(false);
 
-  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailPattern =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  /* ---------------- Fetch Admins ---------------- */
   const fetchAdmins = useCallback(async () => {
     try {
-      const res = await authFetch(`${config.API_BASE_URL}/admin/admins/`);
+      const res = await authFetch(
+        `${config.API_BASE_URL}/admin/admins/`
+      );
 
-      const data: AdminsResponse = await res.json();
+      const data: AdminsResponse =
+        await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch admins");
+        throw new Error(
+          data.error ||
+            "Failed to fetch admins"
+        );
       }
 
       setAdmins(data.admins ?? []);
@@ -55,13 +74,45 @@ const AdminManagement = () => {
     }
   }, [authFetch]);
 
+  /* ---------------- Initial Fetch ---------------- */
   useEffect(() => {
     if (user?.role === "super_admin") {
-      fetchAdmins();
+      void fetchAdmins();
     }
   }, [user, fetchAdmins]);
 
-  const handleEmailChange = (e: any) => {
+  /* ---------------- Close Dropdown ---------------- */
+  useEffect(() => {
+    const handleClickOutside = (
+      event: globalThis.MouseEvent
+    ): void => {
+      if (
+        deleteDropdownRef.current &&
+        !deleteDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setDeleteDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+  /* ---------------- Email ---------------- */
+  const handleEmailChange = (
+    e: ChangeEvent<HTMLInputElement>
+  ): void => {
     const value = e.target.value;
 
     setEmail(value);
@@ -73,18 +124,22 @@ const AdminManagement = () => {
     );
   };
 
-  const handlePasswordChange = (e: any) => {
+  /* ---------------- Password ---------------- */
+  const handlePasswordChange = (
+    e: ChangeEvent<HTMLInputElement>
+  ): void => {
     setPassword(e.target.value);
   };
 
-  const handleSelectChange = (e: any) => {
-    setSelectedId(e.target.value);
-  };
-
-    const createAdmin = async (e: any) => {
+  /* ---------------- Create Admin ---------------- */
+  const createAdmin = async (
+    e: SubmitEvent
+  ): Promise<void> => {
     e.preventDefault();
 
-    if (emailError) return;
+    if (emailError) {
+      return;
+    }
 
     setLoading(true);
 
@@ -103,17 +158,23 @@ const AdminManagement = () => {
         }
       );
 
-      const data: ApiResponse = await res.json();
+      const data: ApiResponse =
+        await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create admin");
+        throw new Error(
+          data.error ||
+            "Failed to create admin"
+        );
       }
 
       setEmail("");
       setPassword("");
       setEmailError("");
 
-      toast.success("Admin created successfully!");
+      toast.success(
+        "Admin created successfully!"
+      );
 
       await fetchAdmins();
     } catch (error) {
@@ -127,7 +188,10 @@ const AdminManagement = () => {
     }
   };
 
-  const deleteAdmin = async (e: any) => {
+  /* ---------------- Delete Admin ---------------- */
+  const deleteAdmin = async (
+    e: SubmitEvent
+  ): Promise<void> => {
     e.preventDefault();
 
     if (!selectedId) {
@@ -145,15 +209,22 @@ const AdminManagement = () => {
         }
       );
 
-      const data: ApiResponse = await res.json();
+      const data: ApiResponse =
+        await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to delete admin");
+        throw new Error(
+          data.error ||
+            "Failed to delete admin"
+        );
       }
 
       setSelectedId("");
+      setDeleteDropdownOpen(false);
 
-      toast.success("Admin deleted successfully!");
+      toast.success(
+        "Admin deleted successfully!"
+      );
 
       await fetchAdmins();
     } catch (error) {
@@ -167,6 +238,13 @@ const AdminManagement = () => {
     }
   };
 
+  /* ---------------- Selected Admin ---------------- */
+  const selectedAdmin = admins.find(
+    (admin) =>
+      String(admin.id) === selectedId
+  );
+
+  /* ---------------- Access Control ---------------- */
   if (user?.role !== "super_admin") {
     return (
       <p className="py-10 text-center text-lg font-medium">
@@ -175,93 +253,421 @@ const AdminManagement = () => {
     );
   }
 
-    return (
-    <div className="mx-auto mt-[90px] max-w-[520px] rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
-      <ToastContainer position="top-right" autoClose={3000} />
+  /* ---------------- Render ---------------- */
+  return (
+    <div
+      className="
+        mx-auto
+        mt-[90px]
+        mb-[80px]
+        max-w-[520px]
+        rounded-2xl
+        bg-white
+        p-6
+        shadow-[0_10px_30px_rgba(0,0,0,0.08)]
+      "
+    >
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+      />
 
-      <h2 className="mb-5 text-center text-[22px] font-bold">
+      <h2
+        className="
+          mb-5
+          text-center
+          text-[22px]
+          font-bold
+        "
+      >
         Admin Management
       </h2>
 
-      {/* Create Admin */}
-      <section className="mb-6 rounded-xl bg-gray-50 p-4">
-        <h3 className="mb-3 text-base font-semibold text-gray-800">
+      {/*CREATE ADMIN*/}
+      <section
+        className="
+          mb-6
+          rounded-xl
+          bg-gray-50
+          p-4
+        "
+      >
+        <h3
+          className="
+            mb-3
+            text-base
+            font-semibold
+            text-gray-800
+          "
+        >
           Create Admin
         </h3>
 
-        <form onSubmit={createAdmin} className="relative">
+        <form
+          onSubmit={(e) => {
+            void createAdmin(
+              e.nativeEvent
+            );
+          }}
+          className="relative"
+        >
+          {/* Email */}
           <input
             type="email"
             placeholder="Email"
             value={email}
             onChange={handleEmailChange}
             required
-            className="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm transition focus:border-[rgb(0,64,128)] focus:outline-none focus:ring-2 focus:ring-blue-100"
+            className="
+              mb-2
+              w-full
+              rounded-lg
+              border
+              border-gray-300
+              px-3
+              py-2.5
+              text-sm
+              transition
+              focus:border-[rgb(0,64,128)]
+              focus:outline-none
+              focus:ring-2
+              focus:ring-blue-100
+            "
           />
 
           {emailError && (
-            <p className="mb-2 text-sm font-medium text-red-600">
+            <p
+              className="
+                mb-2
+                text-sm
+                font-medium
+                text-red-600
+              "
+            >
               {emailError}
             </p>
           )}
 
+          {/* Password */}
           <div className="relative mb-3">
             <input
-              type={showPassword ? "text" : "password"}
+              type={
+                showPassword
+                  ? "text"
+                  : "password"
+              }
               placeholder="Password"
               value={password}
-              onChange={handlePasswordChange}
+              onChange={
+                handlePasswordChange
+              }
               required
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-12 text-sm transition focus:border-[rgb(0,64,128)] focus:outline-none focus:ring-2 focus:ring-blue-100"
+              className="
+                w-full
+                rounded-lg
+                border
+                border-gray-300
+                px-3
+                py-2.5
+                pr-12
+                text-sm
+                transition
+                focus:border-[rgb(0,64,128)]
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-100
+              "
             />
 
             <button
               type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              onClick={() =>
+                setShowPassword(
+                  (prev) => !prev
+                )
+              }
+              className="
+                absolute
+                right-3
+                top-1/2
+                -translate-y-1/2
+                rounded
+                p-1
+                text-gray-500
+                hover:bg-gray-100
+                hover:text-gray-700
+              "
             >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              {showPassword ? (
+                <EyeOff size={18} />
+              ) : (
+                <Eye size={18} />
+              )}
             </button>
           </div>
 
+          {/* Create Button */}
           <button
             type="submit"
-            disabled={loading || Boolean(emailError)}
-            className="w-full rounded-lg bg-[rgb(0,64,128)] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={
+              loading ||
+              Boolean(emailError)
+            }
+            className="
+              w-full
+              rounded-lg
+              bg-[rgb(0,64,128)]
+              px-4
+              py-2.5
+              text-sm
+              font-medium
+              text-white
+              transition
+              hover:opacity-90
+              disabled:cursor-not-allowed
+              disabled:opacity-60
+            "
           >
-            {loading ? "Creating..." : "Create"}
+            {loading
+              ? "Creating..."
+              : "Create"}
           </button>
         </form>
       </section>
 
-      {/* Delete Admin */}
-      <section className="rounded-xl bg-gray-50 p-4">
-        <h3 className="mb-3 text-base font-semibold text-gray-800">
+      {/*DELETE ADMIN*/}
+      <section
+        className="
+          rounded-xl
+          bg-gray-50
+          p-4
+        "
+      >
+        <h3
+          className="
+            mb-3
+            text-base
+            font-semibold
+            text-gray-800
+          "
+        >
           Delete Admin
         </h3>
 
-        <form onSubmit={deleteAdmin} className="relative">
-          <select
-            value={selectedId}
-            onChange={handleSelectChange}
-            required
-            className="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm transition focus:border-[rgb(0,64,128)] focus:outline-none focus:ring-2 focus:ring-blue-100"
+        <form
+          onSubmit={(e) => {
+            void deleteAdmin(
+              e.nativeEvent
+            );
+          }}
+          className="relative"
+        >
+          {/* ---------------- Custom Dropdown ---------------- */}
+
+          <div
+            ref={deleteDropdownRef}
+            className="
+              relative
+              mb-3
+              w-full
+            "
           >
-            <option value="">Select admin</option>
+            {/* Dropdown Trigger */}
 
-            {admins.map((admin) => (
-              <option key={admin.id} value={admin.id}>
-                {admin.email}
-              </option>
-            ))}
-          </select>
+            <button
+              type="button"
+              onClick={() =>
+                setDeleteDropdownOpen(
+                  (open) => !open
+                )
+              }
+              className="
+                flex
+                w-full
+                items-center
+                justify-between
+                rounded-lg
+                border
+                border-gray-300
+                bg-white
+                px-3
+                py-2.5
+                text-left
+                text-sm
+                transition-colors
+                hover:border-[#0077ff]
+                focus:border-[rgb(0,64,128)]
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-100
+              "
+            >
+              <span
+                className={
+                  selectedAdmin
+                    ? "truncate text-gray-800"
+                    : "truncate text-gray-500"
+                }
+              >
+                {selectedAdmin
+                  ? selectedAdmin.email
+                  : "Select admin"}
+              </span>
 
+              {deleteDropdownOpen ? (
+                <ChevronUp
+                  size={18}
+                  className="
+                    ml-2
+                    shrink-0
+                    text-gray-600
+                  "
+                />
+              ) : (
+                <ChevronDown
+                  size={18}
+                  className="
+                    ml-2
+                    shrink-0
+                    text-gray-600
+                  "
+                />
+              )}
+            </button>
+
+            {/* Dropdown Options */}
+
+            {deleteDropdownOpen && (
+              <div
+                className="
+                  absolute
+                  left-0
+                  top-full
+                  z-50
+                  mt-1
+                  max-h-60
+                  w-full
+                  overflow-y-auto
+                  rounded-lg
+                  border
+                  border-gray-300
+                  bg-white
+                  shadow-lg
+                "
+              >
+                {admins.length === 0 ? (
+                  <div
+                    className="
+                      px-3
+                      py-2.5
+                      text-sm
+                      text-gray-500
+                    "
+                  >
+                    No admins available
+                  </div>
+                ) : (
+                  <>
+                    {/* Select Admin */}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId("");
+                        setDeleteDropdownOpen(
+                          false
+                        );
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2.5
+                        text-left
+                        text-sm
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        ${
+                          selectedId === ""
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-gray-500"
+                        }
+                      `}
+                    >
+                      Select admin
+                    </button>
+
+                    {/* Admin List */}
+
+                    {admins.map((admin) => {
+                      const adminId =
+                        String(admin.id);
+
+                      const isSelected =
+                        selectedId ===
+                        adminId;
+
+                      return (
+                        <button
+                          key={admin.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedId(
+                              adminId
+                            );
+
+                            setDeleteDropdownOpen(
+                              false
+                            );
+                          }}
+                          className={`
+                            block
+                            w-full
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            transition-colors
+                            hover:bg-[#f0f6ff]
+                            ${
+                              isSelected
+                                ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                                : "text-[#333]"
+                            }
+                          `}
+                        >
+                          {admin.email}
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Delete Button */}
           <button
             type="submit"
             disabled={deleteLoading}
-            className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="
+              w-full
+              rounded-lg
+              bg-red-600
+              px-4
+              py-2.5
+              text-sm
+              font-medium
+              text-white
+              transition
+              hover:bg-red-700
+              disabled:cursor-not-allowed
+              disabled:opacity-60
+            "
           >
-            {deleteLoading ? "Deleting..." : "Delete"}
+            {deleteLoading
+              ? "Deleting..."
+              : "Delete"}
           </button>
         </form>
       </section>

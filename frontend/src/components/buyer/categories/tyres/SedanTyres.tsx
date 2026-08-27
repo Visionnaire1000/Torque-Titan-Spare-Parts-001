@@ -279,14 +279,14 @@ const SedanTyres = (): ReactElement => {
     <div
       className="
         flex
-        flex-row
+        flex-wrap
         items-center
         justify-center
         gap-4
-        max-[480px]:w-full
-        max-[480px]:flex-col
+        max-[480px]:mt-3
+        max-[480px]:gap-2
         max-[480px]:items-center
-      "
+    "
     >
       {/* Brand Dropdown */}
       <div

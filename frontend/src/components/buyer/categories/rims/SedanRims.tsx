@@ -1,6 +1,6 @@
-import { useEffect, useState, type MouseEvent, type ReactElement } from "react";
+import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -37,27 +37,17 @@ const SkeletonCard = (): ReactElement => (
       rounded-xl
       bg-[#f6f7f8]
       p-3
-      before:absolute
-      before:left-[-150%]
-      before:top-0
-      before:h-full
-      before:w-[150%]
-      before:animate-[shimmer_1.4s_infinite]
-      before:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent)]
-      before:content-['']
     "
   >
     <div className="mb-[10px] h-[140px] w-full rounded-[10px] bg-[#e0e0e0]" />
-
-    <div className="my-2 h-3 w-4/5 rounded-md bg-[#e0e0e0]" />
-    <div className="my-2 h-3 w-3/5 rounded-md bg-[#e0e0e0]" />
-    <div className="my-2 h-3 w-2/5 rounded-md bg-[#e0e0e0]" />
-
+    <div className="my-2 h-3 w-[80%] rounded-md bg-[#e0e0e0]" />
+    <div className="my-2 h-3 w-[60%] rounded-md bg-[#e0e0e0]" />
+    <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
     <div className="mt-[10px] h-8 w-full rounded-lg bg-[#e0e0e0]" />
   </div>
 );
 
-/* ---------------- Error State ---------------- */
+/* ---------------- Error UI ---------------- */
 const ErrorState = ({
   onRetry,
 }: ErrorStateProps): ReactElement => (
@@ -71,23 +61,24 @@ const ErrorState = ({
     </p>
 
     <button
-      onClick={() => void onRetry()}
       className="
+        mb-[30px]
         inline-flex
         items-center
         gap-2
         rounded-md
         bg-[#111]
         px-5
-        py-2.5
+        py-[10px]
         text-white
         transition-opacity
         hover:opacity-85
       "
+      onClick={() => void onRetry()}
     >
       <RefreshCw
         size={18}
-        className="transition-transform duration-500"
+        className="transition-transform duration-300"
       />
       Retry
     </button>
@@ -102,12 +93,21 @@ const SedanRims = (): ReactElement => {
   const [colour, setColour] = useState<string>("");
   const [price, setPrice] = useState<string>("");
 
+  /* ---------------- Dropdown State ---------------- */
+  const [brandOpen, setBrandOpen] = useState<boolean>(false);
+  const [colourOpen, setColourOpen] = useState<boolean>(false);
+  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+
+  /* ---------------- Dropdown Refs ---------------- */
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const colourDropdownRef = useRef<HTMLDivElement>(null);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
+
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
-
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
 
+  const [error, setError] = useState<boolean>(false);
   const { addItem } = useCart();
 
   const availableBrands: string[] = [
@@ -121,7 +121,7 @@ const SedanRims = (): ReactElement => {
   ];
 
   const availableColours: string[] = [
-   "silver",
+    "silver",
     "black",
     "gold",
   ];
@@ -147,7 +147,7 @@ const SedanRims = (): ReactElement => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed");
+        throw new Error("Failed to fetch rims");
       }
 
       const data: SparePartsResponse =
@@ -168,11 +168,20 @@ const SedanRims = (): ReactElement => {
   /* ---------------- Effects ---------------- */
   useEffect(() => {
     void fetchRims();
-  }, [brand, colour, price, currentPage]);
+  }, [
+    brand,
+    colour,
+    price,
+    currentPage,
+  ]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [brand, colour, price]);
+  }, [
+    brand,
+    colour,
+    price,
+  ]);
 
   /* ---------------- Cart ---------------- */
   const handleAddToCart = (
@@ -185,25 +194,88 @@ const SedanRims = (): ReactElement => {
     addItem(item);
   };
 
+
+  /* ---------------- Filters Dropdown ---------------- */
+  useEffect(() => {
+    const handleClickOutside = (
+      event: globalThis.MouseEvent
+    ): void => {
+      if (
+        brandDropdownRef.current &&
+        !brandDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setBrandOpen(false);
+      }
+
+      if (
+        colourDropdownRef.current &&
+        !colourDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setColourOpen(false);
+      }
+
+      if (
+        priceDropdownRef.current &&
+        !priceDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setPriceOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+  
   /* ---------------- Pagination ---------------- */
   const getVisiblePages = (): number[] => {
     const pages: number[] = [];
 
     const maxVisible = 5;
 
-    let start = Math.max(currentPage - 2, 1);
-    let end = Math.min(start + maxVisible - 1, totalPages);
+    let start = Math.max(
+      currentPage - 2,
+      1
+    );
 
-    start = Math.max(end - maxVisible + 1, 1);
+    let end = Math.min(
+      start + maxVisible - 1,
+      totalPages
+    );
 
-    for (let i = start; i <= end; i++) {
+    start = Math.max(
+      end - maxVisible + 1,
+      1
+    );
+
+    for (
+      let i = start;
+      i <= end;
+      i++
+    ) {
       pages.push(i);
     }
 
     return pages;
   };
 
-  const visiblePages = getVisiblePages();
+  const visiblePages =
+    getVisiblePages();
 
   /* ---------------- Render ---------------- */
   return (
@@ -215,136 +287,523 @@ const SedanRims = (): ReactElement => {
         pb-[70px]
         font-[Arial,sans-serif]
         max-[480px]:max-w-[480px]
+        max-[480px]:pb-5
       "
     >
-       {/* -------- Filters -------- */}
-      {!error && (
 
+      {/* Filters */}
+      {!error && (
         <div
           className="
-            flex
-            flex-wrap
-            justify-center
-            gap-[15px]
-            mb-[25px]
             mt-5
+            mb-[25px]
+            flex
+            w-full
+            justify-center
           "
         >
-          <select
-            value={brand}
-            onChange={(e) =>
-              setBrand(e.target.value)
-            }
+          <div
             className="
-              py-2
-              px-3
-              text-sm
-              rounded-md
-              border
-              border-[#ccc]
-              bg-white
-              cursor-pointer
-              transition-colors
-              hover:border-[#0077ff]
-              max-[480px]:py-1
-              max-[480px]:px-4
-              max-[480px]:text-base
+              flex
+              flex-wrap
+              items-center
+              justify-center
+              gap-4
+              max-[480px]:mt-3
+              max-[480px]:gap-2
+              max-[480px]:items-center
             "
           >
-            <option value="">
-              All Brands
-            </option>
-            {availableBrands.map((itemBrand) => (
 
-              <option
-                key={itemBrand}
-                value={itemBrand}
+            {/* Brand Dropdown */}
+            <div
+              ref={brandDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[160px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setBrandOpen((open) => !open);
+                  setColourOpen(false);
+                  setPriceOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-[#ccc]
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-4
+                  max-[480px]:py-1
+                  max-[480px]:text-base
+                "
               >
-                {itemBrand}
-              </option>
+                <span className="truncate">
+                  {brand || "All Brands"}
+                </span>
 
-            ))}
+                {brandOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                )}
+              </button>
 
-          </select>
-          <select
-            value={colour}
-            onChange={(e) =>
-              setColour(e.target.value)
-            }
-            className="
-              py-2
-              px-3
-              text-sm
-              rounded-md
-              border
-              border-[#ccc]
-              bg-white
-              cursor-pointer
-              transition-colors
-              hover:border-[#0077ff]
-              max-[480px]:py-1
-              max-[480px]:px-4
-              max-[480px]:text-base
-            "
-          >
-            <option value="">
-              All Colours
-            </option>
-            {availableColours.map((itemColour) => (
-              <option
-                key={itemColour}
-                value={itemColour}
+              {brandOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBrand("");
+                      setBrandOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        brand === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Brands
+                  </button>
+
+                  {availableBrands.map(
+                    (itemBrand) => (
+                      <button
+                        key={itemBrand}
+                        type="button"
+                        onClick={() => {
+                          setBrand(itemBrand);
+                          setBrandOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            brand === itemBrand
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemBrand}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Colour Dropdown */}
+            <div
+              ref={colourDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[160px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setColourOpen(
+                    (open) => !open
+                  );
+                  setBrandOpen(false);
+                  setPriceOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-[#ccc]
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-4
+                  max-[480px]:py-1
+                  max-[480px]:text-base
+                "
               >
-                {
-                  itemColour.charAt(0).toUpperCase() +
-                  itemColour.slice(1)
-                }
-              </option>
-            ))}
-          </select>
-          <select
-            value={price}
-            onChange={(e) =>
-              setPrice(e.target.value)
-            }
-            className="
-              py-2
-              px-3
-              text-sm
-              rounded-md
-              border
-              border-[#ccc]
-              bg-white
-              cursor-pointer
-              transition-colors
-              hover:border-[#0077ff]
-              max-[480px]:py-1
-              max-[480px]:px-4
-              max-[480px]:text-base
-            "
-          >
-            <option value="">
-              All Prices
-            </option>
-            <option value="low">
-              Low (&lt; 20k)
-            </option>
-            <option value="medium">
-              Medium (20k–30k)
-            </option>
-            <option value="high">
-              High (&gt; 30k)
-            </option>
-          </select>
+                <span className="truncate">
+                  {colour === ""
+                    ? "All Colours"
+                    : colour.charAt(0).toUpperCase() +
+                      colour.slice(1)}
+                </span>
+
+                {colourOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                )}
+              </button>
+
+              {colourOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setColour("");
+                      setColourOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        colour === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Colours
+                  </button>
+
+                  {availableColours.map(
+                    (itemColour) => (
+                      <button
+                        key={itemColour}
+                        type="button"
+                        onClick={() => {
+                          setColour(itemColour);
+                          setColourOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            colour === itemColour
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemColour
+                          .charAt(0)
+                          .toUpperCase() +
+                          itemColour.slice(1)}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Price Dropdown */}
+            <div
+              ref={priceDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[160px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setPriceOpen(
+                    (open) => !open
+                  );
+                  setBrandOpen(false);
+                  setColourOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-[#ccc]
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-4
+                  max-[480px]:py-1
+                  max-[480px]:text-base
+                "
+              >
+                <span className="truncate">
+                  {price === ""
+                    ? "All Prices"
+                    : price === "low"
+                      ? "Low (< 20k)"
+                      : price === "medium"
+                        ? "Medium (20k–30k)"
+                        : "High (> 30k)"}
+                </span>
+
+                {priceOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                )}
+              </button>
+
+              {priceOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Prices
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("low");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === "low"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    Low (&lt; 20k)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("medium");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === "medium"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    Medium (20k–30k)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("high");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === "high"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    High (&gt; 30k)
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* -------- Error State -------- */}
+      {/* Error */}
       {error ? (
         <ErrorState onRetry={fetchRims} />
       ) : (
         <>
-          {/* -------- Products Grid -------- */}
+          {/* Products Grid */}
           <div
             className="
               grid
@@ -354,9 +813,11 @@ const SedanRims = (): ReactElement => {
             "
           >
             {loading ? (
-              Array.from({ length: 8 }).map((_, index) => (
-                <SkeletonCard key={index} />
-              ))
+              Array.from({ length: 8 }).map(
+                (_, index) => (
+                  <SkeletonCard key={index} />
+                )
+              )
             ) : items.length > 0 ? (
               items.map((item) => (
                 <div
@@ -381,7 +842,15 @@ const SedanRims = (): ReactElement => {
                 >
                   <Link
                     to={`/items/${item.id}`}
-                    className="flex h-full w-full flex-col items-center no-underline text-inherit"
+                    className="
+                      flex
+                      h-full
+                      w-full
+                      flex-col
+                      items-center
+                      text-inherit
+                      no-underline
+                    "
                   >
                     <img
                       src={item.image}
@@ -416,7 +885,7 @@ const SedanRims = (): ReactElement => {
                         mb-[10px]
                         text-lg
                         font-bold
-                        text-[#FF0000]
+                        text-[rgb(255,0,0)]
                       "
                     >
                       KES{" "}
@@ -430,7 +899,11 @@ const SedanRims = (): ReactElement => {
                             text-[#d9534f]
                           "
                         >
-                          (-{item.discount_percentage.toFixed(0)}%)
+                          (-
+                          {item.discount_percentage.toFixed(
+                            0
+                          )}
+                          %)
                         </span>
                       )}
                     </p>
@@ -470,19 +943,33 @@ const SedanRims = (): ReactElement => {
             )}
           </div>
 
-          {/* -------- Pagination -------- */}
+          {/* Pagination */}
           {loading ? (
             <div className="mt-4 flex justify-center gap-2">
               {[1, 2, 3, 4].map((item) => (
                 <div
                   key={item}
-                  className="h-8 w-10 rounded-md bg-[#e0e0e0]"
+                  className="
+                    h-8
+                    w-10
+                    rounded-md
+                    bg-[#e0e0e0]
+                  "
                 />
               ))}
             </div>
           ) : (
             totalPages > 1 && (
-              <div className="my-[30px] flex flex-wrap items-center justify-center gap-[6px]">
+              <div
+                className="
+                  my-[30px]
+                  flex
+                  flex-wrap
+                  items-center
+                  justify-center
+                  gap-[6px]
+                "
+              >
                 <button
                   disabled={currentPage === 1}
                   onClick={() =>
@@ -508,7 +995,13 @@ const SedanRims = (): ReactElement => {
                 </button>
 
                 {visiblePages[0] > 1 && (
-                  <span className="select-none px-[6px] text-base">
+                  <span
+                    className="
+                      select-none
+                      px-[6px]
+                      text-base
+                    "
+                  >
                     …
                   </span>
                 )}
@@ -516,12 +1009,22 @@ const SedanRims = (): ReactElement => {
                 {visiblePages.map((page) => (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`rounded border px-3 py-[6px] text-sm transition-colors ${
-                      page === currentPage
-                        ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
-                        : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
-                    }`}
+                    onClick={() =>
+                      setCurrentPage(page)
+                    }
+                    className={`
+                      rounded
+                      border
+                      px-3
+                      py-[6px]
+                      text-sm
+                      transition-colors
+                      ${
+                        page === currentPage
+                          ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
+                          : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
+                      }
+                    `}
                   >
                     {page}
                   </button>
@@ -530,16 +1033,27 @@ const SedanRims = (): ReactElement => {
                 {visiblePages[
                   visiblePages.length - 1
                 ] < totalPages && (
-                  <span className="select-none px-[6px] text-base">
+                  <span
+                    className="
+                      select-none
+                      px-[6px]
+                      text-base
+                    "
+                  >
                     …
                   </span>
                 )}
 
                 <button
-                  disabled={currentPage === totalPages}
+                  disabled={
+                    currentPage === totalPages
+                  }
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.min(page + 1, totalPages)
+                      Math.min(
+                        page + 1,
+                        totalPages
+                      )
                     )
                   }
                   className="

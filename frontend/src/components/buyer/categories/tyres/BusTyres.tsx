@@ -262,7 +262,8 @@ const BusTyres = (): ReactElement => {
       max-[480px]:pb-5
     "
   >
-     {/* Filters */}
+
+  {/* Filters */}
   {!error && (
   <div
     className="
@@ -276,15 +277,16 @@ const BusTyres = (): ReactElement => {
     <div
       className="
         flex
-        flex-row
+        flex-wrap
         items-center
         justify-center
         gap-4
-        max-[480px]:w-full
-        max-[480px]:flex-col
+        max-[480px]:mt-3
+        max-[480px]:gap-2
         max-[480px]:items-center
       "
     >
+
       {/* Brand Dropdown */}
       <div
         ref={brandDropdownRef}
@@ -454,9 +456,9 @@ const BusTyres = (): ReactElement => {
             {price === ""
               ? "All Prices"
               : price === "low"
-                ? "Low (< 15k)"
+                ? "Low (< 25k)"
                 : price === "medium"
-                  ? "Medium (15k–30k)"
+                  ? "Medium (25k–30k)"
                   : "High (> 30k)"}
           </span>
 
@@ -590,7 +592,7 @@ const BusTyres = (): ReactElement => {
                 }
               `}
             >
-              High (&gt; 35k)
+              High (&gt; 30k)
             </button>
           </div>
         )}

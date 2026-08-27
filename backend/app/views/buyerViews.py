@@ -133,7 +133,7 @@ class SparePartsListView(APIView):
             },
             "bus": {
                 "low": 25000,
-                "medium": 30000,
+                "medium": 35000,
             },
         },
 

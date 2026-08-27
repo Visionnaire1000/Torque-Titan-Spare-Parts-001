@@ -1,6 +1,6 @@
-import { useEffect, useState, type MouseEvent, type ReactElement } from "react";
+import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -167,6 +167,16 @@ const BusRims = (): ReactElement => {
   const [colour, setColour] = useState<string>("");
   const [price, setPrice] = useState<string>("");
 
+  /* ---------------- Dropdown State ---------------- */
+  const [brandOpen, setBrandOpen] = useState<boolean>(false);
+  const [colourOpen, setColourOpen] = useState<boolean>(false);
+  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+
+  /* ---------------- Dropdown Refs ---------------- */
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const colourDropdownRef = useRef<HTMLDivElement>(null);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
+
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
 
@@ -272,6 +282,54 @@ const BusRims = (): ReactElement => {
 
   };
 
+  
+  /* ---------------- Filters Dropdown ---------------- */
+  useEffect(() => {
+    const handleClickOutside = (
+      event: globalThis.MouseEvent
+    ): void => {
+      if (
+        brandDropdownRef.current &&
+        !brandDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setBrandOpen(false);
+      }
+
+      if (
+        colourDropdownRef.current &&
+        !colourDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setColourOpen(false);
+      }
+
+      if (
+        priceDropdownRef.current &&
+        !priceDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setPriceOpen(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
+
+
   /* ---------------- Pagination ---------------- */
   const getVisiblePages = (): number[] => {
     const pages: number[] = [];
@@ -292,7 +350,8 @@ const BusRims = (): ReactElement => {
 
   const visiblePages = getVisiblePages();
 
- /* ---------------- Render ---------------- */
+
+/* ---------------- Render ---------------- */
 return (
   <div
     className="
@@ -304,129 +363,514 @@ return (
       max-[480px]:max-w-[480px]
     "
   >
-    
-      {/* -------- Filters -------- */}
-      {!error && (
 
+    {/* Filters */}
+      {!error && (
         <div
           className="
-            flex
-            flex-wrap
-            justify-center
-            gap-[15px]
-            mb-[25px]
             mt-5
+            mb-[25px]
+            flex
+            w-full
+            justify-center
           "
         >
-          <select
-            value={brand}
-            onChange={(e) =>
-              setBrand(e.target.value)
-            }
+          <div
             className="
-              py-2
-              px-3
-              text-sm
-              rounded-md
-              border
-              border-[#ccc]
-              bg-white
-              cursor-pointer
-              transition-colors
-              hover:border-[#0077ff]
-              max-[480px]:py-1
-              max-[480px]:px-4
-              max-[480px]:text-base
+              flex
+              flex-wrap
+              items-center
+              justify-center
+              gap-4
+              max-[480px]:mt-3
+              max-[480px]:gap-2
+              max-[480px]:items-center
             "
           >
-            <option value="">
-              All Brands
-            </option>
-            {availableBrands.map((itemBrand) => (
 
-              <option
-                key={itemBrand}
-                value={itemBrand}
+            {/* Brand Dropdown */}
+            <div
+              ref={brandDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[160px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setBrandOpen((open) => !open);
+                  setColourOpen(false);
+                  setPriceOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-[#ccc]
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-4
+                  max-[480px]:py-1
+                  max-[480px]:text-base
+                "
               >
-                {itemBrand}
-              </option>
+                <span className="truncate">
+                  {brand || "All Brands"}
+                </span>
 
-            ))}
+                {brandOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                )}
+              </button>
 
-          </select>
-          <select
-            value={colour}
-            onChange={(e) =>
-              setColour(e.target.value)
-            }
-            className="
-              py-2
-              px-3
-              text-sm
-              rounded-md
-              border
-              border-[#ccc]
-              bg-white
-              cursor-pointer
-              transition-colors
-              hover:border-[#0077ff]
-              max-[480px]:py-1
-              max-[480px]:px-4
-              max-[480px]:text-base
-            "
-          >
-            <option value="">
-              All Colours
-            </option>
-            {availableColours.map((itemColour) => (
-              <option
-                key={itemColour}
-                value={itemColour}
+              {brandOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBrand("");
+                      setBrandOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        brand === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Brands
+                  </button>
+
+                  {availableBrands.map(
+                    (itemBrand) => (
+                      <button
+                        key={itemBrand}
+                        type="button"
+                        onClick={() => {
+                          setBrand(itemBrand);
+                          setBrandOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            brand === itemBrand
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemBrand}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Colour Dropdown */}
+            <div
+              ref={colourDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[160px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setColourOpen(
+                    (open) => !open
+                  );
+                  setBrandOpen(false);
+                  setPriceOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-[#ccc]
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-4
+                  max-[480px]:py-1
+                  max-[480px]:text-base
+                "
               >
-                {
-                  itemColour.charAt(0).toUpperCase() +
-                  itemColour.slice(1)
-                }
-              </option>
-            ))}
-          </select>
-          <select
-            value={price}
-            onChange={(e) =>
-              setPrice(e.target.value)
-            }
-            className="
-              py-2
-              px-3
-              text-sm
-              rounded-md
-              border
-              border-[#ccc]
-              bg-white
-              cursor-pointer
-              transition-colors
-              hover:border-[#0077ff]
-              max-[480px]:py-1
-              max-[480px]:px-4
-              max-[480px]:text-base
-            "
-          >
-            <option value="">
-              All Prices
-            </option>
-            <option value="low">
-              Low (&lt; 25k)
-            </option>
-            <option value="medium">
-              Medium (25k–30k)
-            </option>
-            <option value="high">
-              High (&gt; 30k)
-            </option>
-          </select>
+                <span className="truncate">
+                  {colour === ""
+                    ? "All Colours"
+                    : colour.charAt(0).toUpperCase() +
+                      colour.slice(1)}
+                </span>
+
+                {colourOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                )}
+              </button>
+
+              {colourOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setColour("");
+                      setColourOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        colour === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Colours
+                  </button>
+
+                  {availableColours.map(
+                    (itemColour) => (
+                      <button
+                        key={itemColour}
+                        type="button"
+                        onClick={() => {
+                          setColour(itemColour);
+                          setColourOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            colour === itemColour
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemColour
+                          .charAt(0)
+                          .toUpperCase() +
+                          itemColour.slice(1)}
+                      </button>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Price Dropdown */}
+            <div
+              ref={priceDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[160px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setPriceOpen(
+                    (open) => !open
+                  );
+                  setBrandOpen(false);
+                  setColourOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-[#ccc]
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-4
+                  max-[480px]:py-1
+                  max-[480px]:text-base
+                "
+              >
+                <span className="truncate">
+                  {price === ""
+                    ? "All Prices"
+                    : price === "low"
+                      ? "Low (< 30k)"
+                      : price === "medium"
+                        ? "Medium (30k–35k)"
+                        : "High (> 35k)"}
+                </span>
+
+                {priceOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                    "
+                  />
+                )}
+              </button>
+
+              {priceOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Prices
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("low");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === "low"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    Low (&lt; 30k)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("medium");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === "medium"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    Medium (30k–35k)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("high");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:text-base
+                      ${
+                        price === "high"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    High (&gt; 35k)
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
-
+    
     {/* -------- Error State -------- */}
     {error ? (
 
