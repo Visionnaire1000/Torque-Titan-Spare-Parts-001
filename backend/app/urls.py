@@ -29,7 +29,6 @@ from app.views.adminViews import (
     AdminOrdersView,
     AdminSparePartsView,
     AdminReviewsView,
-    AdminReviewReactionsView,
     AdminReviewsBySparePartView,
 )
 

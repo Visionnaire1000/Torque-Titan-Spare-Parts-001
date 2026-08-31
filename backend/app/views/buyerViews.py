@@ -326,6 +326,94 @@ class SparePartsListView(APIView):
                     buying_price__gt=medium
                 )
 
+        # --------------------------- TOP DISCOUNTS ---------------------------
+        top_discounts = (
+            request.query_params.get(
+                "top_discounts",
+                ""
+            ).lower()
+            == "true"
+        )
+
+        if top_discounts and not category:
+
+            # Gets all matching products ordered by discount.
+            all_items = list(
+                queryset.order_by(
+                    "-discount_percentage",
+                    "id",
+                )
+            )
+
+            # Groups products by category.
+            grouped = {}
+
+            for item in all_items:
+
+                item_category = (
+                    (item.category or "Other")
+                    .strip()
+                    .lower()
+                )
+
+                if item_category not in grouped:
+                    grouped[item_category] = []
+
+                grouped[item_category].append(
+                    item
+                )
+
+            # Orders spareparts according to the highest discount available in each category.
+            categories = sorted(
+                grouped.keys(),
+                key=lambda cat: (
+                    grouped[cat][0].discount_percentage
+                    if grouped[cat]
+                    else 0
+                ),
+                reverse=True,
+            )
+
+            selected = []
+
+            # Takes one product from each category 
+            while len(selected) < per_page:
+
+                added = False
+
+                for cat in categories:
+
+                    if not grouped[cat]:
+                        continue
+
+                    selected.append(
+                        grouped[cat].pop(0)
+                    )
+
+                    added = True
+
+                    if len(selected) >= per_page:
+                        break
+
+                if not added:
+                    break
+
+            return Response(
+                {
+                    "items": [
+                        serialize_sparepart(
+                            part,
+                            current_user=current_user,
+                        )
+                        for part in selected
+                    ],
+                    "total": len(selected),
+                    "page": 1,
+                    "pages": 1,
+                },
+                status=status.HTTP_200_OK,
+            )
+
         # --------------------------- PAGINATION ---------------------------
         total = queryset.count()
 

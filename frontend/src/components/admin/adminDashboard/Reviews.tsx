@@ -108,6 +108,7 @@ const EmptyState: FC = () => (
   <div
     className="
       py-10
+      mt-[90px]
       text-center
       text-base
       font-medium
@@ -280,6 +281,7 @@ const Reviews: FC = () => {
       markReviewsAsSeen(reviews);
     }
   }, [reviews]);
+
 
   /* ---------------- Loading ---------------- */
   if (loading) {

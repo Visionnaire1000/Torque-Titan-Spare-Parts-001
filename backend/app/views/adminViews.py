@@ -506,66 +506,6 @@ class AdminReviewsBySparePartView(APIView):
         )
 
 
-class AdminReviewReactionsView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, review_id):
-        current_user = request.user
-
-        if current_user.role not in [
-            "admin",
-            "super_admin",
-        ]:
-            return Response(
-                {"error": "Unauthorized"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        review = get_object_or_404(
-            Reviews,
-            pk=review_id,
-        )
-
-        reactions = (
-            ReviewReactions.objects
-            .select_related("user")
-            .filter(review_id=review.id)
-        )
-
-        reaction_list = [
-            {
-                "user_id": reaction.user_id,
-                "username": reaction.user.display_name,
-                "email": reaction.user.email,
-                "is_like": reaction.is_like,
-            }
-            for reaction in reactions
-        ]
-
-        total_likes = sum(
-            1
-            for reaction in reactions
-            if reaction.is_like
-        )
-
-        total_dislikes = sum(
-            1
-            for reaction in reactions
-            if not reaction.is_like
-        )
-
-        return Response(
-            {
-                "review_id": review.id,
-                "review_text": review.comment,
-                "total_likes": total_likes,
-                "total_dislikes": total_dislikes,
-                "reactions": reaction_list,
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
 # --------------------------- ADMIN ORDERS ----------------------------------------------
 class AdminOrdersView(APIView):
     permission_classes = [IsAuthenticated]

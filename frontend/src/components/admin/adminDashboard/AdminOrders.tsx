@@ -788,12 +788,13 @@ const AdminOrders = (): ReactElement => {
         >
           <PackageOpen
             size={48}
-            className="mx-auto mb-4 text-[#9ca3af]"
+            className="mx-auto mb-4 mt-[80px] text-[#9ca3af]"
           />
 
           <h2
             className="
               mb-[10px]
+              mt-[40px]
               text-2xl
               font-semibold
               text-[#111827]

@@ -27,9 +27,13 @@ const SkeletonCard = () => (
     <div className="absolute inset-0 overflow-hidden rounded-xl">
       <div className="h-full w-[150%] animate-shimmer bg-gradient-to-r from-transparent via-white/40 to-transparent" />
     </div>
+
     <div className="relative z-10 h-44 rounded-lg bg-gray-300" />
+
     <div className="relative z-10 h-4 w-2/3 rounded bg-gray-300" />
+
     <div className="relative z-10 h-4 w-full rounded bg-gray-300" />
+
     <div className="relative z-10 h-10 rounded-md bg-gray-300" />
   </div>
 );
@@ -48,12 +52,31 @@ const BuyerHomepage = () => {
 
   const { addItem } = useCart();
 
+  // ------------------ Derived Data ------------------
+  const carouselItems = spareParts.slice(0, 8);
+
+  const gridItems = spareParts.slice(8, 16);
+
+  const visibleCarouselItems: SparePart[] =
+    carouselItems.length > 0
+      ? Array.from({
+          length: Math.min(4, carouselItems.length),
+        }).map(
+          (_, i) =>
+            carouselItems[
+              (carouselIndex + i) % carouselItems.length
+            ]
+        )
+      : [];
+
   // ------------------ Fetch Spare Parts ------------------
   const fetchSpareParts = (): void => {
     setLoading(true);
     setError(null);
 
-    fetch(`${config.API_BASE_URL}/spareparts/?per_page=100`)
+    fetch(
+      `${config.API_BASE_URL}/spareparts/?per_page=16&top_discounts=true`
+    )
       .then((res) => {
         if (!res.ok) {
           throw new Error("Server error");
@@ -62,70 +85,26 @@ const BuyerHomepage = () => {
         return res.json() as Promise<SparePartsResponse>;
       })
       .then((data) => {
-        const items = Array.isArray(data.items) ? data.items : [];
+        const items = Array.isArray(data.items)
+          ? data.items
+          : [];
 
         if (!items.length) {
           setSpareParts([]);
+          setCarouselIndex(0);
           setLoading(false);
           return;
         }
 
-        const sorted = [...items].sort(
-          (a, b) =>
-            (b.discount_percentage ?? 0) -
-            (a.discount_percentage ?? 0)
-        );
+        const carouselItemsFromBackend = items.slice(0, 8);
 
-        const grouped = sorted.reduce<Record<string, SparePart[]>>(
-          (acc, item) => {
-            const category = item.category || "Other";
-
-            if (!acc[category]) {
-              acc[category] = [];
-            }
-
-            acc[category].push(item);
-
-            return acc;
-          },
-          {}
-        );
-
-        const top16: SparePart[] = [];
-
-        while (top16.length < 16) {
-          let added = false;
-
-          for (const category of Object.keys(grouped)) {
-            if (grouped[category]?.length) {
-              const next = grouped[category].shift();
-
-              if (next) {
-                top16.push(next);
-              }
-
-              added = true;
-
-              if (top16.length >= 16) {
-                break;
-              }
-            }
-          }
-
-          if (!added) {
-            break;
-          }
-        }
-
-        const carouselItems = top16.slice(0, 8);
-
-        const gridItems = top16
+        const gridItemsFromBackend = items
           .slice(8, 16)
           .sort(() => Math.random() - 0.5);
 
         setSpareParts([
-          ...carouselItems,
-          ...gridItems,
+          ...carouselItemsFromBackend,
+          ...gridItemsFromBackend,
         ]);
 
         setCarouselIndex(0);
@@ -152,7 +131,9 @@ const BuyerHomepage = () => {
     if (spareParts.length < 8) return;
 
     const interval = setInterval(() => {
-      setCarouselIndex((prev) => (prev + 4) % 8);
+      setCarouselIndex(
+        (prev) => (prev + 4) % 8
+      );
     }, 4000);
 
     return () => clearInterval(interval);
@@ -186,23 +167,6 @@ const BuyerHomepage = () => {
     }));
   };
 
-  // ------------------ Derived Data ------------------
-  const carouselItems = spareParts.slice(0, 8);
-
-  const gridItems = spareParts.slice(8, 16);
-
-  const visibleCarouselItems: SparePart[] =
-    carouselItems.length > 0
-      ? Array.from({
-          length: Math.min(4, carouselItems.length),
-        }).map(
-          (_, i) =>
-            carouselItems[
-              (carouselIndex + i) % carouselItems.length
-            ]
-        )
-      : [];
-
   // ------------------ Error State ------------------
   if (error) {
     return (
@@ -211,7 +175,9 @@ const BuyerHomepage = () => {
           Something went wrong
         </h2>
 
-        <p className="text-gray-600">{error}</p>
+        <p className="text-gray-600">
+          {error}
+        </p>
 
         <button
           onClick={fetchSpareParts}
@@ -232,7 +198,6 @@ const BuyerHomepage = () => {
                  font-['Segoe_UI',Tahoma,Geneva,Verdana,sans-serif]
                  sm:px-[15px] lg:px-5"
     >
-
       {/* ------------------ Hot Deals ------------------ */}
       <h2
         className="mb-2 mt-2 flex items-center text-[1.2rem]
@@ -260,7 +225,10 @@ const BuyerHomepage = () => {
                        hover:scale-105 hover:bg-gray-100
                        md:h-10 md:w-10 ml-[-10px]"
           >
-            <ArrowLeft size={19} strokeWidth={2} />
+            <ArrowLeft
+              size={19}
+              strokeWidth={2}
+            />
           </button>
         )}
 
@@ -269,83 +237,99 @@ const BuyerHomepage = () => {
                      px-10 md:gap-[15px] md:overflow-hidden"
         >
           {loading ? (
-            Array.from({ length: 4 }).map((_, idx) => (
-              <div
-                key={idx}
-                className="basis-[47%] flex-none md:flex-1"
-              >
-                <SkeletonCard />
-              </div>
-            ))
-          ) : visibleCarouselItems.length > 0 ? (
-            visibleCarouselItems.map((item) => (
-              <Link
-                key={item.id}
-                to={`/items/${item.id}`}
-                className="basis-[50%] flex-none text-inherit
-                           no-underline md:basis-[45%] lg:flex-1"
-              >
+            Array.from({ length: 4 }).map(
+              (_, idx) => (
                 <div
-                  className={`flex h-full cursor-pointer flex-col
-                              items-center rounded-xl bg-white p-[10px]
-                              shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                              transition-all duration-200
-                              hover:-translate-y-1
-                              hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
-                              sm:p-3 ${
-                                loadedImages[item.id]
-                                  ? ""
-                                  : "animate-pulse"
-                              }`}
+                  key={idx}
+                  className="basis-[47%] flex-none md:flex-1"
                 >
-                  <img
-                    src={item.image}
-                    alt={item.brand}
-                    onLoad={() => handleImageLoad(item.id)}
-                    className="mb-[10px] mt-10 w-[50%] rounded-lg
-                               object-cover sm:mt-0 sm:w-1/2
-                               sm:object-contain"
-                  />
-
-                  <h4
-                    className="my-[5px] mb-[10px] self-start
-                               text-left text-[0.9rem] text-[#333]
-                               sm:self-auto sm:text-center sm:text-base"
-                  >
-                    {item.brand} {item.category} for{" "}
-                    {item.vehicle_type}
-                  </h4>
-
-                  <p
-                    className="mb-[10px] text-base font-bold
-                               text-[rgb(255,0,0)] sm:text-lg"
-                  >
-                    KES {item.buying_price.toLocaleString()}
-
-                    {item.discount_percentage > 0 && (
-                      <span
-                        className="ml-[5px] text-xs
-                                   text-[rgba(228,26,19,0.67)]"
-                      >
-                        (-{item.discount_percentage.toFixed(0)}%)
-                      </span>
-                    )}
-                  </p>
-
-                  <button
-                    onClick={(e) => handleAddToCart(item, e)}
-                    className="rounded-md bg-[rgb(0,64,128)] px-4 py-2
-                               text-sm font-bold text-white
-                               transition-colors duration-200
-                               hover:bg-[rgb(4,37,71)]"
-                  >
-                    Add To Cart
-                  </button>
+                  <SkeletonCard />
                 </div>
-              </Link>
-            ))
+              )
+            )
+          ) : visibleCarouselItems.length > 0 ? (
+            visibleCarouselItems.map(
+              (item) => (
+                <Link
+                  key={item.id}
+                  to={`/items/${item.id}`}
+                  className="basis-[50%] flex-none text-inherit
+                             no-underline md:basis-[45%] lg:flex-1"
+                >
+                  <div
+                    className={`flex h-full cursor-pointer flex-col
+                                items-center rounded-xl bg-white p-[10px]
+                                shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+                                transition-all duration-200
+                                hover:-translate-y-1
+                                hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                                sm:p-3 ${
+                                  loadedImages[item.id]
+                                    ? ""
+                                    : "animate-pulse"
+                                }`}
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.brand}
+                      onLoad={() =>
+                        handleImageLoad(item.id)
+                      }
+                      className="mb-[10px] mt-10 w-[100%] rounded-lg
+                                 object-cover sm:mt-0 sm:w-1/2
+                                 sm:object-contain"
+                    />
+
+                    <h4
+                      className="my-[5px] mb-[10px] self-start
+                                 text-left text-[0.9rem] text-[#333]
+                                 sm:self-auto sm:text-center sm:text-base"
+                    >
+                      {item.brand}{" "}
+                      {item.category} for{" "}
+                      {item.vehicle_type}
+                    </h4>
+
+                    <p
+                      className="mb-[10px] text-base font-bold
+                                 text-[rgb(255,0,0)] sm:text-lg"
+                    >
+                      KES{" "}
+                      {item.buying_price.toLocaleString()}
+
+                      {item.discount_percentage > 0 && (
+                        <span
+                          className="ml-[5px] text-xs
+                                     text-[rgba(228,26,19,0.67)]"
+                        >
+                          (-
+                          {item.discount_percentage.toFixed(
+                            0
+                          )}
+                          %)
+                        </span>
+                      )}
+                    </p>
+
+                    <button
+                      onClick={(e) =>
+                        handleAddToCart(item, e)
+                      }
+                      className="rounded-md bg-[rgb(0,64,128)] px-4 py-2
+                                 text-sm font-bold text-white
+                                 transition-colors duration-200
+                                 hover:bg-[rgb(4,37,71)]"
+                    >
+                      Add To Cart
+                    </button>
+                  </div>
+                </Link>
+              )
+            )
           ) : (
-            <p className="text-red-600">No deals available</p>
+            <p className="text-red-600">
+              No deals available
+            </p>
           )}
         </div>
       </div>
@@ -377,9 +361,11 @@ const BuyerHomepage = () => {
         "
       >
         {loading ? (
-          Array.from({ length: 8 }).map((_, idx) => (
-            <SkeletonCard key={idx} />
-          ))
+          Array.from({ length: 8 }).map(
+            (_, idx) => (
+              <SkeletonCard key={idx} />
+            )
+          )
         ) : gridItems.length > 0 ? (
           gridItems.map((item) => (
             <Link
@@ -403,8 +389,10 @@ const BuyerHomepage = () => {
                 <img
                   src={item.image}
                   alt={item.brand}
-                  onLoad={() => handleImageLoad(item.id)}
-                  className="mb-[10px] mt-10 w-[70%] rounded-lg
+                  onLoad={() =>
+                    handleImageLoad(item.id)
+                  }
+                  className="mb-[10px] mt-10 w-[100%] rounded-lg
                              object-cover sm:mt-0 sm:w-1/2
                              sm:object-contain"
                 />
@@ -414,22 +402,30 @@ const BuyerHomepage = () => {
                              text-left text-[0.9rem] text-[#333]
                              sm:self-auto sm:text-center sm:text-base"
                 >
-                  {item.brand} {item.category} for{" "}
+                  {item.brand}{" "}
+                  {item.category} for{" "}
                   {item.vehicle_type}
                 </h4>
 
                 <p className="mb-2 text-lg font-semibold text-red-600">
-                  KES {item.buying_price.toLocaleString()}
+                  KES{" "}
+                  {item.buying_price.toLocaleString()}
 
                   {item.discount_percentage > 0 && (
                     <span className="ml-[5px] text-sm text-[#e41a139b]">
-                      (-{item.discount_percentage.toFixed(0)}%)
+                      (-
+                      {item.discount_percentage.toFixed(
+                        0
+                      )}
+                      %)
                     </span>
                   )}
                 </p>
 
                 <button
-                  onClick={(e) => handleAddToCart(item, e)}
+                  onClick={(e) =>
+                    handleAddToCart(item, e)
+                  }
                   className="rounded-md bg-[rgb(0,64,128)] px-4 py-2
                              text-sm font-bold text-white
                              transition-colors duration-200
@@ -453,3 +449,4 @@ const BuyerHomepage = () => {
 };
 
 export default BuyerHomepage;
+
