@@ -31,37 +31,26 @@ interface ReviewLike {
 interface Review {
   id: string;
   user_id: string;
-
   rating: number | null;
   comment: string | null;
-
   created_at: string;
-
   likes?: ReviewLike[];
-
   total_likes: number;
   total_dislikes: number;
-
   user_reaction: boolean | null;
-
   display_name: string;
   user_display_name?: string;
-
   text?: string;
 }
 
 interface SparePart {
   id: string;
-
   brand: string;
   category: string;
   vehicle_type: string;
-
   image: string;
   description: string;
-
   buying_price: number;
-
   average_rating: number;
   discount_percentage: number;
 }
@@ -116,12 +105,13 @@ const StarRating = ({
       {[1, 2, 3, 4, 5].map((star) => {
         let fillPercent = 0;
 
-        if (roundedValue >= star)
+        if (roundedValue >= star) {
           fillPercent = 100;
-        else if (
+        } else if (
           roundedValue + 0.5 === star
-        )
+        ) {
           fillPercent = 50;
+        }
 
         return (
           <div
@@ -309,6 +299,7 @@ const AdminItemDetails = () => {
           authFetch(
             `${config.API_BASE_URL}/spareparts/${id}/`
           ),
+
           authFetch(
             `${config.API_BASE_URL}/admin/reviews/sparepart/${id}/`
           ),
@@ -340,14 +331,17 @@ const AdminItemDetails = () => {
 
               return {
                 ...review,
+
                 user_reaction:
                   userReaction ===
                   undefined
                     ? null
                     : userReaction.is_like,
+
                 display_name:
                   review.user_display_name ??
                   "User",
+
                 comment:
                   review.comment ??
                   review.text ??
@@ -381,9 +375,14 @@ const AdminItemDetails = () => {
     fetchItemAndReviews();
   }, [id]);
 
+  /* ---------------- Scroll To Top ---------------- */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   /* ---------------- Derived ---------------- */
   const averageRating = Number(
-   item?.average_rating ?? 0
+    item?.average_rating ?? 0
   );
 
   /* ---------------- Render ---------------- */
@@ -394,7 +393,9 @@ const AdminItemDetails = () => {
   if (error) {
     return (
       <ErrorState
-        onRetry={fetchItemAndReviews}
+        onRetry={
+          fetchItemAndReviews
+        }
       />
     );
   }
@@ -421,113 +422,112 @@ const AdminItemDetails = () => {
   }
 
   return (
-   <div
-    className="
-      mx-auto
-      mt-[70px]
-      mb-[60px]
-      max-w-[900px]
-      rounded-[10px]
-      bg-[#fefefe]
-      p-4
-      text-[#333]
-      shadow-[0_4px_15px_rgba(0,0,0,0.05)]
-      max-[480px]:mt-[90px]
-      max-[480px]:mb-[30px]
-    "
-  >
     <div
       className="
-        mb-8
-        flex
-        flex-wrap
-        gap-8
-        max-[480px]:mt-[10px]
-        max-[480px]:mb-[50px]
+        mx-auto
+        mt-[70px]
+        mb-[60px]
+        max-w-[900px]
+        rounded-[10px]
+        bg-[#fefefe]
+        p-4
+        text-[#333]
+        shadow-[0_4px_15px_rgba(0,0,0,0.05)]
+        max-[480px]:mt-[90px]
+        max-[480px]:mb-[30px]
       "
     >
-      <img
-        src={item.image}
-        alt={item.brand}
-        className="
-          mt-10
-          h-[30%]
-          w-[30%]
-          rounded-lg
-          object-cover
-          max-[480px]:mt-[10px]
-          max-[480px]:w-[40%]
-        "
-      />
-
       <div
         className="
+          mb-8
           flex
-          flex-1
-          flex-col
-          justify-between
+          flex-wrap
+          gap-8
           max-[480px]:mt-[10px]
+          max-[480px]:mb-[50px]
         "
       >
-        <h2
+        <img
+          src={item.image}
+          alt={item.brand}
           className="
-            mt-20
-            mb-2
-            text-[rgb(0,64,128)]
-            text-3xl
-            font-bold
-            max-[480px]:mt-1
-            max-[480px]:text-xl
+            mt-10
+            h-[30%]
+            w-[30%]
+            rounded-lg
+            object-cover
+            max-[480px]:mt-[10px]
+            max-[480px]:w-[40%]
+          "
+        />
+
+        <div
+          className="
+            flex
+            flex-1
+            flex-col
+            justify-between
+            max-[480px]:mt-[10px]
           "
         >
-          {item.brand} {item.category} for{" "}
-          {item.vehicle_type}
-        </h2>
+          <h2
+            className="
+              mt-20
+              mb-2
+              text-[rgb(0,64,128)]
+              text-3xl
+              font-bold
+              max-[480px]:mt-1
+              max-[480px]:text-xl
+            "
+          >
+            {item.brand} {item.category} for{" "}
+            {item.vehicle_type}
+          </h2>
 
-        <p className="mb-2 text-lg font-semibold text-red-600">
-          KES {item.buying_price.toLocaleString()}
+          <p className="mb-2 text-lg font-semibold text-red-600">
+            KES{" "}
+            {item.buying_price.toLocaleString()}
 
-          {item.discount_percentage > 0 && (
-            <span className="ml-[5px] text-sm text-[#e41a139b]">
-              (-{item.discount_percentage.toFixed(0)}%)
+            {item.discount_percentage > 0 && (
+              <span className="ml-[5px] text-sm text-[#e41a139b]">
+                (-{item.discount_percentage.toFixed(0)}%)
+              </span>
+            )}
+          </p>
+
+          <p className="font-normal text-black">
+            {item.description}
+          </p>
+
+          <div className="mt-2 flex items-center gap-[5px]">
+            <StarRating
+              value={averageRating}
+              readonly
+              size={22}
+            />
+
+            <span className="text-sm text-gray-700">
+              {averageRating.toFixed(1)} (
+              {
+                reviews.filter(
+                  (review: Review) =>
+                    review.rating != null
+                ).length
+              }
+              )
             </span>
-          )}
-        </p>
-
-        <p className="font-normal text-black">
-          {item.description}
-        </p>
-
-        <div className="mt-2 flex items-center gap-[5px]">
-          <StarRating
-            value={averageRating}
-            readonly
-            size={22}
-          />
-
-          <span className="text-sm text-gray-700">
-            {averageRating.toFixed(1)} (
-            {
-              reviews.filter(
-                (review: Review) =>
-                  review.rating != null
-              ).length
-            }
-            )
-          </span>
-        </div>
+          </div>
         </div>
       </div>
 
       {/* ---------------- Reviews ---------------- */}
-            <div className="mt-8">
+      <div className="mt-8">
         <h3 className="mb-4 text-2xl font-semibold">
           Customer Reviews (
           {
             reviews.filter(
-              (
-                review: Review
-              ) =>
+              (review: Review) =>
                 review.comment?.trim()
             ).length
           }
@@ -617,6 +617,7 @@ const AdminItemDetails = () => {
                     <ThumbsUp
                       size={16}
                     />
+
                     {
                       review.total_likes
                     }
@@ -637,6 +638,7 @@ const AdminItemDetails = () => {
                     <ThumbsDown
                       size={16}
                     />
+
                     {
                       review.total_dislikes
                     }

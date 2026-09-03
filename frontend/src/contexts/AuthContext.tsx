@@ -552,88 +552,61 @@ export const AuthProvider = ({
 
   // ------------------------------ Protected Fetch -------------------------------------------
   const authFetch = async (
-    url: string,
-    options: RequestInit = {}
-  ): Promise<Response> => {
-    let tokenToUse:
-      | string
-      | null =
-      user?.token ?? null;
+   url: string,
+   options: RequestInit = {}
+   ): Promise<Response> => {
+  let tokenToUse: string | null = user?.token ?? null;
+
+  if (!tokenToUse) {
+    tokenToUse = await refreshAccessToken();
 
     if (!tokenToUse) {
-      tokenToUse =
-        await refreshAccessToken();
+      throw new Error("Re-authentication required");
+    }
+  } else if (isTokenExpired(tokenToUse)) {
+    tokenToUse = await refreshAccessToken();
 
-      if (!tokenToUse) {
-        throw new Error(
-          "Re-authentication required"
-        );
-      }
-    } else if (
-      isTokenExpired(tokenToUse)
-    ) {
-      tokenToUse =
-        await refreshAccessToken();
+    if (!tokenToUse) {
+      throw new Error("Re-authentication required");
+    }
+  }
 
-      if (!tokenToUse) {
-        throw new Error(
-          "Re-authentication required"
-        );
-      }
+  const isFormData = options.body instanceof FormData;
+
+  const headers = new Headers(options.headers);
+
+  // Only sets JSON Content-Type for non-FormData requests(caters for image uploads)
+  if (!isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  headers.set("Authorization", `Bearer ${tokenToUse}`);
+
+  let res = await fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+
+    if (!newToken) {
+      throw new Error("Re-authentication required");
     }
 
-    const headers: Record<
-      string,
-      string
-    > = {
-      "Content-Type":
-        "application/json",
+    const retryHeaders = new Headers(headers);
+    retryHeaders.set("Authorization", `Bearer ${newToken}`);
 
-      ...(options.headers as Record<
-        string,
-        string
-      >),
-    };
+    res = await fetch(url, {
+      ...options,
+      headers: retryHeaders,
+      credentials: "include",
+    });
+  }
 
-    headers.Authorization =
-      `Bearer ${tokenToUse}`;
-
-    let res = await fetch(
-      url,
-      {
-        ...options,
-        headers,
-        credentials: "include",
-      }
-    );
-
-    if (res.status === 401) {
-      const newToken =
-        await refreshAccessToken();
-
-      if (!newToken) {
-        throw new Error(
-          "Re-authentication required"
-        );
-      }
-
-      res = await fetch(
-        url,
-        {
-          ...options,
-          headers: {
-            ...headers,
-            Authorization:
-              `Bearer ${newToken}`,
-          },
-          credentials: "include",
-        }
-      );
-    }
-
-    return res;
-  };
-
+  return res;
+ };
 
   // ------------------------------ OTP Countdown -------------------------------------------
   const startOtpCountdown = (

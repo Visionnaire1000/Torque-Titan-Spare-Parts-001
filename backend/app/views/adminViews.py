@@ -7,14 +7,16 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import serializers, status
+
+from utils.cloudflare import upload_image_to_r2
 
 from app.models import (
     Users,
     Orders,
     SpareParts,
     Reviews,
-    ReviewReactions,
 )
 
 
@@ -172,11 +174,19 @@ class DeleteAdminView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
 # ------------------------------ Spare Parts Management -------------------------------------------
 class AdminSparePartsView(APIView):
+
     permission_classes = [IsAuthenticated]
 
+    parser_classes = [
+        MultiPartParser,
+        FormParser,
+    ]
+
     def _check_admin(self, request):
+
         return request.user.role in [
             "admin",
             "super_admin",
@@ -186,55 +196,124 @@ class AdminSparePartsView(APIView):
     def post(self, request):
 
         if not self._check_admin(request):
+
             return Response(
-                {"error": "Admins only"},
+                {
+                    "error": "Admins only"
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         data = request.data
 
         try:
+
             # ---------------- PRICE VALIDATION ----------------
             try:
+
                 buying_price = Decimal(
-                    str(data.get("buying_price", 0))
+                    str(
+                        data.get(
+                            "buying_price",
+                            0,
+                        )
+                    )
                 )
+
                 marked_price = Decimal(
-                    str(data.get("marked_price", 0))
+                    str(
+                        data.get(
+                            "marked_price",
+                            0,
+                        )
+                    )
                 )
-            except (TypeError, ValueError, InvalidOperation):
+
+            except (
+                TypeError,
+                ValueError,
+                InvalidOperation,
+            ):
+
                 return Response(
-                    {"error": "Invalid price values"},
+                    {
+                        "error": "Invalid price values"
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # ---------------- IMAGE UPLOAD ----------------
+            image_file = request.FILES.get(
+                "image"
+            )
+
+            image_url = None
+
+            if image_file:
+
+                image_url = upload_image_to_r2(
+                    image_file
                 )
 
             # ---------------- CREATE ----------------
             spare = SpareParts.objects.create(
-                category=data.get("category"),
-                vehicle_type=data.get("vehicle_type"),
-                brand=data.get("brand"),
-                colour=data.get("colour"),
-                buying_price=buying_price,
-                marked_price=marked_price,
-                image=data.get("image"),
-                description=data.get("description"),
-            )
 
-            # ---------------- CALCULATE DISCOUNT ----------------
-            spare.calculate_discount()
-            spare.save()
+                category=data.get(
+                    "category"
+                ),
+
+                vehicle_type=data.get(
+                    "vehicle_type"
+                ),
+
+                brand=data.get(
+                    "brand"
+                ),
+
+                colour=data.get(
+                    "colour"
+                ),
+
+                buying_price=buying_price,
+
+                marked_price=marked_price,
+
+                image=image_url,
+
+                description=data.get(
+                    "description"
+                ),
+            )
 
             return Response(
                 {
-                    "message": "Spare part created successfully",
-                    "sparepart": SparePartsSerializer(spare).data,
+                    "message": (
+                        "Spare part created "
+                        "successfully"
+                    ),
+                    "sparepart":
+                        SparePartsSerializer(
+                            spare
+                        ).data,
                 },
                 status=status.HTTP_201_CREATED,
             )
 
-        except Exception as e:
+        except ValueError as e:
+
             return Response(
-                {"error": str(e)},
+                {
+                    "error": str(e)
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as e:
+
+            return Response(
+                {
+                    "error": str(e)
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -242,8 +321,11 @@ class AdminSparePartsView(APIView):
     def put(self, request, spare_id):
 
         if not self._check_admin(request):
+
             return Response(
-                {"error": "Admins only"},
+                {
+                    "error": "Admins only"
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -255,6 +337,8 @@ class AdminSparePartsView(APIView):
         data = request.data
 
         try:
+
+            # ---------------- UPDATE FIELDS ----------------
             fields = [
                 "category",
                 "vehicle_type",
@@ -262,7 +346,6 @@ class AdminSparePartsView(APIView):
                 "colour",
                 "buying_price",
                 "marked_price",
-                "image",
                 "description",
             ]
 
@@ -275,48 +358,90 @@ class AdminSparePartsView(APIView):
                     "buying_price",
                     "marked_price",
                 ]:
+
                     try:
+
                         value = Decimal(
-                            str(data[field])
+                            str(
+                                data[field]
+                            )
                         )
+
                     except (
                         TypeError,
                         ValueError,
                         InvalidOperation,
                     ):
+
                         return Response(
                             {
                                 "error": (
-                                    f"Invalid value for {field}"
+                                    f"Invalid value "
+                                    f"for {field}"
                                 )
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    setattr(spare, field, value)
+                    setattr(
+                        spare,
+                        field,
+                        value,
+                    )
 
                 else:
+
                     setattr(
                         spare,
                         field,
                         data[field],
                     )
 
-            # ---------------- RECALCULATE DISCOUNT ----------------
-            spare.calculate_discount()
+            # ---------------- NEW IMAGE ----------------
+            image_file = request.FILES.get(
+                "image"
+            )
+
+            if image_file:
+
+                image_url = upload_image_to_r2(
+                    image_file
+                )
+
+                spare.image = image_url
+
+            # ---------------- SAVE ----------------
             spare.save()
 
             return Response(
                 {
-                    "message": "Spare part updated successfully",
-                    "sparepart": SparePartsSerializer(spare).data,
+                    "message": (
+                        "Spare part updated "
+                        "successfully"
+                    ),
+                    "sparepart":
+                        SparePartsSerializer(
+                            spare
+                        ).data,
                 },
                 status=status.HTTP_200_OK,
             )
 
-        except Exception as e:
+        except ValueError as e:
+
             return Response(
-                {"error": str(e)},
+                {
+                    "error": str(e)
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as e:
+
+            return Response(
+                {
+                    "error": str(e)
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -324,8 +449,11 @@ class AdminSparePartsView(APIView):
     def delete(self, request, spare_id):
 
         if not self._check_admin(request):
+
             return Response(
-                {"error": "Admins only"},
+                {
+                    "error": "Admins only"
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -335,21 +463,29 @@ class AdminSparePartsView(APIView):
         )
 
         try:
+
+            # Only deletes the database record.
+            # The image remains in Cloudflare R2.
             spare.delete()
 
             return Response(
                 {
-                    "message": "Spare part deleted successfully"
+                    "message": (
+                        "Spare part deleted "
+                        "successfully"
+                    )
                 },
                 status=status.HTTP_200_OK,
             )
 
         except Exception as e:
+
             return Response(
-                {"error": str(e)},
+                {
+                    "error": str(e)
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
 
 # --------------------------- ADMIN REVIEWS ----------------------------------------------
 class AdminReviewsView(APIView):

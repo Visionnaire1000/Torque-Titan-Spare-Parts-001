@@ -284,6 +284,13 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 STRIPE_SUCCESS_URL = env("STRIPE_SUCCESS_URL")
 STRIPE_CANCEL_URL = env("STRIPE_CANCEL_URL")
 
+#------------------------- CLOUDFLARE CONFIG--------------------
+R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID")
+R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY")
+R2_BUCKET_NAME = env("R2_BUCKET_NAME")
+R2_ENDPOINT_URL = env("R2_ENDPOINT_URL")
+R2_PUBLIC_URL = env("R2_PUBLIC_URL", "").rstrip("/")
+
 
 # -----------------------EMAIL---------------------------------
 EMAIL_BACKEND = env(

@@ -81,17 +81,14 @@ interface ReviewActionOptions<T = unknown> {
 }
 
 /* ----------------------------- ERROR STATE ------------------------- */
-const ErrorState = ({
-  onRetry,
-}: ErrorStateProps) => (
+const ErrorState = ({ onRetry }: ErrorStateProps) => (
   <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 text-center">
     <h2 className="text-3xl font-bold text-red-600">
       Something went wrong
     </h2>
 
     <p className="max-w-md text-gray-600">
-      Unable to load spare parts. Please check your
-      connection and try again.
+      Unable to load spare parts. Please check your connection and try again.
     </p>
 
     <button
@@ -122,11 +119,9 @@ const StarRating = ({
   size = 24,
   readonly = false,
 }: StarRatingProps) => {
-  const [hoverValue, setHoverValue] =
-    useState<number>(0);
+  const [hoverValue, setHoverValue] = useState<number>(0);
 
-  const [currentValue, setCurrentValue] =
-    useState<number>(value);
+  const [currentValue, setCurrentValue] = useState<number>(value);
 
   useEffect(() => {
     setCurrentValue(value);
@@ -139,9 +134,7 @@ const StarRating = ({
     onChange(star);
   };
 
-  const handleMouseEnter = (
-    star: number
-  ) => {
+  const handleMouseEnter = (star: number) => {
     if (readonly) return;
 
     setHoverValue(star);
@@ -153,11 +146,9 @@ const StarRating = ({
     setHoverValue(0);
   };
 
-  const displayValue =
-    hoverValue || currentValue;
+  const displayValue = hoverValue || currentValue;
 
-  const roundedValue =
-    Math.round(displayValue * 2) / 2;
+  const roundedValue = Math.round(displayValue * 2) / 2;
 
   return (
     <div className="my-2 flex gap-[2px]">
@@ -166,9 +157,7 @@ const StarRating = ({
 
         if (roundedValue >= star) {
           fillPercent = 100;
-        } else if (
-          roundedValue + 0.5 === star
-        ) {
+        } else if (roundedValue + 0.5 === star) {
           fillPercent = 50;
         }
 
@@ -184,15 +173,9 @@ const StarRating = ({
               width: size,
               height: size,
             }}
-            onClick={() =>
-              handleClick(star)
-            }
-            onMouseEnter={() =>
-              handleMouseEnter(star)
-            }
-            onMouseLeave={
-              handleMouseLeave
-            }
+            onClick={() => handleClick(star)}
+            onMouseEnter={() => handleMouseEnter(star)}
+            onMouseLeave={handleMouseLeave}
           >
             <Star
               size={size}
@@ -555,6 +538,11 @@ const BuyerItemDetails = () => {
     id,
   ]);
 
+  /* ----------------------------- SCROLL TO TOP ------------------------- */
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
   const averageRating = Number(
     item?.average_rating ?? 0
   );
@@ -633,6 +621,7 @@ const BuyerItemDetails = () => {
       toast.info(
         "You already reviewed this item."
       );
+
       return;
     }
 
@@ -643,6 +632,7 @@ const BuyerItemDetails = () => {
       toast.error(
         "Add a rating or comment"
       );
+
       return;
     }
 
@@ -783,8 +773,7 @@ const BuyerItemDetails = () => {
     review: Review,
     isLike: boolean
   ): Promise<void> => {
-
-    //The owner cannot react to their own review.
+    // The owner cannot react to their own review.
     if (
       userReview?.id ===
       review.id
@@ -792,7 +781,6 @@ const BuyerItemDetails = () => {
       return;
     }
 
-   
     if (
       currentUserId === null
     ) {
@@ -1153,8 +1141,7 @@ const BuyerItemDetails = () => {
       ) : (
         <p className="mb-8 text-gray-500">
           You already reviewed this item.
-          You can edit or delete your review
-          below.
+          You can edit or delete your review below.
         </p>
       )}
 
@@ -1189,6 +1176,7 @@ const BuyerItemDetails = () => {
                   p-3
                 "
               >
+                
                 {/* ----------------------------- EDIT MODE ------------------------- */}
                 {editingReviewId ===
                 review.id ? (
@@ -1269,6 +1257,7 @@ const BuyerItemDetails = () => {
                   </>
                 ) : (
                   <>
+
                     {/* ----------------------------- REVIEW HEADER ------------------------- */}
                     <div className="mb-1.5 flex items-center justify-between">
                       <span className="ml-3 font-bold text-[rgb(0,64,128)]">
@@ -1353,7 +1342,7 @@ const BuyerItemDetails = () => {
                         </button>
                       </div>
                     ) : (
-                      
+
                       /* ----------------------------- OTHER USER REACTIONS ------------------------- */
                       <div className="flex gap-3">
 
@@ -1442,3 +1431,4 @@ const BuyerItemDetails = () => {
 };
 
 export default BuyerItemDetails;
+

@@ -193,7 +193,6 @@ const Login = () => {
      );
     }}
    />
-
       <div className="mt-6 text-center">
         <p
           className="

@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, type ChangeEvent } from "react";
-import Select, { components, type FilterOptionOption, type GroupBase,
-                 type StylesConfig, type OptionProps} from "react-select";
+import Select, {components, type FilterOptionOption, type GroupBase, type StylesConfig, type OptionProps} from "react-select";
 import { Clock, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
@@ -37,14 +36,13 @@ interface SearchOption {
   isHistory?: boolean;
 }
 
-interface FormData {
+interface SparePartFormData {
   category: string;
   vehicle_type: string;
   brand: string;
   colour: string;
   buying_price: number | string;
   marked_price: number | string;
-  image: string;
   description: string;
 }
 
@@ -52,23 +50,50 @@ const ItemsManagement = () => {
   const { authFetch } = useAuth();
 
   const [options, setOptions] = useState<SearchOption[]>([]);
-  const [historyOptions, setHistoryOptions] = useState<SearchOption[]>(
-    []
-  );
+  const [historyOptions, setHistoryOptions] = useState<SearchOption[]>([]);
   const [inputValue, setInputValue] = useState<string>("");
-  const [selectedPart, setSelectedPart] =
-    useState<SparePart | null>(null);
+  const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
 
-  const [formData, setFormData] = useState<FormData>({
-    category: "",
-    vehicle_type: "",
-    brand: "",
-    colour: "",
-    buying_price: "",
-    marked_price: "",
-    image: "",
-    description: "",
-  });
+  /* ---------------- Form state ---------------- */
+  const [formData, setFormData] =
+    useState<SparePartFormData>({
+      category: "",
+      vehicle_type: "",
+      brand: "",
+      colour: "",
+      buying_price: "",
+      marked_price: "",
+      description: "",
+    });
+
+  /* ---------------- Image state ---------------- */
+  const [imageFile, setImageFile] =
+    useState<File | null>(null);
+
+  const [imagePreview, setImagePreview] =
+    useState<string>("");
+
+  /* ---------------- Toast helpers ---------------- */
+  const notifySuccess = (msg: string): void => {
+    toast.success(msg, {
+      position: "top-right",
+    });
+  };
+
+  const notifyError = (msg: string): void => {
+    toast.error(msg, {
+      position: "top-right",
+    });
+  };
+
+  /* ---------------- Image preview cleanup ---------------- */
+  useEffect(() => {
+    return () => {
+      if (imagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   /* ---------------- Load history ---------------- */
   const reloadHistory = useCallback((): void => {
@@ -96,7 +121,9 @@ const ItemsManagement = () => {
     )
       .then((res) => {
         if (!res.ok) {
-          throw new Error("Failed to fetch spare parts");
+          throw new Error(
+            "Failed to fetch spare parts"
+          );
         }
 
         return res.json() as Promise<SparePartsResponse>;
@@ -106,7 +133,6 @@ const ItemsManagement = () => {
 
         const individualOptions: SearchOption[] =
           parts.map((part) => {
-           
             const normalizedPart: SparePart = {
               ...part,
               id: String(part.id),
@@ -203,7 +229,6 @@ const ItemsManagement = () => {
     option: FilterOptionOption<SearchOption>,
     inputVal: string
   ): boolean => {
-  
     if (option.data.isHistory && !inputVal) {
       return true;
     }
@@ -223,11 +248,14 @@ const ItemsManagement = () => {
     );
   };
 
-  /* ---------------- Handlers ---------------- */
-  const handleInputChange = (value: string): void => {
+  /* ---------------- Search input ---------------- */
+  const handleInputChange = (
+    value: string
+  ): void => {
     setInputValue(value);
   };
 
+  /* ---------------- Select spare part ---------------- */
   const handleSelect = (
     option: SearchOption | null
   ): void => {
@@ -246,16 +274,64 @@ const ItemsManagement = () => {
       brand: option.part.brand || "",
       colour: option.part.colour || "",
       buying_price:
-        option.part.buying_price || "",
+        option.part.buying_price ?? "",
       marked_price:
-        option.part.marked_price || "",
-      image: option.part.image || "",
+        option.part.marked_price ?? "",
       description:
         option.part.description || "",
     });
 
-     // Clear the search input after selecting.
+    setImageFile(null);
+
+    setImagePreview(option.part.image || "");
+
+    // Clear search input after selecting.
     setInputValue("");
+  };
+
+  /* ---------------- Image change ---------------- */
+  const handleImageChange = (
+    e: ChangeEvent<HTMLInputElement>
+  ): void => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    /* Validate file type */
+    if (!file.type.startsWith("image/")) {
+      notifyError(
+        "Please select a valid image file"
+      );
+
+      e.target.value = "";
+      return;
+    }
+
+    /* Validate file size */
+    const maxSize =
+      5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      notifyError(
+        "Image must be 5 MB or smaller"
+      );
+
+      e.target.value = "";
+      return;
+    }
+
+    if (imagePreview.startsWith("blob:")) {
+      URL.revokeObjectURL(imagePreview);
+    }
+
+    setImageFile(file);
+
+    const previewUrl =
+      URL.createObjectURL(file);
+
+    setImagePreview(previewUrl);
   };
 
   /* ---------------- Custom Option ---------------- */
@@ -354,19 +430,6 @@ const ItemsManagement = () => {
     options,
   ]);
 
-  /* ---------------- Toast helpers ---------------- */
-  const notifySuccess = (msg: string): void => {
-    toast.success(msg, {
-      position: "top-right",
-    });
-  };
-
-  const notifyError = (msg: string): void => {
-    toast.error(msg, {
-      position: "top-right",
-    });
-  };
-
   /* ---------------- Form handlers ---------------- */
   const handleChange = (
     e: ChangeEvent<
@@ -386,21 +449,80 @@ const ItemsManagement = () => {
     e.preventDefault();
 
     try {
+   
+      const multipartData = new FormData();
+
+      multipartData.append(
+        "category",
+        formData.category
+      );
+
+      multipartData.append(
+        "vehicle_type",
+        formData.vehicle_type
+      );
+
+      multipartData.append(
+        "brand",
+        formData.brand
+      );
+
+      multipartData.append(
+        "colour",
+        formData.colour
+      );
+
+      multipartData.append(
+        "buying_price",
+        String(formData.buying_price)
+      );
+
+      multipartData.append(
+        "marked_price",
+        String(formData.marked_price)
+      );
+
+      multipartData.append(
+        "description",
+        formData.description
+      );
+
+      if (imageFile) {
+        multipartData.append(
+          "image",
+          imageFile
+        );
+      }
+
       const res = await authFetch(
         `${config.API_BASE_URL}/admin/spareparts/`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
+          body: multipartData,
         }
       );
 
       const data = await res.json();
 
-      if (data.message) {
+      if (res.ok && data.message) {
         notifySuccess(data.message);
+
+        setSelectedPart(null);
+
+        setFormData({
+          category: "",
+          vehicle_type: "",
+          brand: "",
+          colour: "",
+          buying_price: "",
+          marked_price: "",
+          description: "",
+        });
+
+        setImageFile(null);
+        setImagePreview("");
+
+        setInputValue("");
 
         fetchSpareParts();
         reloadHistory();
@@ -411,8 +533,15 @@ const ItemsManagement = () => {
             "Error creating spare part"
         );
       }
-    } catch {
-      notifyError("Error creating spare part");
+    } catch (error) {
+      console.error(
+        "Error creating spare part:",
+        error
+      );
+
+      notifyError(
+        "Error creating spare part"
+      );
     }
   };
 
@@ -423,51 +552,134 @@ const ItemsManagement = () => {
     e.preventDefault();
 
     if (!selectedPart) {
-      notifyError("Select a spare part first");
+      notifyError(
+        "Select a spare part first"
+      );
       return;
     }
 
     try {
+      const multipartData = new FormData();
+
+      multipartData.append(
+        "category",
+        formData.category
+      );
+
+      multipartData.append(
+        "vehicle_type",
+        formData.vehicle_type
+      );
+
+      multipartData.append(
+        "brand",
+        formData.brand
+      );
+
+      multipartData.append(
+        "colour",
+        formData.colour
+      );
+
+      multipartData.append(
+        "buying_price",
+        String(formData.buying_price)
+      );
+
+      multipartData.append(
+        "marked_price",
+        String(formData.marked_price)
+      );
+
+      multipartData.append(
+        "description",
+        formData.description
+      );
+
+      if (imageFile) {
+        multipartData.append(
+          "image",
+          imageFile
+        );
+      }
+
       const res = await authFetch(
         `${config.API_BASE_URL}/admin/spareparts/${selectedPart.id}/`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
+          body: multipartData,
         }
       );
 
       const data = await res.json();
 
-      if (data.message) {
+      if (res.ok && data.message) {
         notifySuccess(data.message);
 
-        setHistoryOptions((prev) => {
-          const updated = prev.map((h) =>
-            h.value === selectedPart.id
-              ? {
-                  ...h,
-                  part: {
-                    ...selectedPart,
-                    ...formData,
-                    id: selectedPart.id,
-                  },
-                  label: `${formData.brand} ${formData.vehicle_type} ${formData.category}`,
-                  searchableText: `${formData.brand} ${formData.vehicle_type} ${formData.category}`
-                    .toLowerCase(),
-                }
-              : h
+        if (data.sparepart) {
+          const updatedPart: SparePart = {
+            ...data.sparepart,
+            id: String(data.sparepart.id),
+          };
+
+          setSelectedPart(updatedPart);
+
+          setImagePreview(
+            updatedPart.image || ""
           );
 
-          localStorage.setItem(
-            HISTORY_KEY,
-            JSON.stringify(updated)
-          );
+          setImageFile(null);
 
-          return updated;
-        });
+          setFormData({
+            category:
+              updatedPart.category || "",
+            vehicle_type:
+              updatedPart.vehicle_type || "",
+            brand:
+              updatedPart.brand || "",
+            colour:
+              updatedPart.colour || "",
+            buying_price:
+              updatedPart.buying_price ?? "",
+            marked_price:
+              updatedPart.marked_price ?? "",
+            description:
+              updatedPart.description || "",
+          });
+
+          setHistoryOptions((prev) => {
+            const updated = prev.map((h) =>
+              h.value === selectedPart.id
+                ? {
+                    ...h,
+                    part: updatedPart,
+                    label: [
+                      updatedPart.brand,
+                      updatedPart.vehicle_type,
+                      updatedPart.category,
+                    ]
+                      .filter(Boolean)
+                      .join(" "),
+                    searchableText: [
+                      updatedPart.brand,
+                      updatedPart.vehicle_type,
+                      updatedPart.category,
+                    ]
+                      .filter(Boolean)
+                      .join(" ")
+                      .toLowerCase(),
+                  }
+                : h
+            );
+
+            localStorage.setItem(
+              HISTORY_KEY,
+              JSON.stringify(updated)
+            );
+
+            return updated;
+          });
+        }
 
         fetchSpareParts();
       } else {
@@ -477,15 +689,24 @@ const ItemsManagement = () => {
             "Error updating spare part"
         );
       }
-    } catch {
-      notifyError("Error updating spare part");
+    } catch (error) {
+      console.error(
+        "Error updating spare part:",
+        error
+      );
+
+      notifyError(
+        "Error updating spare part"
+      );
     }
   };
 
   /* ---------------- Delete ---------------- */
   const handleDelete = async (): Promise<void> => {
     if (!selectedPart) {
-      notifyError("Select a spare part first");
+      notifyError(
+        "Select a spare part first"
+      );
       return;
     }
 
@@ -499,12 +720,13 @@ const ItemsManagement = () => {
 
       const data = await res.json();
 
-      if (data.message) {
+      if (res.ok && data.message) {
         notifySuccess(data.message);
 
         setHistoryOptions((prev) => {
           const updated = prev.filter(
-            (h) => h.value !== selectedPart.id
+            (h) =>
+              h.value !== selectedPart.id
           );
 
           localStorage.setItem(
@@ -524,9 +746,11 @@ const ItemsManagement = () => {
           colour: "",
           buying_price: "",
           marked_price: "",
-          image: "",
           description: "",
         });
+
+        setImageFile(null);
+        setImagePreview("");
 
         setInputValue("");
 
@@ -538,8 +762,15 @@ const ItemsManagement = () => {
             "Error deleting spare part"
         );
       }
-    } catch {
-      notifyError("Error deleting spare part");
+    } catch (error) {
+      console.error(
+        "Error deleting spare part:",
+        error
+      );
+
+      notifyError(
+        "Error deleting spare part"
+      );
     }
   };
 
@@ -629,6 +860,7 @@ const ItemsManagement = () => {
       </h2>
 
       {/* SEARCH */}
+
       <Select<
         SearchOption,
         false,
@@ -651,12 +883,31 @@ const ItemsManagement = () => {
         }
       />
 
-      {/* IMAGE */}
-      {formData.image && selectedPart && (
+      {/* IMAGE PREVIEW */}
+      {imagePreview && (
         <div className="my-5 text-center">
-          <Link to={`/items/${selectedPart.id}`}>
+          {selectedPart ? (
+            <Link
+              to={`/items/${selectedPart.id}`}
+            >
+              <img
+                src={imagePreview}
+                alt={`${formData.brand} ${formData.vehicle_type}`}
+                className="
+                  mx-auto
+                  my-[15px]
+                  max-h-[150px]
+                  max-w-[160px]
+                  rounded-[10px]
+                  border
+                  border-gray-300
+                  object-contain
+                "
+              />
+            </Link>
+          ) : (
             <img
-              src={formData.image}
+              src={imagePreview}
               alt={`${formData.brand} ${formData.vehicle_type}`}
               className="
                 mx-auto
@@ -669,7 +920,7 @@ const ItemsManagement = () => {
                 object-contain
               "
             />
-          </Link>
+          )}
         </div>
       )}
 
@@ -683,6 +934,7 @@ const ItemsManagement = () => {
           max-[640px]:grid-cols-1
         "
       >
+        {/* CATEGORY */}
         <input
           className="
             w-full
@@ -704,6 +956,7 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
+        {/* VEHICLE TYPE */}
         <input
           className="
             w-full
@@ -725,6 +978,7 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
+        {/* BRAND */}
         <input
           className="
             w-full
@@ -746,6 +1000,7 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
+        {/* COLOUR */}
         <input
           className="
             w-full
@@ -767,6 +1022,7 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
+        {/* BUYING PRICE */}
         <input
           className="
             w-full
@@ -789,6 +1045,7 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
+        {/* MARKED PRICE */}
         <input
           className="
             w-full
@@ -811,27 +1068,61 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
-        <input
-          className="
-            w-full
-            rounded-[10px]
-            border
-            border-gray-300
-            px-3
-            py-[10px]
-            text-[14px]
-            transition
-            focus:border-[#004080]
-            focus:outline-none
-            focus:ring-2
-            focus:ring-[#004080]/20
-          "
-          name="image"
-          placeholder="Image URL"
-          value={formData.image}
-          onChange={handleChange}
-        />
+        {/* IMAGE FILE */}
+        <div className="w-full">
+          <label
+            htmlFor="image"
+            className="
+              mb-2
+              block
+              text-[14px]
+              font-medium
+              text-gray-700
+            "
+          >
+            Image
+          </label>
 
+          <input
+            id="image"
+            name="image"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="
+              w-full
+              cursor-pointer
+              rounded-[10px]
+              border
+              border-gray-300
+              bg-white
+              px-3
+              py-[8px]
+              text-[14px]
+              transition
+              file:mr-3
+              file:rounded-md
+              file:border-0
+              file:bg-[#004080]
+              file:px-3
+              file:py-2
+              file:text-[13px]
+              file:font-medium
+              file:text-white
+              hover:file:bg-[#004080]/80
+              focus:border-[#004080]
+              focus:outline-none
+              focus:ring-2
+              focus:ring-[#004080]/20
+            "
+          />
+
+          <p className="mt-1 text-[11px] text-gray-500">
+            JPG, JPEG, PNG, WEBP or GIF · Max 5 MB
+          </p>
+        </div>
+
+        {/* DESCRIPTION */}
         <textarea
           className="
             col-span-2
@@ -857,6 +1148,7 @@ const ItemsManagement = () => {
           onChange={handleChange}
         />
 
+        {/* BUTTONS */}
         <div
           className="
             col-span-2
@@ -866,6 +1158,7 @@ const ItemsManagement = () => {
             gap-[10px]
           "
         >
+          {/* CREATE */}
           <button
             type="button"
             id="create"
@@ -883,6 +1176,8 @@ const ItemsManagement = () => {
           >
             Create
           </button>
+
+          {/* UPDATE */}
 
           <button
             type="button"
@@ -902,6 +1197,7 @@ const ItemsManagement = () => {
             Update
           </button>
 
+          {/* DELETE */}
           <button
             type="button"
             id="delete"

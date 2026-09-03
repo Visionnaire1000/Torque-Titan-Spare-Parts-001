@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
@@ -390,6 +390,28 @@ const Registration = () => {
           </button>
         </form>
       )}
+      <div className="mt-6 text-center">
+        <p
+          className="
+            mb-[10px]
+            text-base
+            font-semibold
+            text-[rgb(0,64,128)]
+          "
+        >
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="
+              text-[rgb(0,64,128)]
+              no-underline
+              hover:underline
+            "
+          >
+            Log in
+          </Link>
+        </p>
+      </div>
     </div>
   </div>
   );

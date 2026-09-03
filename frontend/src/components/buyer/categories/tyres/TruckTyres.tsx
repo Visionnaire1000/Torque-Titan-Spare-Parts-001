@@ -165,6 +165,15 @@ const TruckTyres = (): ReactElement => {
   };
 
   /* ---------------- Effects ---------------- */
+  // Scrolls to the top whenever the pagination page changes
+  useEffect(() => {
+   window.scrollTo({
+     top: 0,
+     left: 0,
+     behavior: "auto",
+   });
+  }, [currentPage]);
+
   useEffect(() => {
     void fetchTyres();
   }, [
