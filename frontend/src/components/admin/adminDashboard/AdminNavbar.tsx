@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
-import {Menu, Home, User, Package, MessageSquare } from "lucide-react";
+import {Menu, Home, User, Package, MessageSquare, ChartNoAxesCombined } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
 import "../../../styles/admin/adminNavbar.css";
@@ -178,7 +178,7 @@ const AdminNavbar = () => {
   };
   
 
-   // -------------------- INIT --------------------
+  // -------------------- INIT --------------------
   useEffect(() => {
     calculateOrderNotifications();
     fetchReviewNotifications();
@@ -244,7 +244,7 @@ const AdminNavbar = () => {
   const getActiveTabClass = (
     tabRoute: string
   ): string => {
-    if (tabRoute === "orders") {
+    if (tabRoute === "/admin-orders") {
       return location.pathname.startsWith(
         "/admin-orders"
       )
@@ -252,9 +252,9 @@ const AdminNavbar = () => {
         : "";
     }
 
-    if (tabRoute === "reviews") {
+    if (tabRoute === "/admin-reviews") {
       return location.pathname.startsWith(
-        "/reviews"
+        "/admin-reviews"
       )
         ? "active-tab"
         : "";
@@ -262,6 +262,14 @@ const AdminNavbar = () => {
 
     if (tabRoute === "/") {
       return location.pathname === "/"
+        ? "active-tab"
+        : "";
+    }
+
+    if (tabRoute === "/analytics") {
+      return location.pathname.startsWith(
+        "/analytics"
+      )
         ? "active-tab"
         : "";
     }
@@ -313,7 +321,7 @@ const AdminNavbar = () => {
 
             <div
               className={`tab orders-tab ${getActiveTabClass(
-                "orders"
+                "/admin-orders"
               )}`}
               onClick={() => {
                 markPendingOrdersAsSeen();
@@ -322,8 +330,8 @@ const AdminNavbar = () => {
                 );
               }}
             >
-              <div className="icon-wrapper">
-                <Package size={18} />
+              <div className="orders-icon-wrapper">
+                <Package size={20} />
 
                 {orderNotifications > 0 && (
                   <span className="notification-badge">
@@ -338,9 +346,9 @@ const AdminNavbar = () => {
             </div>
 
             <NavLink
-              to="/reviews"
+              to="/admin-reviews"
               className={`tab review-tab ${getActiveTabClass(
-                "reviews"
+                "/admin-reviews"
               )}`}
               onClick={markReviewsAsSeen}
             >
@@ -358,7 +366,14 @@ const AdminNavbar = () => {
 
               Reviews
             </NavLink>
-
+            <NavLink 
+              to="/analytics"
+              className={`tab ${getActiveTabClass(
+                  "/analytics"
+                )}`}
+            >
+              <ChartNoAxesCombined size={18} /> Data Analytics
+            </NavLink>
             {user?.role === "super_admin" ? (
               <NavLink
                 to="/super-admin-account"
@@ -378,7 +393,7 @@ const AdminNavbar = () => {
                 <User size={18} /> Account
               </NavLink>
             ) : null}
-
+            
             <button
               onClick={() => {
                 logout();

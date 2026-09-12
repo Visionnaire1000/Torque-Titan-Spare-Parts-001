@@ -38,7 +38,7 @@ html, body {
 }
 
 /* ================================
-   Menu Button
+  Menu Button
 ================================ */
 .dashboard-button {
   background: transparent;
@@ -57,12 +57,12 @@ html, body {
 }
 
 /* ================================
-   Dropdown Menu
+  Dropdown Menu
 ================================ */
 .dropdown-menu {
   position: absolute;
   margin-top: 20px;
-  margin-left: 52px;
+  margin-left: 68px;
   justify-content: right;
   transform: translateX(-100%);
   min-width: 230px;
@@ -130,7 +130,7 @@ html, body {
 }
 
 /* ================================
-   Logout Button
+  Logout Button
 ================================ */
 .dropdown-menu button {
   background: none;
@@ -153,12 +153,14 @@ html, body {
   position: relative;
   display: inline-flex;
   align-items: center;
+  margin-right: 2px;
+ 
 }
 
 .notification-badge {
   position: absolute;
-  top: -6px;
-  right: -6px;
+  top: -10px;
+  right: -8px;
   background-color: #e03e2d; 
   color: white;
   font-size: 10px;
@@ -198,8 +200,7 @@ html, body {
 }
 
 
-
-/*----------------------------------RESPONSIVE BREAKPOINTS--------------------------------------------*/
+/* ----------------------------------RESPONSIVE BREAKPOINTS-------------------------------------------- */
 @media (max-width: 480px) {
 
 /* ================================

@@ -145,10 +145,6 @@ const BuyerOrders: React.FC = () => {
   }
 
   let utcDate: Date;
-  // Already contains timezone information:
-  // Django: 2026-08-18T10:30:00+00:00
-  // Flask:  2026-08-18T10:30:00.000000+00:00
-  // ISO:    2026-08-18T10:30:00Z
   if (
     value.endsWith("Z") ||
     /[+-]\d{2}:?\d{2}$/.test(value)
@@ -156,9 +152,6 @@ const BuyerOrders: React.FC = () => {
     utcDate = new Date(value);
 
   } else {
-    // Naive datetime:
-    // 2026-08-18T10:30:00
-    // Treats it as UTC.
     utcDate = new Date(`${value}Z`);
   }
 
@@ -226,15 +219,42 @@ const BuyerOrders: React.FC = () => {
     }
   };
 
+
 const cancelOrder = (orderId: string): void => {
   toast.warn(
     ({ closeToast }: ToastConfirmProps) => (
-      <div>
-        <p>Are you sure you want to cancel this order?</p>
+      <div
+        style={{
+          color: "#3d2b00",
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontWeight: 600,
+          }}
+        >
+          Are you sure you want to cancel this order?
+        </p>
 
-        <div style={{ marginTop: "8px" }}>
+        <div
+          style={{
+            marginTop: "12px",
+            display: "flex",
+            gap: "10px",
+          }}
+        >
           <button
             className="toast-btn confirm"
+            style={{
+              backgroundColor: "#dc2626",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "6px",
+              padding: "6px 14px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
             onClick={async () => {
               closeToast?.();
 
@@ -283,7 +303,15 @@ const cancelOrder = (orderId: string): void => {
 
           <button
             className="toast-btn cancel"
-            style={{ marginLeft: 10 }}
+            style={{
+              backgroundColor: "#374151",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "6px",
+              padding: "6px 14px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
             onClick={() => closeToast?.()}
           >
             No
@@ -293,9 +321,16 @@ const cancelOrder = (orderId: string): void => {
     ),
     {
       autoClose: false,
+      style: {
+        backgroundColor: "#fef3c7",
+        border: "1px solid #f59e0b",
+        borderLeft: "5px solid #d97706",
+        color: "#3d2b00",
+      },
     }
   );
 };
+
 
 const handleTabClick = (tab: string): void => {
   setActiveTab(tab);
@@ -474,11 +509,13 @@ const getBadgeCount = (tab: string): number => {
       px-4
       sm:px-5
       lg:ml-[140px]
+      max-[480px]:mb-10
     "
   >
     <ToastContainer
       position="top-right"
       autoClose={3000}
+      theme="colored"
     />
 
     {/* ---------- Tabs ---------- */}
@@ -528,8 +565,8 @@ const getBadgeCount = (tab: string): number => {
               <span
                 className="
                   absolute
+                  -right-[44px]
                   top-0
-                  right-0
                   inline-flex
                   h-[18px]
                   min-w-[18px]

@@ -329,63 +329,69 @@ const Cart = () => {
         onClick={() => {
            const toastId = toast.warn(
   <div
-    className="
-       rounded-lg
-       border-l-[6px]
-       border-[#ffc107]
-       bg-[#fff3cd]
-       px-5
-       py-4
-       font-sans
-       text-[#856404]
-       max-[480px]:px-[15px]
-       max-[480px]:py-[10px]
-    "
-  >
-     Are you sure you want to clear your cart?
-  <div className="mt-3">
-     <button
-       onClick={() => {
-         toast.dismiss(
-           toastId
-        );
-        clearCart();
-   }}
-        className="
-          mr-2
-          rounded-md
-          bg-[#ffc107]
-          px-3
-          py-1.5
-          font-medium
-          text-[#212529]
-          transition-all
-          duration-200
-          hover:bg-[#e0a800]
-        "
-      >
-        Yes
-      </button>
+  className="
+    rounded-lg
+    border-l-[5px]
+    border-[#d97706]
+    bg-[#fef3c7]
+    px-5
+    py-4
+    font-sans
+    font-medium
+    text-[#3d2b00]
+    shadow-md
+    max-[480px]:px-[15px]
+    max-[480px]:py-[10px]
+  "
+>
+  <p className="m-0 font-semibold">
+    Are you sure you want to clear your cart?
+  </p>
 
-      <button
-         onClick={() =>
-           toast.dismiss(toastId)
-         }                   
-       className="
-         rounded-md
-         bg-[#6c757d]
-         px-3
-         py-1.5
-         font-medium
-         text-white
-         transition-all
-         duration-200
-         hover:bg-[#5a6268]
-        "
-      >
-         No
-      </button>
-    </div>
+  <div className="mt-3 flex gap-2">
+    <button
+      onClick={() => {
+        toast.dismiss(toastId);
+        clearCart();
+      }}
+      className="
+        rounded-md
+        bg-[#dc2626]
+        px-3.5
+        py-1.5
+        font-semibold
+        text-white
+        shadow-sm
+        transition-all
+        duration-200
+        hover:bg-[#b91c1c]
+        hover:shadow-md
+      "
+    >
+      Yes
+    </button>
+
+    <button
+      onClick={() =>
+        toast.dismiss(toastId)
+      }
+      className="
+        rounded-md
+        bg-[#374151]
+        px-3.5
+        py-1.5
+        font-semibold
+        text-white
+        shadow-sm
+        transition-all
+        duration-200
+        hover:bg-[#1f2937]
+        hover:shadow-md
+      "
+    >
+      No
+    </button>
+  </div>
   </div>,
        {
         autoClose: false,

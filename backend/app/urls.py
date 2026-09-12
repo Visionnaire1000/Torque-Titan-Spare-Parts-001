@@ -30,6 +30,7 @@ from app.views.adminViews import (
     AdminSparePartsView,
     AdminReviewsView,
     AdminReviewsBySparePartView,
+    DataAnalyticsView
 )
 
 from app.views.stripeViews import (
@@ -225,8 +226,15 @@ urlpatterns = [
     ),
     
     path(
-        "webhook/",
+        "webhook/stripe/",
         StripeWebhookView.as_view(),
-        name="admin-order-detail",
+        name="stripe-webhook",
+    ),
+
+    # ---------------------- DATA ANALYTICS -------------------------------------
+    path(
+        "admin/analytics/",
+        DataAnalyticsView.as_view(),
+        name="admin-analytics",
     ),
 ]

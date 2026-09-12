@@ -4,6 +4,9 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from django.db.models import (Avg, Count, Sum, Q)
+from django.db.models.functions import (TruncDay, TruncWeek, TruncMonth, TruncYear)
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -15,6 +18,7 @@ from utils.cloudflare import upload_image_to_r2
 from app.models import (
     Users,
     Orders,
+    OrderItems,
     SpareParts,
     Reviews,
 )
@@ -828,3 +832,379 @@ class AdminOrdersView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# --------------------------- ADMIN DATA ANALYTICS ----------------------------------------------
+class DataAnalyticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    VALID_PERIODS = {
+        "daily",
+        "weekly",
+        "monthly",
+        "yearly",
+    }
+
+    VALID_VEHICLE_TYPES = {
+        "sedan",
+        "suv",
+        "truck",
+        "bus",
+    }
+
+    VALID_CATEGORIES = {
+        "tyre",
+        "rim",
+        "battery",
+        "oil filter",
+    }
+
+    def get(self, request):
+        user = request.user
+
+        if not user.is_authenticated:
+            return Response(
+                {
+                    "detail": (
+                        "Authentication credentials "
+                        "were not provided."
+                    )
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if user.role not in ["admin", "super_admin"]:
+            return Response(
+                {
+                    "detail": (
+                        "You do not have permission "
+                        "to view analytics."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # PARAMETERS
+        period = (
+            request.query_params
+            .get("period", "monthly")
+            .lower()
+            .strip()
+        )
+
+        vehicle_type = request.query_params.get(
+            "vehicle_type"
+        )
+
+        category = request.query_params.get(
+            "category"
+        )
+
+        # VALIDATION
+        if period not in self.VALID_PERIODS:
+            return Response(
+                {
+                    "error": (
+                        "Invalid period. "
+                        "Use daily, weekly, monthly "
+                        "or yearly."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if vehicle_type:
+            vehicle_type = (
+                vehicle_type
+                .lower()
+                .strip()
+            )
+
+            if (
+                vehicle_type
+                not in self.VALID_VEHICLE_TYPES
+            ):
+                return Response(
+                    {
+                        "error": (
+                            "Invalid vehicle_type. "
+                            "Use sedan, suv, truck or bus."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if category:
+            category = (
+                category
+                .lower()
+                .strip()
+            )
+
+            if category not in self.VALID_CATEGORIES:
+                return Response(
+                    {
+                        "error": "Invalid category."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # BASE ORDER ITEMS
+        order_items = (
+            OrderItems.objects
+            .select_related(
+                "order",
+                "sparepart",
+            )
+            .filter(
+                order__paid=True
+            )
+            .exclude(
+                order__status__iexact="cancelled"
+            )
+        )
+
+        # VEHICLE TYPE FILTER
+        if vehicle_type:
+            order_items = order_items.filter(
+                sparepart__vehicle_type__iexact=vehicle_type
+            )
+
+        # CATEGORY FILTER
+        if category:
+            order_items = order_items.filter(
+                sparepart__category__iexact=category
+            )
+
+        # SUMMARY
+        summary_data = order_items.aggregate(
+            parts_sold=Sum("quantity"),
+            revenue=Sum("subtotal"),
+        )
+
+        parts_sold = int(
+            summary_data["parts_sold"] or 0
+        )
+
+        revenue = float(
+            summary_data["revenue"] or 0
+        )
+
+        orders_count = (
+            order_items
+            .values("order_id")
+            .distinct()
+            .count()
+        )
+
+        
+        # TIMELINE
+        if period == "daily":
+            truncated_date = TruncDay(
+                "order__created_at"
+            )
+
+        elif period == "weekly":
+            truncated_date = TruncWeek(
+                "order__created_at"
+            )
+
+        elif period == "yearly":
+            truncated_date = TruncYear(
+                "order__created_at"
+            )
+
+        else:
+            truncated_date = TruncMonth(
+                "order__created_at"
+            )
+
+        timeline = (
+            order_items
+            .annotate(
+                period_date=truncated_date
+            )
+            .values("period_date")
+            .annotate(
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
+            )
+            .order_by("period_date")
+        )
+
+        timeline_data = []
+
+        for item in timeline:
+
+            period_date = item["period_date"]
+
+            if period == "daily":
+                period_label = (
+                    period_date.strftime("%Y-%m-%d")
+                    if period_date
+                    else ""
+                )
+
+            elif period == "weekly":
+                period_label = (
+                    period_date.strftime("%Y-%m-%d")
+                    if period_date
+                    else ""
+                )
+
+            elif period == "monthly":
+                period_label = (
+                    period_date.strftime("%Y-%m")
+                    if period_date
+                    else ""
+                )
+
+            else:
+                period_label = (
+                    period_date.strftime("%Y")
+                    if period_date
+                    else ""
+                )
+
+            timeline_data.append(
+                {
+                    "period": period_label,
+                    "parts_sold": int(
+                        item["parts_sold"] or 0
+                    ),
+                    "revenue": float(
+                        item["revenue"] or 0
+                    ),
+                }
+            )
+
+        # VEHICLE TYPE BREAKDOWN
+        vehicle_types = (
+            order_items
+            .values(
+                "sparepart__vehicle_type"
+            )
+            .annotate(
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
+            )
+            .order_by("-revenue")
+        )
+
+        vehicle_type_data = []
+
+        for item in vehicle_types:
+
+            vehicle_type_data.append(
+                {
+                    "vehicle_type": (
+                        item[
+                            "sparepart__vehicle_type"
+                        ]
+                        or ""
+                    ),
+                    "parts_sold": int(
+                        item["parts_sold"] or 0
+                    ),
+                    "revenue": float(
+                        item["revenue"] or 0
+                    ),
+                }
+            )
+
+        # CATEGORY BREAKDOWN
+        categories = (
+            order_items
+            .values(
+                "sparepart__category"
+            )
+            .annotate(
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
+            )
+            .order_by("-revenue")
+        )
+
+        category_data = []
+
+        for item in categories:
+
+            category_data.append(
+                {
+                    "category": (
+                        item[
+                            "sparepart__category"
+                        ]
+                        or ""
+                    ),
+                    "parts_sold": int(
+                        item["parts_sold"] or 0
+                    ),
+                    "revenue": float(
+                        item["revenue"] or 0
+                    ),
+                }
+            )
+
+        # BRAND BREAKDOWN
+        brands = (
+            order_items
+            .values(
+                "sparepart__vehicle_type",
+                "sparepart__category",
+                "sparepart__brand",
+            )
+            .annotate(
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
+            )
+            .order_by("-revenue")
+        )
+
+        brand_data = []
+
+        for item in brands:
+
+            brand_data.append(
+                {
+                    "brand": (
+                        item[
+                            "sparepart__brand"
+                        ]
+                        or ""
+                    ),
+                    "parts_sold": int(
+                        item["parts_sold"] or 0
+                    ),
+                    "revenue": float(
+                        item["revenue"] or 0
+                    ),
+                }
+            )
+
+        # FINAL RESPONSE
+        return Response(
+            {
+                "filters": {
+                    "period": period,
+                    "vehicle_type": vehicle_type,
+                    "category": category,
+                },
+
+                "summary": {
+                    "parts_sold": parts_sold,
+                    "revenue": revenue,
+                    "orders": orders_count,
+                },
+
+                "timeline": timeline_data,
+
+                "vehicle_types": vehicle_type_data,
+
+                "categories": category_data,
+
+                "brands": brand_data,
+            },
+            status=status.HTTP_200_OK,
+        )
+

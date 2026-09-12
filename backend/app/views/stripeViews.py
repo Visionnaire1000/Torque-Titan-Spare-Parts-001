@@ -61,7 +61,6 @@ class CreateCheckoutSessionView(APIView):
         stripe.api_key = settings.STRIPE_SECRET_KEY
 
         try:
-
             with transaction.atomic():
 
                 # --------------------------- CREATE ORDER ---------------------------
@@ -85,9 +84,7 @@ class CreateCheckoutSessionView(APIView):
                 # --------------------------- CREATE ORDER ITEMS ---------------------------
                 for item in items:
 
-                    sparepart_id = item.get(
-                        "sparepart_id"
-                    )
+                    sparepart_id = item.get("sparepart_id")
 
                     if not sparepart_id:
                         raise ValueError(
@@ -116,8 +113,7 @@ class CreateCheckoutSessionView(APIView):
                             "Quantity must be positive"
                         )
 
-                   
-                    # Calculate the actual selling price from the database, not from the client
+                    # Calculate the actual selling price from the database.
                     sparepart.calculate_discount()
 
                     unit_price = round(
@@ -146,13 +142,13 @@ class CreateCheckoutSessionView(APIView):
                                 "product_data": {
                                     "name": (
                                         f"{sparepart.brand} "
+                                        f"{sparepart.vehicle_type} "
                                         f"{sparepart.category}"
                                     )
                                 },
                                 "unit_amount": int(
                                     round(
-                                        order_item.unit_price
-                                        * 100
+                                        order_item.unit_price * 100
                                     )
                                 ),
                             },
@@ -160,27 +156,20 @@ class CreateCheckoutSessionView(APIView):
                         }
                     )
 
-                # OrderItems.save() already recalculates
-                # order.total_price.
+                # OrderItems.save() recalculates total_price.
                 order.refresh_from_db()
 
-
                 # --------------------------- STRIPE SESSION ---------------------------
-                checkout_session = (
-                    stripe.checkout.Session.create(
-                        payment_method_types=["card"],
-                        mode="payment",
-                        line_items=stripe_items,
-                        metadata={
-                            "order_id": order.id,
-                        },
-                        success_url=(
-                            settings.STRIPE_SUCCESS_URL
-                        ),
-                        cancel_url=(
-                            settings.STRIPE_CANCEL_URL
-                        ),
-                    )
+                checkout_session = stripe.checkout.Session.create(
+                    payment_method_types=["card"],
+                    mode="payment",
+                    line_items=stripe_items,
+                    metadata={
+                        # Stripe metadata values should be strings.
+                        "order_id": str(order.id),
+                    },
+                    success_url=settings.STRIPE_SUCCESS_URL,
+                    cancel_url=settings.STRIPE_CANCEL_URL,
                 )
 
         except ValueError as exc:
@@ -202,9 +191,7 @@ class CreateCheckoutSessionView(APIView):
         except Exception:
             return Response(
                 {
-                    "error": (
-                        "Failed to create checkout session"
-                    )
+                    "error": "Failed to create checkout session"
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -230,20 +217,22 @@ class StripeWebhookView(APIView):
             "HTTP_STRIPE_SIGNATURE"
         )
 
-        endpoint_secret = (
-            settings.STRIPE_WEBHOOK_SECRET
-        )
+        endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
         # --------------------------- VERIFY WEBHOOK ---------------------------
         try:
-
             event = stripe.Webhook.construct_event(
                 payload,
                 sig_header,
                 endpoint_secret,
             )
 
-        except ValueError:
+        except ValueError as exc:
+            print(
+                "STRIPE WEBHOOK PAYLOAD ERROR:",
+                exc,
+            )
+
             return Response(
                 {
                     "error": "Invalid payload"
@@ -251,7 +240,12 @@ class StripeWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        except stripe.error.SignatureVerificationError:
+        except stripe.error.SignatureVerificationError as exc:
+            print(
+                "STRIPE WEBHOOK SIGNATURE ERROR:",
+                exc,
+            )
+
             return Response(
                 {
                     "error": "Invalid signature"
@@ -259,7 +253,12 @@ class StripeWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        except Exception:
+        except Exception as exc:
+            print(
+                "STRIPE WEBHOOK ERROR:",
+                repr(exc),
+            )
+
             return Response(
                 {
                     "error": "Invalid webhook"
@@ -272,16 +271,16 @@ class StripeWebhookView(APIView):
 
             session = event["data"]["object"]
 
-            metadata = session.get(
-                "metadata",
-                {}
-            )
-
-            order_id = metadata.get(
-                "order_id"
-            )
+            metadata = session["metadata"] if "metadata" in session else {}
+            
+            order_id = metadata["order_id"] if "order_id" in metadata else None
 
             if not order_id:
+                print(
+                    "STRIPE WEBHOOK ERROR: "
+                    "Missing order_id in session metadata"
+                )
+
                 return Response(
                     {
                         "error": "Missing order ID"
@@ -290,17 +289,15 @@ class StripeWebhookView(APIView):
                 )
 
             try:
-
                 with transaction.atomic():
 
                     order = Orders.objects.get(
                         pk=order_id
                     )
 
-                    
                     if not order.paid:
 
-                        # Recalculate total from order items.
+                        # Recalculates total from database
                         total_price = sum(
                             float(item.subtotal or 0)
                             for item in order.order_items.all()
@@ -308,7 +305,7 @@ class StripeWebhookView(APIView):
 
                         order.total_price = round(
                             total_price,
-                            2
+                            2,
                         )
 
                         order.paid = True
@@ -321,16 +318,40 @@ class StripeWebhookView(APIView):
                         )
 
                         print(
-                            f"✔ ORDER {order_id} "
+                            f"ORDER {order_id} "
                             "MARKED AS PAID"
                         )
 
+                    else:
+                        print(
+                            f"ORDER {order_id} "
+                            "IS ALREADY PAID"
+                        )
+
             except Orders.DoesNotExist:
+                print(
+                    f"STRIPE WEBHOOK ERROR: "
+                    f"Order {order_id} not found"
+                )
+
                 return Response(
                     {
                         "error": "Order not found"
                     },
                     status=status.HTTP_404_NOT_FOUND,
+                )
+
+            except Exception as exc:
+                print(
+                    "STRIPE ORDER PROCESSING ERROR:",
+                    repr(exc),
+                )
+
+                return Response(
+                    {
+                        "error": "Failed to process order"
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         return Response(

@@ -30,6 +30,7 @@ import PaymentCancel from "./components/buyer/checkout/PaymentCancel";
 // pages(admin)
 import Reviews from "./components/admin/adminDashboard/Reviews";
 import AdminOrders from "./components/admin/adminDashboard/AdminOrders";
+import DataAnalytics from "./components/admin/adminDashboard/DataAnalytics";
 import SuperAdminAccount from "./components/admin/adminDashboard/SuperAdminAccount";
 import AdminManagement from "./components/admin/adminDashboard/AdminManagement";
 
@@ -152,7 +153,15 @@ function App() {
                   } 
               />
               <Route 
-                  path="/reviews" 
+                  path="/analytics" 
+                  element={
+                     <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
+                        <DataAnalytics />
+                    </RoleProtectedRoutes>
+                  } 
+              />
+              <Route 
+                  path="/admin-reviews" 
                   element={
                      <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
                         <Reviews />

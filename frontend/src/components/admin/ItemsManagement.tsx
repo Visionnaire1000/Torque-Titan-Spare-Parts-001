@@ -853,7 +853,11 @@ const ItemsManagement = () => {
         shadow-[0_10px_30px_rgba(0,0,0,0.08)]
       "
     >
-      <ToastContainer />
+      <ToastContainer
+         position="top-right"
+         autoClose={3000}
+         theme="colored"
+       />
 
       <h2 className="mt-10 mb-5 text-[22px] font-semibold text-[#222]">
         Manage Spare Parts

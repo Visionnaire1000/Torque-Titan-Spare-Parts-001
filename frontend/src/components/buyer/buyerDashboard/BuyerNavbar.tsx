@@ -515,7 +515,7 @@ const BuyerNavbar = () => {
             onClick={markPendingAsSeen}
           >
             <div className="orders-icon-wrapper">
-              <Package size={18} />
+              <Package size={20} />
 
               {ordersCount > 0 && (
 

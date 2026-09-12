@@ -541,124 +541,125 @@ const AdminOrders = (): ReactElement => {
     }
   };
 
-  /* ---------------- Update Status ---------------- */
-  const updateOrderStatus = (
-    orderId: string,
-    newStatus: OrderStatus
-  ): void => {
-    const toastId =
-      toast.info(
-        <div>
-          <div>
-            Mark order #{orderId} as{" "}
-            {newStatus}?
-          </div>
+/* ---------------- Update Status ---------------- */
+const updateOrderStatus = (
+  orderId: string,
+  newStatus: OrderStatus
+): void => {
+  const toastId = toast.info(
+    <div className="w-full font-sans text-[#1f2937]">
+      <p className="mt-1 text-sm leading-5 text-[#4b5563]">
+        Mark order{" "}
+        <span className="font-bold text-[#004080]">
+          #{orderId}
+        </span>{" "}
+        as{" "}
+        <span className="font-bold capitalize text-[#111827]">
+          {newStatus}
+        </span>
+        ?
+      </p>
 
-          <div className="mt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                toast.dismiss(
-                  toastId
-                );
+      <div className="mt-4 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => toast.dismiss(toastId)}
+          className="
+            cursor-pointer
+            rounded-lg
+            border
+            border-[#d1d5db]
+            bg-white
+            px-4
+            py-2
+            text-sm
+            font-semibold
+            text-[#374151]
+            shadow-sm
+            transition-all
+            duration-200
+            hover:border-[#9ca3af]
+            hover:bg-[#f3f4f6]
+            active:scale-[0.98]
+          "
+        >
+          Cancel
+        </button>
 
-                try {
-                  const res =
-                    await authFetch(
-                      `${config.API_BASE_URL}/admin/orders/${orderId}/`,
-                      {
-                        method:
-                          "PATCH",
-                        headers: {
-                          "Content-Type":
-                            "application/json",
-                        },
-                        body: JSON.stringify(
-                          {
-                            status:
-                              newStatus,
-                          }
-                        ),
-                      }
-                    );
+        <button
+          type="button"
+          onClick={async () => {
+            toast.dismiss(toastId);
 
-                  const data =
-                    (await res.json()) as ErrorResponse;
-
-                  if (!res.ok) {
-                    throw new Error(
-                      data.message ||
-                        data.error ||
-                        "Failed to update order"
-                    );
-                  }
-
-                  toast.success(
-                    `Order #${orderId} marked as ${newStatus}`
-                  );
-
-                  await fetchOrders(
-                    true
-                  );
-                } catch (
-                  err: unknown
-                ) {
-                  const message =
-                    err instanceof
-                    Error
-                      ? err.message
-                      : "Failed to update order";
-
-                  toast.error(
-                    message
-                  );
+            try {
+              const res = await authFetch(
+                `${config.API_BASE_URL}/admin/orders/${orderId}/`,
+                {
+                  method: "PATCH",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    status: newStatus,
+                  }),
                 }
-              }}
-              className="
-                cursor-pointer
-                rounded
-                border-0
-                bg-[#28a745]
-                px-3
-                py-1.5
-                text-white
-                transition-all
-                duration-200
-                hover:bg-[#218838]
-              "
-            >
-              Confirm
-            </button>
+              );
 
-            <button
-              type="button"
-              onClick={() =>
-                toast.dismiss(
-                  toastId
-                )
+              const data =
+                (await res.json()) as ErrorResponse;
+
+              if (!res.ok) {
+                throw new Error(
+                  data.message ||
+                    data.error ||
+                    "Failed to update order"
+                );
               }
-              className="
-                cursor-pointer
-                rounded
-                border-0
-                bg-[#dc3545]
-                px-3
-                py-1.5
-                text-white
-                transition-all
-                duration-200
-                hover:bg-[#c82333]
-              "
-            >
-              Cancel
-            </button>
-          </div>
-        </div>,
-        {
-          autoClose: false,
-        }
-      );
-  };
+
+              toast.success(
+                `Order #${orderId} marked as ${newStatus}`
+              );
+
+              await fetchOrders(true);
+            } catch (err: unknown) {
+              const message =
+                err instanceof Error
+                  ? err.message
+                  : "Failed to update order";
+
+              toast.error(message);
+            }
+          }}
+          className="
+            cursor-pointer
+            rounded-lg
+            border-0
+            bg-[#004080]
+            px-4
+            py-2
+            text-sm
+            font-semibold
+            text-white
+            shadow-sm
+            transition-all
+            duration-200
+            hover:bg-[#003366]
+            active:scale-[0.98]
+          "
+        >
+          Confirm
+        </button>
+      </div>
+    </div>,
+    {
+      autoClose: false,
+      closeOnClick: false,
+      closeButton: false,
+      className:
+        "!rounded-xl !border !border-[#fde68a] !bg-[#fffbeb] !px-4 !py-4 !shadow-lg",
+    }
+  );
+};
 
   /* ---------------- Polling ---------------- */
   useEffect(() => {
@@ -838,9 +839,10 @@ const AdminOrders = (): ReactElement => {
       <ToastContainer
         position="top-right"
         autoClose={3000}
+        theme="colored"
       />
 
-      {/* ================= TABS ================= */}
+      {/* -------------------- TABS ------------------ */}
       <div
         className="
           mb-5
@@ -905,7 +907,7 @@ const AdminOrders = (): ReactElement => {
                 <span
                   className="
                     absolute
-                    -right-1
+                    -right-[-54px]
                     -top-1
                     flex
                     h-[18px]
@@ -931,7 +933,7 @@ const AdminOrders = (): ReactElement => {
         })}
       </div>
 
-      {/* ================= ORDERS ================= */}
+      {/* ------------------ ORDERS ---------------*/}
       <div>
         {groupedOrders[
           activeTab
@@ -953,6 +955,7 @@ const AdminOrders = (): ReactElement => {
                 hover:shadow-[0_2px_8px_rgba(0,0,0,0.1)]
               "
             >
+
               {/* ORDER HEADER */}
               <div
                 onClick={() =>
@@ -1117,7 +1120,7 @@ const AdminOrders = (): ReactElement => {
                 </div>
               )}
 
-              {/* ================= ORDER ITEMS ================= */}
+              {/* --------------- ORDER ITEMS ------------*/}
               {expandedOrderId ===
                 order.id &&
                 Array.isArray(
