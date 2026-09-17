@@ -6,7 +6,6 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../../contexts/AuthContext";
 import config from "../../config";
-import "../../styles/admin/itemsManagement.css";
 
 const HISTORY_KEY = "spareparts_history";
 const HISTORY_LIMIT = 6;

@@ -372,7 +372,7 @@ const AdminNavbar = () => {
                   "/analytics"
                 )}`}
             >
-              <ChartNoAxesCombined size={18} /> Data Analytics
+              <ChartNoAxesCombined size={18} /> Revenue Analytics
             </NavLink>
             {user?.role === "super_admin" ? (
               <NavLink

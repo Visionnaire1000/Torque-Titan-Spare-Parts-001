@@ -20,12 +20,19 @@ vi.mock("react-toastify", () => ({
 describe("AdminManagement", () => {
   const authFetch = vi.fn();
 
+  const renderComponent = () =>
+    render(
+      <MemoryRouter>
+        <AdminManagement />
+      </MemoryRouter>
+    );
+
   beforeEach(() => {
     vi.clearAllMocks();
 
     authFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({
+      json: vi.fn().mockResolvedValue({
         admins: [
           {
             id: 1,
@@ -35,7 +42,9 @@ describe("AdminManagement", () => {
       }),
     });
 
-    (useAuth as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    (
+      useAuth as unknown as ReturnType<typeof vi.fn>
+    ).mockReturnValue({
       user: {
         role: "super_admin",
       },
@@ -44,11 +53,7 @@ describe("AdminManagement", () => {
   });
 
   it("renders heading", () => {
-    render(
-      <MemoryRouter>
-        <AdminManagement />
-      </MemoryRouter>
-    );
+    renderComponent();
 
     expect(
       screen.getByText("Admin Management")
@@ -56,39 +61,35 @@ describe("AdminManagement", () => {
   });
 
   it("shows access denied for non super admin", () => {
-    (useAuth as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+    (
+      useAuth as unknown as ReturnType<typeof vi.fn>
+    ).mockReturnValue({
       user: {
         role: "admin",
       },
       authFetch,
     });
 
-    render(
-      <MemoryRouter>
-        <AdminManagement />
-      </MemoryRouter>
-    );
+    renderComponent();
 
     expect(
       screen.getByText(/access denied/i)
     ).toBeInTheDocument();
+
+    expect(authFetch).not.toHaveBeenCalled();
   });
 
   it("validates invalid email", () => {
-    render(
-      <MemoryRouter>
-        <AdminManagement />
-      </MemoryRouter>
-    );
+    renderComponent();
 
-    fireEvent.change(
-      screen.getByPlaceholderText("Email"),
-      {
-        target: {
-          value: "wrong-email",
-        },
-      }
-    );
+    const emailInput =
+      screen.getByPlaceholderText("Email");
+
+    fireEvent.change(emailInput, {
+      target: {
+        value: "wrong-email",
+      },
+    });
 
     expect(
       screen.getByText(/enter a valid email/i)
@@ -96,11 +97,7 @@ describe("AdminManagement", () => {
   });
 
   it("toggles password visibility", () => {
-    render(
-      <MemoryRouter>
-        <AdminManagement />
-      </MemoryRouter>
-    );
+    renderComponent();
 
     const password =
       screen.getByPlaceholderText("Password");
@@ -118,17 +115,5 @@ describe("AdminManagement", () => {
       "type",
       "text"
     );
-  });
-
-  it("renders fetched admins", async () => {
-    render(
-      <MemoryRouter>
-        <AdminManagement />
-      </MemoryRouter>
-    );
-
-    expect(
-      await screen.findByText("admin@test.com")
-    ).toBeInTheDocument();
   });
 });

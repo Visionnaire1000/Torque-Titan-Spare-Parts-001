@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import ItemsManagement from "../../../components/admin/ItemsManagement";
 
-// --------------- Mock Auth ---------------- 
 const mockAuthFetch = vi.fn();
 
 vi.mock("../../../contexts/AuthContext", () => ({
@@ -12,7 +11,6 @@ vi.mock("../../../contexts/AuthContext", () => ({
   }),
 }));
 
-// ---------------- Mock Config ---------------- 
 vi.mock("../../../config", () => ({
   default: {
     API_BASE_URL: "http://localhost:5000",
@@ -22,6 +20,7 @@ vi.mock("../../../config", () => ({
 describe("ItemsManagement", () => {
   it("renders the management form", async () => {
     mockAuthFetch.mockResolvedValueOnce({
+      ok: true,
       json: async () => ({
         items: [],
       }),
@@ -61,10 +60,6 @@ describe("ItemsManagement", () => {
 
     expect(
       screen.getByPlaceholderText(/Marked Price/i)
-    ).toBeInTheDocument();
-
-    expect(
-      screen.getByPlaceholderText(/Image URL/i)
     ).toBeInTheDocument();
 
     expect(

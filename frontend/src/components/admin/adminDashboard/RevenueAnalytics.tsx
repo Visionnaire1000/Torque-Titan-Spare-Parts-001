@@ -370,7 +370,7 @@ function CustomDropdown({
   );
 }
 
-export default function DataAnalytics() {
+export default function RevenueAnalytics() {
   const { user, authFetch } = useAuth();
   const [period, setPeriod] = useState<Period>("monthly");
   const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType | null>(null);
@@ -455,7 +455,7 @@ export default function DataAnalytics() {
 
           const response =
             await authFetch(
-              `${config.API_BASE_URL}/admin/analytics/?${params.toString()}`,
+              `${config.API_BASE_URL}/admin/revenue-analytics/?${params.toString()}`,
               {
                 method: "GET",
               }
@@ -830,12 +830,11 @@ export default function DataAnalytics() {
 
             <div>
               <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Data Analytics
+                Revenue Analytics
               </h1>
 
               <p className="mt-1 text-sm text-gray-500">
-                Track sparepart sales,
-                revenue and
+                Track sparepart sales
                 performance.
               </p>
             </div>
@@ -1251,7 +1250,6 @@ export default function DataAnalytics() {
               )}
 
             {/* BRANDS */}
-
             {selectedVehicleType &&
               selectedCategory && (
                 <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

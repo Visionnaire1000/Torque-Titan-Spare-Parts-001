@@ -275,7 +275,7 @@ const BuyerHomepage = () => {
                       onLoad={() =>
                         handleImageLoad(item.id)
                       }
-                      className="mb-[10px] mt-10 w-[100%] rounded-lg
+                      className="mb-[10px] mt-10 w-[80%] rounded-lg
                                  object-cover sm:mt-0 sm:w-1/2
                                  sm:object-contain"
                     />
@@ -392,7 +392,7 @@ const BuyerHomepage = () => {
                   onLoad={() =>
                     handleImageLoad(item.id)
                   }
-                  className="mb-[10px] mt-10 w-[100%] rounded-lg
+                  className="mb-[10px] mt-10 w-[80%] rounded-lg
                              object-cover sm:mt-0 sm:w-1/2
                              sm:object-contain"
                 />

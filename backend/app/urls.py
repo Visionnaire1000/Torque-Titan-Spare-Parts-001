@@ -30,7 +30,8 @@ from app.views.adminViews import (
     AdminSparePartsView,
     AdminReviewsView,
     AdminReviewsBySparePartView,
-    DataAnalyticsView
+    ReviewsAnalyticsView,
+    RevenueAnalyticsView,
 )
 
 from app.views.stripeViews import (
@@ -233,8 +234,14 @@ urlpatterns = [
 
     # ---------------------- DATA ANALYTICS -------------------------------------
     path(
-        "admin/analytics/",
-        DataAnalyticsView.as_view(),
-        name="admin-analytics",
+        "admin/revenue-analytics/",
+        RevenueAnalyticsView.as_view(),
+        name="revenue-analytics",
     ),
+
+    path(
+        "admin/reviews-analytics/",
+        ReviewsAnalyticsView.as_view(),
+        name="reviews-analytics",
+        ),
 ]

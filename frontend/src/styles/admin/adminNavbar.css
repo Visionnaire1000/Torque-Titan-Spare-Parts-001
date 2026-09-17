@@ -3,9 +3,6 @@ html, body {
   padding: 0;
 }
 
-/* ================================
-   Navbar
-================================ */
 .navbar {
   width: 100vw;
   position: fixed;
@@ -21,25 +18,16 @@ html, body {
   box-sizing: border-box;
 }
 
-/* ================================
-   Logo
-================================ */
 .logo img {
   width: 20%;
   height: auto;
 }
 
-/* ================================
-   Dashboard Dropdown Wrapper
-================================ */
 .dashboard-dropdown {
   position: relative;
   display: inline-block;
 }
 
-/* ================================
-  Menu Button
-================================ */
 .dashboard-button {
   background: transparent;
   color: white;
@@ -56,9 +44,6 @@ html, body {
   height: 22px;
 }
 
-/* ================================
-  Dropdown Menu
-================================ */
 .dropdown-menu {
   position: absolute;
   margin-top: 20px;
@@ -76,9 +61,6 @@ html, body {
   animation: slideInLeft 0.25s ease forwards;
 }
 
-/* ================================
-   Slide Animation
-================================ */
 @keyframes slideInLeft {
   from {
     opacity: 0;
@@ -90,9 +72,6 @@ html, body {
   }
 }
 
-/* ================================
-   Tabs
-================================ */
 .tab {
   display: flex;
   align-items: center;
@@ -109,9 +88,6 @@ html, body {
   background: #f3f4f6;
 }
 
-/* ================================
-   Active Tab
-================================ */
 .active-tab {
   background: #eef2ff;
   color: rgb(0, 64, 128);
@@ -119,9 +95,6 @@ html, body {
   border-left: 4px solid rgb(0,64,128);
 }
 
-/* ================================
-   Icons
-================================ */
 .tab svg,
 .tab .icon {
   width: 18px;
@@ -129,9 +102,6 @@ html, body {
   flex-shrink: 0;
 }
 
-/* ================================
-  Logout Button
-================================ */
 .dropdown-menu button {
   background: none;
   border: none;
@@ -148,7 +118,6 @@ html, body {
   background: #fee2e2;
 }
 
-/* ---------- Notification Badges ---------- */
 .icon-wrapper {
   position: relative;
   display: inline-flex;
@@ -177,18 +146,15 @@ html, body {
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-/*slight bounce on update */
 .notification-badge.animate {
   transform: scale(1.2);
   opacity: 0.9;
 }
 
-/* Adjust for big numbers */
 .notification-badge::after {
   content: attr(data-count);
 }
 
-/* ---------- Tabs Badges ---------- */
 .orders-tabs .notification-badge {
   top: 0;
   right: 0;
@@ -199,13 +165,8 @@ html, body {
   padding: 0 4px;
 }
 
-
-/* ----------------------------------RESPONSIVE BREAKPOINTS-------------------------------------------- */
+/* ----------------- RESPONSIVE BREAKPOINTS ----------------- */
 @media (max-width: 480px) {
-
-/* ================================
-   Logo
-================================ */
 .logo img {
   width: 40%;
   height: auto;

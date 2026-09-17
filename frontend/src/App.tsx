@@ -28,9 +28,9 @@ import PaymentSuccess from "./components/buyer/checkout/PaymentSuccess";
 import PaymentCancel from "./components/buyer/checkout/PaymentCancel"; 
 
 // pages(admin)
-import Reviews from "./components/admin/adminDashboard/Reviews";
+import AdminReviews from "./components/admin/adminDashboard/AdminReviews";
 import AdminOrders from "./components/admin/adminDashboard/AdminOrders";
-import DataAnalytics from "./components/admin/adminDashboard/DataAnalytics";
+import RevenueAnalytics from "./components/admin/adminDashboard/RevenueAnalytics";
 import SuperAdminAccount from "./components/admin/adminDashboard/SuperAdminAccount";
 import AdminManagement from "./components/admin/adminDashboard/AdminManagement";
 
@@ -147,7 +147,7 @@ function App() {
               <Route 
                   path="/admin-orders" 
                   element={
-                     <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
+                    <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
                         <AdminOrders />
                     </RoleProtectedRoutes>
                   } 
@@ -156,22 +156,22 @@ function App() {
                   path="/analytics" 
                   element={
                      <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
-                        <DataAnalytics />
+                        <RevenueAnalytics />
                     </RoleProtectedRoutes>
                   } 
               />
               <Route 
                   path="/admin-reviews" 
                   element={
-                     <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
-                        <Reviews />
+                    <RoleProtectedRoutes allowedRoles={['admin','super_admin']}>
+                        <AdminReviews />
                     </RoleProtectedRoutes>
                   } 
               />
                <Route 
                   path="/super-admin-account" 
                   element={
-                     <RoleProtectedRoutes allowedRoles={['super_admin']}>
+                    <RoleProtectedRoutes allowedRoles={['super_admin']}>
                         <SuperAdminAccount />
                     </RoleProtectedRoutes>
                   } 
@@ -179,7 +179,7 @@ function App() {
               <Route 
                   path="/admin-management"
                   element={
-                     <RoleProtectedRoutes allowedRoles={['super_admin']}>
+                    <RoleProtectedRoutes allowedRoles={['super_admin']}>
                         <AdminManagement />
                     </RoleProtectedRoutes>
                   } 

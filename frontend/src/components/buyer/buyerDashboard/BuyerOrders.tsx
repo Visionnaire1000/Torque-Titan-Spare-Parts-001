@@ -583,6 +583,7 @@ const getBadgeCount = (tab: string): number => {
                   shadow-md
                   shadow-red-500/30
                   animate-pulse
+                  max-[480px]:right-0
                   sm:right-4
                   lg:right-6
                 "

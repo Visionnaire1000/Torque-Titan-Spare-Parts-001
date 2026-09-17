@@ -645,6 +645,130 @@ class AdminReviewsBySparePartView(APIView):
             status=status.HTTP_200_OK,
         )
 
+    
+# --------------------------- ADMIN REVIEWS ANALYTICS ----------------------------------------------
+class ReviewsAnalyticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        current_user = request.user
+
+        if current_user.role not in [
+            "admin",
+            "super_admin",
+        ]:
+            return Response(
+                {"error": "Admins only"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        spareparts = (
+            SpareParts.objects
+            .filter(
+                average_rating__gt=0,
+                total_reviews__gt=0,
+            )
+        )
+
+        analytics = {}
+
+        for sparepart in spareparts:
+            vehicle_type = sparepart.vehicle_type
+            category = sparepart.category
+            brand = sparepart.brand
+
+            key = (
+                vehicle_type,
+                category,
+                brand,
+            )
+
+            if key not in analytics:
+                analytics[key] = {
+                    "vehicle_type": vehicle_type,
+                    "category": category,
+                    "brand": brand,
+                    "total_reviews": 0,
+                    "total_rating": 0.0,
+                }
+
+            total_reviews = sparepart.total_reviews
+            average_rating = sparepart.average_rating
+
+            analytics[key]["total_reviews"] += (
+                total_reviews
+            )
+
+            analytics[key]["total_rating"] += (
+                average_rating * total_reviews
+            )
+
+        grouped = {}
+
+        for item in analytics.values():
+            group_key = (
+                item["vehicle_type"],
+                item["category"],
+            )
+
+            if group_key not in grouped:
+                grouped[group_key] = {
+                    "vehicle_type": item[
+                        "vehicle_type"
+                    ],
+                    "category": item[
+                        "category"
+                    ],
+                    "brands": [],
+                }
+
+            total_reviews = item[
+                "total_reviews"
+            ]
+
+            average_rating = (
+                item["total_rating"]
+                / total_reviews
+                if total_reviews > 0
+                else 0.0
+            )
+
+            grouped[group_key]["brands"].append(
+                {
+                    "brand": item["brand"],
+                    "average_rating": round(
+                        average_rating,
+                        1,
+                    ),
+                    "total_reviews": total_reviews,
+                }
+            )
+
+        result = list(
+            grouped.values()
+        )
+
+        for group in result:
+            group["brands"].sort(
+                key=lambda brand: (
+                    -brand["average_rating"],
+                    -brand["total_reviews"],
+                    brand["brand"].lower(),
+                )
+            )
+
+        result.sort(
+            key=lambda group: (
+                group["vehicle_type"],
+                group["category"],
+            )
+        )
+
+        return Response(
+            result,
+            status=status.HTTP_200_OK,
+        )
+
 
 # --------------------------- ADMIN ORDERS ----------------------------------------------
 class AdminOrdersView(APIView):
@@ -835,7 +959,7 @@ class AdminOrdersView(APIView):
 
 
 # --------------------------- ADMIN DATA ANALYTICS ----------------------------------------------
-class DataAnalyticsView(APIView):
+class RevenueAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
     VALID_PERIODS = {
@@ -1182,7 +1306,6 @@ class DataAnalyticsView(APIView):
                 }
             )
 
-        # FINAL RESPONSE
         return Response(
             {
                 "filters": {

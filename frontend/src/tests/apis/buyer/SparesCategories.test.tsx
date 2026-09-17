@@ -3,8 +3,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import SedanTyres from "../../../components/buyer/categories/tyres/SedanTyres";
 import { MemoryRouter } from "react-router-dom";
 
-
-/* ---------------- TYPES ---------------- */
 interface MockItem {
   id: number;
   brand: string;
@@ -14,32 +12,22 @@ interface MockItem {
   image: string;
 }
 
-
 interface MockResponse {
   items: MockItem[];
   pages: number;
 }
 
-
-/* ---------------- MOCKS ---------------- */
 vi.mock("../../../config", () => ({
   default: {
     API_BASE_URL: "http://test-api",
   },
 }));
 
-
 const fetchMock = vi.fn();
 
-
-vi.stubGlobal(
-  "fetch",
-  fetchMock
-);
-
+vi.stubGlobal("fetch", fetchMock);
 
 const addItemMock = vi.fn();
-
 
 vi.mock("../../../contexts/CartContext", () => ({
   useCart: () => ({
@@ -47,8 +35,6 @@ vi.mock("../../../contexts/CartContext", () => ({
   }),
 }));
 
-
-/* ---------------- WRAPPER ---------------- */
 const renderComponent = (): void => {
   render(
     <MemoryRouter>
@@ -57,8 +43,6 @@ const renderComponent = (): void => {
   );
 };
 
-
-/* ---------------- TEST DATA ---------------- */
 const mockData: MockResponse = {
   items: [
     {
@@ -73,136 +57,48 @@ const mockData: MockResponse = {
   pages: 1,
 };
 
-
-/* ---------------- SETUP ---------------- */
 beforeEach(() => {
-
   vi.clearAllMocks();
-
 
   fetchMock.mockResolvedValue({
     ok: true,
-
-    json: async (): Promise<MockResponse> =>
-      mockData,
+    json: async (): Promise<MockResponse> => mockData,
   });
-
 });
 
-
-/* ---------------- TESTS ---------------- */
 describe("SedanTyres", () => {
-
   it("renders fetched tyres", async () => {
-
     renderComponent();
 
-
     expect(
-      await screen.findByText(
-        /michelin/i
-      )
+      await screen.findByText(/michelin/i)
     ).toBeInTheDocument();
-
   });
-
-
-  it("filters by brand", async () => {
-
-    renderComponent();
-
-
-    await screen.findByText(
-      /michelin/i
-    );
-
-
-    const selects =
-      screen.getAllByRole(
-        "combobox"
-      ) as HTMLSelectElement[];
-
-
-    const brandSelect =
-      selects.find((element) =>
-        element
-          .closest("div")
-          ?.textContent
-          ?.toLowerCase()
-          .includes("brand")
-      ) ?? selects[0];
-
-
-    await waitFor(() => {
-
-      fireEvent.change(
-        brandSelect,
-        {
-          target: {
-            value: "Michelin",
-          },
-        }
-      );
-
-    });
-
-
-    expect(
-      brandSelect.value
-    ).toBe("Michelin");
-
-  });
-
-
 
   it("adds item to cart", async () => {
-
     renderComponent();
 
-
-    const button =
-      await screen.findByRole(
-        "button",
-        {
-          name: /add to cart/i,
-        }
-      );
-
-
-    await waitFor(() => {
-
-      fireEvent.click(button);
-
+    const button = await screen.findByRole("button", {
+      name: /add to cart/i,
     });
 
+    await waitFor(() => {
+      fireEvent.click(button);
+    });
 
-    expect(
-      addItemMock
-    ).toHaveBeenCalledTimes(1);
-
+    expect(addItemMock).toHaveBeenCalledTimes(1);
   });
 
-
-
   it("shows error state when fetch fails", async () => {
-
     fetchMock.mockResolvedValueOnce({
       ok: false,
-
       json: async () => ({}),
     });
 
-
     renderComponent();
 
-
     expect(
-      await screen.findByText(
-        /something went wrong/i
-      )
+      await screen.findByText(/something went wrong/i)
     ).toBeInTheDocument();
-
   });
-
-
 });

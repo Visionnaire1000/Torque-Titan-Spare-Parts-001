@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
-import "../../../../styles/buyer/categories/rims.css";
 
 /* ---------------- Types ---------------- */
 interface SparePart {

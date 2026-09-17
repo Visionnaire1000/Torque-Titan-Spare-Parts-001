@@ -1,5 +1,6 @@
 import pytest
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from app.models import Users, SpareParts
@@ -69,6 +70,14 @@ def sparepart():
     )
 
 
+def uploaded_image():
+    return SimpleUploadedFile(
+        name="sparepart.jpg",
+        content=b"fake image content",
+        content_type="image/jpeg",
+    )
+
+
 def valid_sparepart_data():
     return {
         "category": "brakes",
@@ -77,9 +86,10 @@ def valid_sparepart_data():
         "colour": "Red",
         "buying_price": "30000",
         "marked_price": "40000",
-        "image": "https://example.com/brakes.jpg",
+        "image": uploaded_image(),
         "description": "Performance brake kit",
     }
+
 
 # AUTHORIZATION
 @pytest.mark.django_db
@@ -87,7 +97,7 @@ def test_create_spare_requires_authentication(client):
     response = client.post(
         "/admin/spareparts/",
         valid_sparepart_data(),
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 401
@@ -103,7 +113,7 @@ def test_buyer_cannot_create_sparepart(
     response = client.post(
         "/admin/spareparts/",
         valid_sparepart_data(),
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 403
@@ -120,7 +130,7 @@ def test_admin_can_create_sparepart(
     response = client.post(
         "/admin/spareparts/",
         valid_sparepart_data(),
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 201
@@ -153,7 +163,7 @@ def test_super_admin_can_create_sparepart(
     response = client.post(
         "/admin/spareparts/",
         valid_sparepart_data(),
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 201
@@ -173,7 +183,7 @@ def test_create_spare_rejects_invalid_buying_price(
     response = client.post(
         "/admin/spareparts/",
         data,
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 400
@@ -196,7 +206,7 @@ def test_create_spare_rejects_invalid_marked_price(
     response = client.post(
         "/admin/spareparts/",
         data,
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 400
@@ -216,7 +226,7 @@ def test_create_spare_calculates_discount(
     response = client.post(
         "/admin/spareparts/",
         valid_sparepart_data(),
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 201
@@ -242,7 +252,7 @@ def test_buyer_cannot_update_sparepart(
         {
             "brand": "Updated Brand",
         },
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 403
@@ -262,7 +272,7 @@ def test_admin_can_update_sparepart(
             "brand": "Updated Michelin",
             "colour": "Blue",
         },
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 200
@@ -293,7 +303,7 @@ def test_update_spare_recalculates_discount(
             "buying_price": "30000",
             "marked_price": "40000",
         },
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 200
@@ -318,7 +328,7 @@ def test_update_invalid_buying_price(
         {
             "buying_price": "invalid",
         },
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 400
@@ -341,7 +351,7 @@ def test_update_invalid_marked_price(
         {
             "marked_price": "invalid",
         },
-        format="json",
+        format="multipart",
     )
 
     assert response.status_code == 400
@@ -349,6 +359,7 @@ def test_update_invalid_marked_price(
     assert response.json()["error"] == (
         "Invalid value for marked_price"
     )
+
 
 # DELETE
 @pytest.mark.django_db

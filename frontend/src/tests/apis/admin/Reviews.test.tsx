@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import Reviews from "../../../components/admin/adminDashboard/Reviews";
+import Reviews from "../../../components/admin/adminDashboard/AdminReviews";
 
 // ---------------- Mock Auth ---------------- 
 const mockAuthFetch = vi.fn();
