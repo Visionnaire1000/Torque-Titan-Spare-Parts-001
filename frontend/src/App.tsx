@@ -23,7 +23,7 @@ import ItemDetails from "./components/shared/ItemDetails";
 import BuyerAddress from "./components/buyer/buyerDashboard/BuyerAddress";
 import BuyerOrders from "./components/buyer/buyerDashboard/BuyerOrders";
 import BuyerReviews from "./components/buyer/buyerDashboard/BuyerReviews";
-import StripeCheckout from "./components/buyer/checkout/StripeCheckout";
+import Checkout from "./components/buyer/checkout/Checkout";
 import PaymentSuccess from "./components/buyer/checkout/PaymentSuccess"; 
 import PaymentCancel from "./components/buyer/checkout/PaymentCancel"; 
 
@@ -112,7 +112,7 @@ function App() {
                   path="/checkout" 
                   element={
                      <RoleProtectedRoutes allowedRoles={['buyer']}>
-                        <StripeCheckout />
+                        <Checkout />
                     </RoleProtectedRoutes>
                   } 
               />

@@ -28,6 +28,7 @@ interface Order {
   status: string;
   total_items: number;
   total_price: number;
+  payment_method: string | null;
   address: string;
   created_at: string;
   order_items: OrderItem[];
@@ -674,6 +675,21 @@ const getBadgeCount = (tab: string): number => {
                 </div>
 
                 <div>
+                 <span className="font-semibold">
+                   Payment Method:
+                 </span>{" "}
+                   <span className="font-medium uppercase text-[#004080]">
+                     {order.payment_method === "stripe"
+                       ? "Card"
+                       : order.payment_method === "mpesa"
+                       ? "M-PESA"
+                       : order.payment_method === "airtel"
+                       ? "Airtel Money"
+                       : order.payment_method || "N/A"}
+                    </span>
+                   </div>
+
+                <div>
                   <span className="font-semibold">
                     Shipping Address:
                   </span>{" "}
@@ -690,7 +706,7 @@ const getBadgeCount = (tab: string): number => {
                     ({timeZone})
                   </small>
                 </div>
-              </div>
+               </div>
 
               {/* ---------- Cancel Button ---------- */}
               {order.status === "pending" && (

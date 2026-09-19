@@ -1,5 +1,5 @@
-import { createContext, useState, useContext, useEffect, type ReactNode } from 'react';
-import { toast } from 'react-toastify';
+import { createContext, useState, useContext, useEffect, type ReactNode } from "react";
+import { toast } from "react-toastify";
 
 // ---------------Interfaces-------------
 // Cart Items Interface
@@ -12,7 +12,8 @@ export interface CartItem {
   image: string;
   quantity: number;
 }
-// (since the data is from backend)
+
+// Since the data is from backend
 export interface SparePart {
   id: string;
   brand: string;
@@ -26,16 +27,23 @@ export interface SparePart {
 interface CartContextType {
   items: CartItem[];
 
-  addItem: (item: SparePart, qty?: number) => void;
+  addItem: (
+    item: SparePart,
+    qty?: number
+  ) => void;
 
-  removeItem: (id: string) => void;
+  removeItem: (
+    id: string
+  ) => void;
 
   updateQuantity: (
     id: string,
     quantity: number
   ) => void;
 
-  clearCart: () => void;
+  clearCart: (
+    showToast?: boolean
+  ) => void;
 
   total: number;
 
@@ -47,29 +55,42 @@ interface CartProviderProps {
   children: ReactNode;
 }
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+const CartContext =
+  createContext<CartContextType | undefined>(
+    undefined
+  );
 
-export const CartProvider = ({children,}: CartProviderProps) => {
-   const [items, setItems] = useState<CartItem[]>(() => {
-     try {
-      const storedCart = localStorage.getItem("titanCart");
+export const CartProvider = ({
+  children,
+}: CartProviderProps) => {
+  const [items, setItems] = useState<CartItem[]>(() => {
+    try {
+      const storedCart =
+        localStorage.getItem("titanCart");
 
-     return storedCart
-      ? (JSON.parse(storedCart) as CartItem[])
-      : [];
-  } catch (err) {
-    console.error("Error parsing cart from localStorage", err);
-    return [];
-  }
- });
+      return storedCart
+        ? (JSON.parse(storedCart) as CartItem[])
+        : [];
+    } catch (err) {
+      console.error(
+        "Error parsing cart from localStorage",
+        err
+      );
+
+      return [];
+    }
+  });
 
   // Persist cart whenever items change
   useEffect(() => {
-    localStorage.setItem('titanCart', JSON.stringify(items));
+    localStorage.setItem(
+      "titanCart",
+      JSON.stringify(items)
+    );
   }, [items]);
 
   // Add item to cart with automatic normalization
-   const addItem = (
+  const addItem = (
     item: SparePart,
     qty: number = 1
   ): void => {
@@ -108,12 +129,18 @@ export const CartProvider = ({children,}: CartProviderProps) => {
   };
 
   // Remove an item completely
-   const removeItem = (id: string): void => {
+  const removeItem = (
+    id: string
+  ): void => {
     setItems((prevItems) =>
-      prevItems.filter((i) => i.id !== id)
+      prevItems.filter(
+        (i) => i.id !== id
+      )
     );
 
-    toast.success("Item removed from cart");
+    toast.success(
+      "Item removed from cart"
+    );
   };
 
   const updateQuantity = (
@@ -137,21 +164,31 @@ export const CartProvider = ({children,}: CartProviderProps) => {
     );
   };
 
-  const clearCart = (): void => {
+  const clearCart = (
+    showToast: boolean = true
+  ): void => {
     setItems([]);
 
-    toast.success("Cart cleared", {
-      autoClose: 1000,
-    });
+    if (showToast) {
+      toast.success(
+        "Cart cleared",
+        {
+          autoClose: 1000,
+        }
+      );
+    }
   };
 
-    const total: number = items.reduce(
-    (sum, i) => sum + i.buying_price * i.quantity,
+  const total: number = items.reduce(
+    (sum, i) =>
+      sum +
+      i.buying_price * i.quantity,
     0
   );
 
   const itemCount: number = items.reduce(
-    (sum, i) => sum + i.quantity,
+    (sum, i) =>
+      sum + i.quantity,
     0
   );
 
@@ -173,7 +210,8 @@ export const CartProvider = ({children,}: CartProviderProps) => {
 };
 
 export const useCart = (): CartContextType => {
-  const context = useContext(CartContext);
+  const context =
+    useContext(CartContext);
 
   if (!context) {
     throw new Error(

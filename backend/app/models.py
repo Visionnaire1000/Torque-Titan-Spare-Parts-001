@@ -1,20 +1,17 @@
 import hashlib
 import secrets
 import uuid
+
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractBaseUser
-from django.contrib.auth.hashers import make_password, check_password
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Avg
 from django.utils import timezone
-
-import hashlib
-import secrets
-
-from datetime import timedelta
 
 
 # ------------------------------ USERS MANAGER -----------------------------------------
@@ -93,7 +90,6 @@ class Users(AbstractBaseUser):
         default="buyer"
     )
 
-    # Django authentication field
     is_active = models.BooleanField(
         default=True
     )
@@ -285,9 +281,7 @@ class Users(AbstractBaseUser):
             )
         )
 
-        self.otp_last_sent = (
-            timezone.now()
-        )
+        self.otp_last_sent = timezone.now()
 
         self.otp_resend_count = (
             self.otp_resend_count or 0
@@ -377,10 +371,7 @@ class Users(AbstractBaseUser):
 
         now = timezone.now()
 
-        if (
-            self.otp_resend_count
-            >= max_resends
-        ):
+        if self.otp_resend_count >= max_resends:
             return False, 0
 
         if not self.otp_last_sent:
@@ -422,17 +413,11 @@ class Users(AbstractBaseUser):
         if self.email_otp_expires < now:
             return False
 
-        if (
-            self._hash_otp(otp)
-            != self.email_otp_hash
-        ):
+        if self._hash_otp(otp) != self.email_otp_hash:
 
             self.otp_attempts += 1
 
-            if (
-                self.otp_attempts
-                >= self.MAX_OTP_ATTEMPTS
-            ):
+            if self.otp_attempts >= self.MAX_OTP_ATTEMPTS:
                 self.otp_locked_until = (
                     now
                     + timedelta(
@@ -492,17 +477,11 @@ class Users(AbstractBaseUser):
         if self.change_password_otp_expires < now:
             return False
 
-        if (
-            self._hash_otp(otp)
-            != self.change_password_otp_hash
-        ):
+        if self._hash_otp(otp) != self.change_password_otp_hash:
 
             self.otp_attempts += 1
 
-            if (
-                self.otp_attempts
-                >= self.MAX_OTP_ATTEMPTS
-            ):
+            if self.otp_attempts >= self.MAX_OTP_ATTEMPTS:
                 self.otp_locked_until = (
                     now
                     + timedelta(
@@ -558,17 +537,11 @@ class Users(AbstractBaseUser):
         if self.delete_account_otp_expires < now:
             return False
 
-        if (
-            self._hash_otp(otp)
-            != self.delete_account_otp_hash
-        ):
+        if self._hash_otp(otp) != self.delete_account_otp_hash:
 
             self.otp_attempts += 1
 
-            if (
-                self.otp_attempts
-                >= self.MAX_OTP_ATTEMPTS
-            ):
+            if self.otp_attempts >= self.MAX_OTP_ATTEMPTS:
                 self.otp_locked_until = (
                     now
                     + timedelta(
@@ -680,16 +653,26 @@ class SpareParts(models.Model):
         blank=True
     )
 
-    buying_price = models.FloatField()
-
-    marked_price = models.FloatField()
-
-    discount_amount = models.FloatField(
-        default=0.0
+    buying_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
     )
 
-    discount_percentage = models.FloatField(
-        default=0.0
+    marked_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
+
+    discount_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00")
     )
 
     image = models.CharField(
@@ -742,30 +725,31 @@ class SpareParts(models.Model):
 
     def calculate_discount(self):
 
-        if self.marked_price and self.buying_price:
+        if (
+            self.marked_price
+            and self.buying_price
+        ):
 
-            self.discount_amount = round(
+            self.discount_amount = (
                 self.marked_price
-                - self.buying_price,
-                2
+                - self.buying_price
+            ).quantize(
+                Decimal("0.01")
             )
 
             self.discount_percentage = (
-                round(
-                    (
-                        self.discount_amount
-                        / self.marked_price
-                    ) * 100,
-                    2
-                )
-                if self.marked_price > 0
-                else 0.0
-            )
+                (
+                    self.discount_amount
+                    / self.marked_price
+                ) * Decimal("100")
+            ).quantize(
+                Decimal("0.01")
+            ) if self.marked_price > 0 else Decimal("0.00")
 
         else:
 
-            self.discount_amount = 0.0
-            self.discount_percentage = 0.0
+            self.discount_amount = Decimal("0.00")
+            self.discount_percentage = Decimal("0.00")
 
     def update_review_stats(self):
 
@@ -1021,12 +1005,19 @@ class Orders(models.Model):
         default=False
     )
 
+    payment_method = models.CharField(
+    max_length=20,
+    null=True,
+    blank=True,
+    )
     created_at = models.DateTimeField(
         default=timezone.now
     )
 
-    total_price = models.FloatField(
-        default=0.0
+    total_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00")
     )
 
     shipped_at = models.DateTimeField(
@@ -1062,12 +1053,15 @@ class Orders(models.Model):
 
     def calculate_total(self):
 
-        self.total_price = round(
-            sum(
+        self.total_price = sum(
+            (
                 item.subtotal
-                for item in self.order_items.all()
-            ),
-            2
+                if item.subtotal is not None
+                else Decimal("0.00")
+            )
+            for item in self.order_items.all()
+        ).quantize(
+            Decimal("0.01")
         )
 
         self.save(
@@ -1082,7 +1076,7 @@ class Orders(models.Model):
 
         return f"Order {self.id}"
 
-
+    
 # ------------------------------ ORDER ITEMS MODEL ------------------------------------------
 class OrderItems(models.Model):
 
@@ -1108,9 +1102,15 @@ class OrderItems(models.Model):
         default=1
     )
 
-    unit_price = models.FloatField()
+    unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
 
-    subtotal = models.FloatField()
+    subtotal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
 
     class Meta:
         db_table = "order_items"
@@ -1124,20 +1124,23 @@ class OrderItems(models.Model):
             use_sparepart_price_if_empty
             and (
                 self.unit_price is None
-                or self.unit_price == 0
+                or self.unit_price == Decimal("0.00")
             )
             and self.sparepart
         ):
 
-            self.unit_price = round(
+            self.unit_price = (
                 self.sparepart.marked_price
-                - self.sparepart.discount_amount,
-                2
+                - self.sparepart.discount_amount
+            ).quantize(
+                Decimal("0.01")
             )
 
-        self.subtotal = round(
-            self.unit_price * self.quantity,
-            2
+        self.subtotal = (
+            self.unit_price
+            * self.quantity
+        ).quantize(
+            Decimal("0.01")
         )
 
         return self.subtotal
@@ -1173,4 +1176,4 @@ class OrderItems(models.Model):
         return (
             f"{self.sparepart.brand} "
             f"x {self.quantity}"
-        )    
+        )

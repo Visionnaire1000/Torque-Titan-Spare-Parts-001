@@ -51,6 +51,30 @@ ALLOWED_HOSTS = [
 ]
 
 
+# -----------------------FRONTEND---------------------------------
+FRONTEND_ENDPOINT_URL = env("FRONTEND_ENDPOINT_URL")
+
+if not FRONTEND_ENDPOINT_URL:
+    raise RuntimeError(
+        "FRONTEND_ENDPOINT_URL is not set in the environment."
+    )
+
+# -----------------------CORS---------------------------------
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in env("CORS_ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
+CORS_ALLOW_CREDENTIALS = True
+
+# -----------------------CSRF---------------------------------
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in env("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+
 # -----------------------APPLICATIONS---------------------------------
 INSTALLED_APPS = [
     # Django built-in apps
@@ -252,37 +276,20 @@ REFRESH_COOKIE_SAMESITE = env(
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID")
 
 
-# -----------------------FRONTEND---------------------------------
-FRONTEND_ENDPOINT_URL = env("FRONTEND_ENDPOINT_URL")
-
-if not FRONTEND_ENDPOINT_URL:
-    raise RuntimeError(
-        "FRONTEND_ENDPOINT_URL is not set in the environment."
-    )
-
-
-# -----------------------CORS---------------------------------
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in env("CORS_ALLOWED_ORIGINS", "").split(",")
-    if origin.strip()
-]
-
-CORS_ALLOW_CREDENTIALS = True
-
-# -----------------------CSRF---------------------------------
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in env("CSRF_TRUSTED_ORIGINS", "").split(",")
-    if origin.strip()
-]
-
-
 #-------------------------STRIPE CONFIG-------------------------
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 STRIPE_SUCCESS_URL = env("STRIPE_SUCCESS_URL")
 STRIPE_CANCEL_URL = env("STRIPE_CANCEL_URL")
+
+#-------------------------PAYSTACK CONFIG-------------------------
+PAYSTACK_SECRET_KEY = env(
+    "PAYSTACK_SECRET_KEY"
+)
+
+PAYSTACK_PUBLIC_KEY = os.getenv(
+    "PAYSTACK_PUBLIC_KEY"
+)
 
 #------------------------- CLOUDFLARE CONFIG--------------------
 R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID")

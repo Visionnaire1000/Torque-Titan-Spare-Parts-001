@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 
@@ -12,6 +14,29 @@ from app.models import (
     Reviews,
     ReviewReactions,
 )
+
+
+# --------------------------- DECIMAL HELPERS ----------------------------------------------
+def money_to_decimal(value):
+    if value is None:
+        return Decimal("0.00")
+
+    try:
+        return Decimal(str(value)).quantize(
+            Decimal("0.01")
+        )
+    except (
+        TypeError,
+        ValueError,
+        InvalidOperation,
+    ):
+        raise ValueError("Invalid monetary value")
+
+
+def money_to_float(value):
+    return float(
+        money_to_decimal(value)
+    )
 
 
 # --------------------------- SERIALIZATION ----------------------------------------------
@@ -101,65 +126,65 @@ class SparePartsListView(APIView):
     PRICE_RANGES = {
         "tyre": {
             "sedan": {
-                "low": 15000,
-                "medium": 30000,
+                "low": Decimal("15000.00"),
+                "medium": Decimal("30000.00"),
             },
             "suv": {
-                "low": 25000,
-                "medium": 40000,
+                "low": Decimal("25000.00"),
+                "medium": Decimal("40000.00"),
             },
             "truck": {
-                "low": 35000,
-                "medium": 45000,
+                "low": Decimal("35000.00"),
+                "medium": Decimal("45000.00"),
             },
             "bus": {
-                "low": 25000,
-                "medium": 30000,
+                "low": Decimal("25000.00"),
+                "medium": Decimal("30000.00"),
             },
         },
 
         "rim": {
             "sedan": {
-                "low": 20000,
-                "medium": 30000,
+                "low": Decimal("20000.00"),
+                "medium": Decimal("30000.00"),
             },
             "suv": {
-                "low": 25000,
-                "medium": 35000,
+                "low": Decimal("25000.00"),
+                "medium": Decimal("35000.00"),
             },
             "truck": {
-                "low": 30000,
-                "medium": 35000,
+                "low": Decimal("30000.00"),
+                "medium": Decimal("35000.00"),
             },
             "bus": {
-                "low": 25000,
-                "medium": 35000,
+                "low": Decimal("25000.00"),
+                "medium": Decimal("35000.00"),
             },
         },
 
         "battery": {
             "sedan": {
-                "low": 20000,
-                "medium": 30000,
+                "low": Decimal("20000.00"),
+                "medium": Decimal("30000.00"),
             },
             "suv": {
-                "low": 26000,
-                "medium": 35000,
+                "low": Decimal("26000.00"),
+                "medium": Decimal("35000.00"),
             },
             "truck": {
-                "low": 26000,
-                "medium": 35000,
+                "low": Decimal("26000.00"),
+                "medium": Decimal("35000.00"),
             },
             "bus": {
-                "low": 35000,
-                "medium": 40000,
+                "low": Decimal("35000.00"),
+                "medium": Decimal("40000.00"),
             },
         },
 
         "oil filter": {
             "default": {
-                "low": 7500,
-                "medium": 8500,
+                "low": Decimal("7500.00"),
+                "medium": Decimal("8500.00"),
             },
         },
     }
@@ -292,7 +317,6 @@ class SparePartsListView(APIView):
         ranges = None
 
         if category_ranges:
-
             ranges = (
                 category_ranges.get(
                     vehicle_type
@@ -337,7 +361,6 @@ class SparePartsListView(APIView):
 
         if top_discounts and not category:
 
-            # Gets all matching products ordered by discount.
             all_items = list(
                 queryset.order_by(
                     "-discount_percentage",
@@ -345,7 +368,6 @@ class SparePartsListView(APIView):
                 )
             )
 
-            # Groups products by category.
             grouped = {}
 
             for item in all_items:
@@ -363,7 +385,6 @@ class SparePartsListView(APIView):
                     item
                 )
 
-            # Orders spareparts according to the highest discount available in each category.
             categories = sorted(
                 grouped.keys(),
                 key=lambda cat: (
@@ -376,7 +397,6 @@ class SparePartsListView(APIView):
 
             selected = []
 
-            # Takes one product from each category 
             while len(selected) < per_page:
 
                 added = False
@@ -469,14 +489,12 @@ class ReviewsView(APIView):
             pk=part_id,
         )
 
-        # --------------------------- CURRENT USER ---------------------------
         current_user = (
             request.user
             if request.user.is_authenticated
             else None
         )
 
-        # --------------------------- REVIEWS ---------------------------
         reviews = (
             Reviews.objects
             .filter(
@@ -513,7 +531,6 @@ class ReviewsView(APIView):
     ):
         """Create a review."""
 
-        # --------------------------- AUTHENTICATION ---------------------------
         if not request.user.is_authenticated:
 
             return Response(
@@ -528,7 +545,6 @@ class ReviewsView(APIView):
 
         user = request.user
 
-        # --------------------------- SPARE PART ---------------------------
         part = get_object_or_404(
             SpareParts,
             pk=part_id,
@@ -686,6 +702,7 @@ class ReviewEditView(APIView):
 
         # --------------------------- OWNERSHIP ---------------------------
         if review.user_id != request.user.id:
+
             return Response(
                 {
                     "error": "Cannot edit others' reviews"
@@ -697,27 +714,39 @@ class ReviewEditView(APIView):
 
         # --------------------------- RATING ---------------------------
         if "rating" in data:
-            rating = data.get("rating")
+
+            rating = data.get(
+                "rating"
+            )
 
             if rating is None:
+
                 review.rating = None
 
             else:
+
                 try:
-                    rating = int(rating)
+
+                    rating = int(
+                        rating
+                    )
 
                 except (
                     ValueError,
                     TypeError,
                 ):
+
                     return Response(
                         {
-                            "error": "Rating must be an integer"
+                            "error": (
+                                "Rating must be an integer"
+                            )
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
                 if not 1 <= rating <= 5:
+
                     return Response(
                         {
                             "error": (
@@ -731,16 +760,24 @@ class ReviewEditView(APIView):
 
         # --------------------------- COMMENT ---------------------------
         if "comment" in data:
-            comment = data.get("comment")
+
+            comment = data.get(
+                "comment"
+            )
 
             if (
                 comment is None
-                or not isinstance(comment, str)
+                or not isinstance(
+                    comment,
+                    str,
+                )
                 or not comment.strip()
             ):
+
                 review.comment = None
 
             else:
+
                 review.comment = comment.strip()
 
         # --------------------------- VALIDATE ---------------------------
@@ -748,6 +785,7 @@ class ReviewEditView(APIView):
             review.rating is None
             and not review.comment
         ):
+
             return Response(
                 {
                     "error": (
@@ -760,10 +798,13 @@ class ReviewEditView(APIView):
 
         # --------------------------- UPDATE ---------------------------
         try:
+
             with transaction.atomic():
+
                 review.save()
 
         except Exception:
+
             return Response(
                 {
                     "error": "Failed to update review"
@@ -795,6 +836,7 @@ class ReviewEditView(APIView):
 
         # --------------------------- OWNERSHIP ---------------------------
         if review.user_id != request.user.id:
+
             return Response(
                 {
                     "error": "Cannot delete others' reviews"
@@ -804,10 +846,13 @@ class ReviewEditView(APIView):
 
         # --------------------------- DELETE ---------------------------
         try:
+
             with transaction.atomic():
+
                 review.delete()
 
         except Exception:
+
             return Response(
                 {
                     "error": "Failed to delete review"
@@ -899,7 +944,6 @@ class ReviewReactionsView(APIView):
 
             with transaction.atomic():
 
-                # Same reaction -> remove
                 if existing:
 
                     if existing.is_like == is_like:
@@ -908,7 +952,6 @@ class ReviewReactionsView(APIView):
 
                         action = "removed"
 
-                    # Different reaction -> switch
                     else:
 
                         existing.is_like = is_like
@@ -921,7 +964,6 @@ class ReviewReactionsView(APIView):
 
                         action = "switched"
 
-                # No reaction -> add
                 else:
 
                     ReviewReactions.objects.create(
@@ -1048,21 +1090,35 @@ class MyReviewsView(APIView):
                 "id": str(
                     review.sparepart.id
                 ),
+
                 "brand": (
                     review.sparepart.brand
                 ),
+
                 "category": (
                     review.sparepart.category
                 ),
+
                 "vehicle_type": (
                     review.sparepart.vehicle_type
                 ),
-                "buying_price": (
+
+                "buying_price": money_to_float(
                     review.sparepart.buying_price
                 ),
+
+                "marked_price": money_to_float(
+                    review.sparepart.marked_price
+                ),
+
+                "discount_amount": money_to_float(
+                    review.sparepart.discount_amount
+                ),
+
                 "discount_percentage": (
                     review.sparepart.discount_percentage
                 ),
+
                 "image_url": (
                     review.sparepart.image
                 ),
@@ -1077,16 +1133,15 @@ class MyReviewsView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 # --------------------------- ORDERS ----------------------------------------------
-class OrdersView(APIView):
+class BuyerOrdersView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(
         self,
         request,
     ):
-        """Get logged-in user's orders."""
+        """Get logged-in user's paid orders."""
 
         current_user = request.user
 
@@ -1096,7 +1151,8 @@ class OrdersView(APIView):
                 "order_items__sparepart"
             )
             .filter(
-                user_id=current_user.id
+                user_id=current_user.id,
+                paid=True,
             )
             .order_by("-created_at")
         )
@@ -1111,10 +1167,13 @@ class OrdersView(APIView):
 
             # --------------------------- TOTAL PRICE ---------------------------
             total_price = sum(
-                float(
-                    item.subtotal or 0
-                )
-                for item in order_items
+                (
+                    money_to_decimal(
+                        item.subtotal
+                    )
+                    for item in order_items
+                ),
+                Decimal("0.00"),
             )
 
             # --------------------------- TOTAL ITEMS ---------------------------
@@ -1138,7 +1197,9 @@ class OrdersView(APIView):
 
             # --------------------------- ORDER DATA ---------------------------
             order_data = {
-                "id": order.id,
+                "id": str(
+                    order.id
+                ),
 
                 "status": (
                     order.status
@@ -1148,11 +1209,15 @@ class OrdersView(APIView):
                     order.paid
                 ),
 
+                "payment_method": (
+                    order.payment_method
+                ),
+
                 "total_items": (
                     total_items
                 ),
 
-                "total_price": (
+                "total_price": money_to_float(
                     total_price
                 ),
 
@@ -1168,22 +1233,24 @@ class OrdersView(APIView):
 
                 "order_items": [
                     {
-                        "id": item.id,
+                        "id": str(
+                            item.id
+                        ),
 
                         "quantity": int(
                             item.quantity or 0
                         ),
 
-                        "price": float(
-                            item.unit_price or 0
+                        "price": money_to_float(
+                            item.unit_price
                         ),
 
-                        "subtotal": float(
-                            item.subtotal or 0
+                        "subtotal": money_to_float(
+                            item.subtotal
                         ),
 
                         "sparepart": {
-                            "id": (
+                            "id": str(
                                 item.sparepart.id
                             ),
 
@@ -1224,7 +1291,7 @@ class OrdersView(APIView):
         request,
         order_id,
     ):
-        """Cancel a pending order."""
+        """Cancel a paid pending order."""
 
         current_user = request.user
 
@@ -1258,6 +1325,18 @@ class OrdersView(APIView):
             return Response(
                 {
                     "error": "Missing status field"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --------------------------- ONLY PAID PENDING ORDERS ---------------------------
+        if not order.paid:
+
+            return Response(
+                {
+                    "error": (
+                        "Only paid orders can be cancelled"
+                    )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

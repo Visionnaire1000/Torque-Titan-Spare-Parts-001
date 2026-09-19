@@ -10,20 +10,24 @@ const PaymentSuccess = () => {
 
   useEffect(() => {
     if (hasRun.current) return;
+
     hasRun.current = true;
 
     try {
-      // Clears persisted cart immediately
-      localStorage.removeItem("titanCart");
-
-      // Clears React state
-      clearCart();
+      clearCart(false);
 
       toast.success("Payment Successful.", {
         autoClose: 3000,
       });
     } catch (error) {
-      console.error("PaymentSuccess error:", error);
+      console.error(
+        "PaymentSuccess error:",
+        error
+      );
+
+      toast.error(
+        "There was a problem clearing your cart."
+      );
     }
   }, [clearCart]);
 
@@ -45,8 +49,8 @@ const PaymentSuccess = () => {
         </h1>
 
         <p className="mb-6 leading-relaxed text-gray-500">
-          Thank you for your purchase. Your order has been received and is being
-          processed.
+          Thank you for your purchase. Your order
+          has been received and is being processed.
         </p>
 
         <Link

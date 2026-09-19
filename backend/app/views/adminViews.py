@@ -4,7 +4,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from django.db.models import (Avg, Count, Sum, Q)
+from django.db.models import Sum
 from django.db.models.functions import (TruncDay, TruncWeek, TruncMonth, TruncYear)
 
 from rest_framework.views import APIView
@@ -22,6 +22,27 @@ from app.models import (
     SpareParts,
     Reviews,
 )
+
+
+# --------------------------- DECIMAL HELPERS ----------------------------------------------
+def money_to_decimal(value):
+    if value is None:
+        return Decimal("0.00")
+
+    try:
+        return Decimal(str(value)).quantize(
+            Decimal("0.01")
+        )
+    except (
+        TypeError,
+        ValueError,
+        InvalidOperation,
+    ):
+        raise ValueError("Invalid monetary value")
+
+
+def money_to_float(value):
+    return float(money_to_decimal(value))
 
 
 # --------------------------- SERIALIZERS ----------------------------------------------
@@ -190,7 +211,6 @@ class AdminSparePartsView(APIView):
     ]
 
     def _check_admin(self, request):
-
         return request.user.role in [
             "admin",
             "super_admin",
@@ -469,7 +489,6 @@ class AdminSparePartsView(APIView):
         try:
 
             # Only deletes the database record.
-            # The image remains in Cloudflare R2.
             spare.delete()
 
             return Response(
@@ -490,6 +509,7 @@ class AdminSparePartsView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
 # --------------------------- ADMIN REVIEWS ----------------------------------------------
 class AdminReviewsView(APIView):
@@ -645,7 +665,7 @@ class AdminReviewsBySparePartView(APIView):
             status=status.HTTP_200_OK,
         )
 
-    
+
 # --------------------------- ADMIN REVIEWS ANALYTICS ----------------------------------------------
 class ReviewsAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -673,6 +693,7 @@ class ReviewsAnalyticsView(APIView):
         analytics = {}
 
         for sparepart in spareparts:
+
             vehicle_type = sparepart.vehicle_type
             category = sparepart.category
             brand = sparepart.brand
@@ -706,6 +727,7 @@ class ReviewsAnalyticsView(APIView):
         grouped = {}
 
         for item in analytics.values():
+
             group_key = (
                 item["vehicle_type"],
                 item["category"],
@@ -749,6 +771,7 @@ class ReviewsAnalyticsView(APIView):
         )
 
         for group in result:
+
             group["brands"].sort(
                 key=lambda brand: (
                     -brand["average_rating"],
@@ -769,7 +792,6 @@ class ReviewsAnalyticsView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 # --------------------------- ADMIN ORDERS ----------------------------------------------
 class AdminOrdersView(APIView):
     permission_classes = [IsAuthenticated]
@@ -780,9 +802,11 @@ class AdminOrdersView(APIView):
             "super_admin",
         ]
 
-    # Get all orders
+    # Get paid orders only
     def get(self, request):
+
         if not self._check_admin(request):
+
             return Response(
                 {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -792,6 +816,12 @@ class AdminOrdersView(APIView):
             Orders.objects
             .prefetch_related(
                 "order_items__sparepart"
+            )
+            .filter(
+                paid=True
+            )
+            .exclude(
+                status="expired"
             )
             .order_by("-created_at")
         )
@@ -805,21 +835,46 @@ class AdminOrdersView(APIView):
             )
 
             total_price = sum(
-                float(item.subtotal or 0)
-                for item in order_items
+                (
+                    money_to_decimal(
+                        item.subtotal
+                    )
+                    for item in order_items
+                ),
+                Decimal("0.00"),
             )
 
             total_items = sum(
-                int(item.quantity or 0)
+                int(
+                    item.quantity or 0
+                )
                 for item in order_items
             )
 
             order_data = {
-                "id": order.id,
-                "status": order.status,
-                "paid": order.paid,
-                "total_items": total_items,
-                "total_price": total_price,
+                "id": str(
+                    order.id
+                ),
+
+                "status": (
+                    order.status
+                ),
+
+                "paid": (
+                    order.paid
+                ),
+
+                "payment_method": (
+                    order.payment_method
+                ),
+
+                "total_items": (
+                    total_items
+                ),
+
+                "total_price": money_to_float(
+                    total_price
+                ),
 
                 "address": (
                     f"{order.street}, "
@@ -847,23 +902,39 @@ class AdminOrdersView(APIView):
 
                 "order_items": [
                     {
-                        "id": item.id,
+                        "id": str(
+                            item.id
+                        ),
+
                         "quantity": int(
                             item.quantity or 0
                         ),
-                        "price": float(
-                            item.unit_price or 0
+
+                        "price": money_to_float(
+                            item.unit_price
                         ),
-                        "subtotal": float(
-                            item.subtotal or 0
+
+                        "subtotal": money_to_float(
+                            item.subtotal
                         ),
+
                         "sparepart": {
-                            "id": item.sparepart.id,
-                            "brand": item.sparepart.brand,
-                            "category": item.sparepart.category,
+                            "id": str(
+                                item.sparepart.id
+                            ),
+
+                            "brand": (
+                                item.sparepart.brand
+                            ),
+
+                            "category": (
+                                item.sparepart.category
+                            ),
+
                             "vehicle_type": (
                                 item.sparepart.vehicle_type
                             ),
+
                             "image_url": (
                                 item.sparepart.image
                             ),
@@ -873,16 +944,26 @@ class AdminOrdersView(APIView):
                 ],
             }
 
-            summary.append(order_data)
+            summary.append(
+                order_data
+            )
 
         return Response(
-            {"orders": summary},
+            {
+                "orders": summary
+            },
             status=status.HTTP_200_OK,
         )
 
     # Update order status
-    def patch(self, request, order_id):
+    def patch(
+        self,
+        request,
+        order_id,
+    ):
+
         if not self._check_admin(request):
+
             return Response(
                 {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -893,42 +974,76 @@ class AdminOrdersView(APIView):
             pk=order_id,
         )
 
-        data = request.data or {}
+        # --------------------------- PAID CHECK ---------------------------
+        if not order.paid:
 
-        new_status = data.get("status")
-
-        if not new_status:
-            return Response(
-                {"error": "Missing status field"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        allowed_statuses = [
-            "pending",
-            "cancelled",
-            "shipped",
-            "delivered",
-        ]
-
-        if new_status not in allowed_statuses:
             return Response(
                 {
                     "error": (
-                        "Invalid status. "
-                        f"Allowed: {allowed_statuses}"
+                        "Only paid orders can be "
+                        "updated by an admin"
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        data = request.data or {}
+
+        new_status = data.get(
+            "status"
+        )
+
+        if not new_status:
+
+            return Response(
+                {
+                    "error": "Missing status field"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --------------------------- STATUS TRANSITIONS ---------------------------
+        allowed_transitions = {
+            "pending": [
+                "shipped",
+                "cancelled",
+            ],
+            "shipped": [
+                "delivered",
+            ],
+            "delivered": [],
+            "cancelled": [],
+        }
+
+        current_status = order.status
+
+        if new_status not in allowed_transitions.get(
+            current_status,
+            [],
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        f"Cannot change order status "
+                        f"from '{current_status}' "
+                        f"to '{new_status}'"
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # --------------------------- UPDATE STATUS ---------------------------
         order.status = new_status
 
+        # --------------------------- SHIPPED TIME ---------------------------
         if (
             new_status == "shipped"
             and not order.shipped_at
         ):
             order.shipped_at = timezone.now()
 
+        # --------------------------- DELIVERED TIME ---------------------------
         if (
             new_status == "delivered"
             and not order.delivered_at
@@ -942,12 +1057,21 @@ class AdminOrdersView(APIView):
                 "message": (
                     f"Order {order.id} updated successfully"
                 ),
-                "status": order.status,
+
+                "status": (
+                    order.status
+                ),
+
+                "payment_method": (
+                    order.payment_method
+                ),
+
                 "shipped_at": (
                     order.shipped_at.isoformat()
                     if order.shipped_at
                     else None
                 ),
+
                 "delivered_at": (
                     order.delivered_at.isoformat()
                     if order.delivered_at
@@ -958,7 +1082,7 @@ class AdminOrdersView(APIView):
         )
 
 
-# --------------------------- ADMIN DATA ANALYTICS ----------------------------------------------
+# --------------------------- REVENUE DATA ANALYTICS ----------------------------------------------
 class RevenueAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -984,9 +1108,11 @@ class RevenueAnalyticsView(APIView):
     }
 
     def get(self, request):
+
         user = request.user
 
         if not user.is_authenticated:
+
             return Response(
                 {
                     "detail": (
@@ -997,7 +1123,11 @@ class RevenueAnalyticsView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if user.role not in ["admin", "super_admin"]:
+        if user.role not in [
+            "admin",
+            "super_admin",
+        ]:
+
             return Response(
                 {
                     "detail": (
@@ -1011,7 +1141,10 @@ class RevenueAnalyticsView(APIView):
         # PARAMETERS
         period = (
             request.query_params
-            .get("period", "monthly")
+            .get(
+                "period",
+                "monthly",
+            )
             .lower()
             .strip()
         )
@@ -1026,6 +1159,7 @@ class RevenueAnalyticsView(APIView):
 
         # VALIDATION
         if period not in self.VALID_PERIODS:
+
             return Response(
                 {
                     "error": (
@@ -1038,6 +1172,7 @@ class RevenueAnalyticsView(APIView):
             )
 
         if vehicle_type:
+
             vehicle_type = (
                 vehicle_type
                 .lower()
@@ -1048,6 +1183,7 @@ class RevenueAnalyticsView(APIView):
                 vehicle_type
                 not in self.VALID_VEHICLE_TYPES
             ):
+
                 return Response(
                     {
                         "error": (
@@ -1059,6 +1195,7 @@ class RevenueAnalyticsView(APIView):
                 )
 
         if category:
+
             category = (
                 category
                 .lower()
@@ -1066,6 +1203,7 @@ class RevenueAnalyticsView(APIView):
             )
 
             if category not in self.VALID_CATEGORIES:
+
                 return Response(
                     {
                         "error": "Invalid category."
@@ -1090,12 +1228,14 @@ class RevenueAnalyticsView(APIView):
 
         # VEHICLE TYPE FILTER
         if vehicle_type:
+
             order_items = order_items.filter(
                 sparepart__vehicle_type__iexact=vehicle_type
             )
 
         # CATEGORY FILTER
         if category:
+
             order_items = order_items.filter(
                 sparepart__category__iexact=category
             )
@@ -1110,8 +1250,8 @@ class RevenueAnalyticsView(APIView):
             summary_data["parts_sold"] or 0
         )
 
-        revenue = float(
-            summary_data["revenue"] or 0
+        revenue = money_to_float(
+            summary_data["revenue"]
         )
 
         orders_count = (
@@ -1121,24 +1261,27 @@ class RevenueAnalyticsView(APIView):
             .count()
         )
 
-        
         # TIMELINE
         if period == "daily":
+
             truncated_date = TruncDay(
                 "order__created_at"
             )
 
         elif period == "weekly":
+
             truncated_date = TruncWeek(
                 "order__created_at"
             )
 
         elif period == "yearly":
+
             truncated_date = TruncYear(
                 "order__created_at"
             )
 
         else:
+
             truncated_date = TruncMonth(
                 "order__created_at"
             )
@@ -1163,6 +1306,7 @@ class RevenueAnalyticsView(APIView):
             period_date = item["period_date"]
 
             if period == "daily":
+
                 period_label = (
                     period_date.strftime("%Y-%m-%d")
                     if period_date
@@ -1170,6 +1314,7 @@ class RevenueAnalyticsView(APIView):
                 )
 
             elif period == "weekly":
+
                 period_label = (
                     period_date.strftime("%Y-%m-%d")
                     if period_date
@@ -1177,6 +1322,7 @@ class RevenueAnalyticsView(APIView):
                 )
 
             elif period == "monthly":
+
                 period_label = (
                     period_date.strftime("%Y-%m")
                     if period_date
@@ -1184,6 +1330,7 @@ class RevenueAnalyticsView(APIView):
                 )
 
             else:
+
                 period_label = (
                     period_date.strftime("%Y")
                     if period_date
@@ -1196,8 +1343,8 @@ class RevenueAnalyticsView(APIView):
                     "parts_sold": int(
                         item["parts_sold"] or 0
                     ),
-                    "revenue": float(
-                        item["revenue"] or 0
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
@@ -1230,8 +1377,8 @@ class RevenueAnalyticsView(APIView):
                     "parts_sold": int(
                         item["parts_sold"] or 0
                     ),
-                    "revenue": float(
-                        item["revenue"] or 0
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
@@ -1264,13 +1411,14 @@ class RevenueAnalyticsView(APIView):
                     "parts_sold": int(
                         item["parts_sold"] or 0
                     ),
-                    "revenue": float(
-                        item["revenue"] or 0
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
 
         # BRAND BREAKDOWN
+
         brands = (
             order_items
             .values(
@@ -1291,6 +1439,18 @@ class RevenueAnalyticsView(APIView):
 
             brand_data.append(
                 {
+                    "vehicle_type": (
+                        item[
+                            "sparepart__vehicle_type"
+                        ]
+                        or ""
+                    ),
+                    "category": (
+                        item[
+                            "sparepart__category"
+                        ]
+                        or ""
+                    ),
                     "brand": (
                         item[
                             "sparepart__brand"
@@ -1300,8 +1460,8 @@ class RevenueAnalyticsView(APIView):
                     "parts_sold": int(
                         item["parts_sold"] or 0
                     ),
-                    "revenue": float(
-                        item["revenue"] or 0
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )

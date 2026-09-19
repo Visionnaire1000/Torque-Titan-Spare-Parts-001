@@ -34,6 +34,7 @@ interface Order {
   status: OrderStatus;
   total_items: number;
   total_price: number;
+  payment_method: string | null;
   address: string;
   created_at: string;
   order_items?: OrderItem[];
@@ -1015,6 +1016,21 @@ const updateOrderStatus = (
                   Total Cost: KES{" "}
                   {order.total_price?.toLocaleString()}
                 </div>
+
+                <div>
+                 <span className="font-semibold">
+                   Payment Method:
+                 </span>{" "}
+                   <span className="font-medium uppercase text-[#004080]">
+                     {order.payment_method === "stripe"
+                       ? "Card"
+                       : order.payment_method === "mpesa"
+                       ? "M-PESA"
+                       : order.payment_method === "airtel"
+                       ? "Airtel Money"
+                       : order.payment_method || "N/A"}
+                    </span>
+                   </div>
 
                 <div className="break-words">
                   Shipping Address:{" "}

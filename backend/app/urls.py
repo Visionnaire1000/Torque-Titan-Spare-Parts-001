@@ -19,7 +19,7 @@ from app.views.buyerViews import (
     ReviewEditView,
     ReviewReactionsView,
     MyReviewsView,
-    OrdersView,
+    BuyerOrdersView,
 )
 
 from app.views.adminViews import (
@@ -34,9 +34,17 @@ from app.views.adminViews import (
     RevenueAnalyticsView,
 )
 
-from app.views.stripeViews import (
-    CreateCheckoutSessionView,
+from  app.views.stripeCheckoutViews import (
+    CreateStripeSessionView,
+    StripeCancelSessionView,
     StripeWebhookView,
+)
+
+
+from app.views.paystackCheckoutViews import (
+    CreatePaystackSessionView,
+    VerifyPaystackPaymentView,
+    PaystackWebhookView,
 )
 
 
@@ -147,13 +155,13 @@ urlpatterns = [
     # ---------------------- BUYER ORDERS -------------------------------------
     path(
         "orders/",
-        OrdersView.as_view(),
+        BuyerOrdersView.as_view(),
         name="orders",
     ),
 
     path(
         "orders/<str:order_id>/",
-        OrdersView.as_view(),
+        BuyerOrdersView.as_view(),
         name="order-detail",
     ),
 
@@ -221,15 +229,40 @@ urlpatterns = [
 
     # ---------------------- STRIPE CHECKOUT -------------------------------------
     path(
-        "create-checkout-session/",
-        CreateCheckoutSessionView.as_view(),
-        name="create-checkout-session",
+        "checkout/create-stripe-session/",
+        CreateStripeSessionView.as_view(),
+        name="create-stripe-session",
     ),
-    
+
+     path(
+        "checkout/stripe-cancel/",
+        StripeCancelSessionView.as_view(),
+        name="stripe-cancel",
+    ),
+
     path(
         "webhook/stripe/",
         StripeWebhookView.as_view(),
         name="stripe-webhook",
+    ),
+
+    # ---------------------- PAYSTACK CHECKOUT -------------------------------------
+    path(
+        "checkout/create-paystack-session/",
+        CreatePaystackSessionView.as_view(),
+        name="create-paystack-session",
+    ),
+
+    path(
+    "checkout/verify-paystack-payment/<str:reference>/",
+    VerifyPaystackPaymentView.as_view(),
+    name="verify-paystack-payment",
+    ),
+
+    path(
+        "webhook/paystack/",
+        PaystackWebhookView.as_view(),
+        name="paystack-webhook",
     ),
 
     # ---------------------- DATA ANALYTICS -------------------------------------
