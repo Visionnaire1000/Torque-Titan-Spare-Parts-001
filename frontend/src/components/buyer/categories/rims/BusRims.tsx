@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -24,7 +24,6 @@ interface ErrorStateProps {
   onRetry: () => Promise<void>;
 }
 
-
 /* ---------------- Skeleton Card ---------------- */
 const SkeletonCard = (): ReactElement => (
   <div
@@ -38,7 +37,6 @@ const SkeletonCard = (): ReactElement => (
       rounded-xl
       bg-[#f6f7f8]
       p-3
-
       before:absolute
       before:left-[-150%]
       before:top-0
@@ -132,8 +130,10 @@ const ErrorState = ({
     </p>
 
     <button
+      type="button"
       onClick={() => void onRetry()}
       className="
+        mb-[30px]
         inline-flex
         items-center
         gap-2
@@ -203,13 +203,12 @@ const BusRims = (): ReactElement => {
 
   /* ---------------- Fetch Rims ---------------- */
   const fetchRims = async (): Promise<void> => {
-
     setLoading(true);
     setError(false);
 
     const params = new URLSearchParams({
       category: "rim",
-      vehicle_type: "truck",
+      vehicle_type: "bus",
       ...(brand && { brand }),
       ...(colour && { colour }),
       ...(price && { price }),
@@ -226,36 +225,28 @@ const BusRims = (): ReactElement => {
         throw new Error("Failed");
       }
 
-      const data: SparePartsResponse =
-        await response.json();
+      const data: SparePartsResponse = await response.json();
 
       setItems(data.items ?? []);
-
       setTotalPages(data.pages ?? 1);
-
     } catch (err) {
       console.error(err);
 
       setItems([]);
-
       setError(true);
-
     } finally {
-
       setLoading(false);
     }
-
   };
 
   /* ---------------- Effects ---------------- */
-  // Scrolls to the top whenever the pagination page changes
-    useEffect(() => {
-     window.scrollTo({
-       top: 0,
-       left: 0,
-       behavior: "auto",
-     });
-    }, [currentPage]);
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [currentPage]);
 
   useEffect(() => {
     void fetchRims();
@@ -268,28 +259,34 @@ const BusRims = (): ReactElement => {
 
   useEffect(() => {
     setCurrentPage(1);
-
   }, [
     brand,
     colour,
     price,
   ]);
 
+  /* ---------------- Back To Available Parts ---------------- */
+  const handleBackToAvailableParts = (): void => {
+    setBrand("");
+    setColour("");
+    setPrice("");
+    setCurrentPage(1);
+    setBrandOpen(false);
+    setColourOpen(false);
+    setPriceOpen(false);
+  };
+
   /* ---------------- Cart ---------------- */
   const handleAddToCart = (
     item: SparePart,
     event: MouseEvent<HTMLButtonElement>
   ): void => {
-
     event.preventDefault();
-
     event.stopPropagation();
 
     addItem(item);
-
   };
 
-  
   /* ---------------- Filters Dropdown ---------------- */
   useEffect(() => {
     const handleClickOutside = (
@@ -336,17 +333,26 @@ const BusRims = (): ReactElement => {
     };
   }, []);
 
-
   /* ---------------- Pagination ---------------- */
   const getVisiblePages = (): number[] => {
     const pages: number[] = [];
 
     const maxVisible = 5;
 
-    let start = Math.max(currentPage - 2, 1);
-    let end = Math.min(start + maxVisible - 1, totalPages);
+    let start = Math.max(
+      currentPage - 2,
+      1
+    );
 
-    start = Math.max(end - maxVisible + 1, 1);
+    let end = Math.min(
+      start + maxVisible - 1,
+      totalPages
+    );
+
+    start = Math.max(
+      end - maxVisible + 1,
+      1
+    );
 
     for (let i = start; i <= end; i++) {
       pages.push(i);
@@ -357,21 +363,52 @@ const BusRims = (): ReactElement => {
 
   const visiblePages = getVisiblePages();
 
+  /* ---------------- Render ---------------- */
+  return (
+    <div
+      className="
+        mt-[70px]
+        bg-[#f9f9f9]
+        p-5
+        pb-[70px]
+        font-[Arial,sans-serif]
+        max-[480px]:max-w-[480px]
+      "
+    >
+      {/* Top Left Back Arrow */}
+      {!error &&
+        (brand !== "" ||
+          colour !== "" ||
+          price !== "") && (
+          <div
+            className="
+              mb-[10px]
+              flex
+              w-full
+              justify-start
+            "
+          >
+            <button
+              type="button"
+              onClick={handleBackToAvailableParts}
+              aria-label="Back to available parts"
+              className="
+                inline-flex
+                items-center
+                justify-center
+                rounded-md
+                p-2
+                text-[rgb(0,64,128)]
+                transition-colors
+                hover:bg-[#eaf2f8]
+              "
+            >
+              <ArrowLeft size={30} />
+            </button>
+          </div>
+        )}
 
-/* ---------------- Render ---------------- */
-return (
-  <div
-    className="
-      mt-[70px]
-      bg-[#f9f9f9]
-      p-5
-      pb-[70px]
-      font-[Arial,sans-serif]
-      max-[480px]:max-w-[480px]
-    "
-  >
-
-    {/* Filters */}
+      {/* Filters */}
       {!error && (
         <div
           className="
@@ -394,7 +431,6 @@ return (
               max-[480px]:items-center
             "
           >
-
             {/* Brand Dropdown */}
             <div
               ref={brandDropdownRef}
@@ -500,36 +536,34 @@ return (
                     All Brands
                   </button>
 
-                  {availableBrands.map(
-                    (itemBrand) => (
-                      <button
-                        key={itemBrand}
-                        type="button"
-                        onClick={() => {
-                          setBrand(itemBrand);
-                          setBrandOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:text-base
-                          ${
-                            brand === itemBrand
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemBrand}
-                      </button>
-                    )
-                  )}
+                  {availableBrands.map((itemBrand) => (
+                    <button
+                      key={itemBrand}
+                      type="button"
+                      onClick={() => {
+                        setBrand(itemBrand);
+                        setBrandOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          brand === itemBrand
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemBrand}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -546,9 +580,7 @@ return (
               <button
                 type="button"
                 onClick={() => {
-                  setColourOpen(
-                    (open) => !open
-                  );
+                  setColourOpen((open) => !open);
                   setBrandOpen(false);
                   setPriceOpen(false);
                 }}
@@ -644,39 +676,35 @@ return (
                     All Colours
                   </button>
 
-                  {availableColours.map(
-                    (itemColour) => (
-                      <button
-                        key={itemColour}
-                        type="button"
-                        onClick={() => {
-                          setColour(itemColour);
-                          setColourOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:text-base
-                          ${
-                            colour === itemColour
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemColour
-                          .charAt(0)
-                          .toUpperCase() +
-                          itemColour.slice(1)}
-                      </button>
-                    )
-                  )}
+                  {availableColours.map((itemColour) => (
+                    <button
+                      key={itemColour}
+                      type="button"
+                      onClick={() => {
+                        setColour(itemColour);
+                        setColourOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          colour === itemColour
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemColour.charAt(0).toUpperCase() +
+                        itemColour.slice(1)}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -693,9 +721,7 @@ return (
               <button
                 type="button"
                 onClick={() => {
-                  setPriceOpen(
-                    (open) => !open
-                  );
+                  setPriceOpen((open) => !open);
                   setBrandOpen(false);
                   setColourOpen(false);
                 }}
@@ -877,259 +903,288 @@ return (
           </div>
         </div>
       )}
-    
-    {/* -------- Error State -------- */}
-    {error ? (
 
-      <ErrorState onRetry={fetchRims} />
-    ) : (
-      <>
-        {/* -------- Products Grid -------- */}
-        <div
-          className="
-            grid
-            grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
-            gap-5
-            max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
-          "
-        >
-          {loading ? (
-            Array.from({ length: 8 }).map((_, index) => (
-              <SkeletonCard key={index} />
-            ))
-          ) : items.length ? (
-            items.map((item) => (
-              <div
-                key={item.id}
-                className="
-                  flex
-                  h-full
-                  cursor-pointer
-                  flex-col
-                  items-center
-                  rounded-xl
-                  bg-white
-                  p-3
-                  shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                  transition-all
-                  duration-200
-                  hover:-translate-y-1
-                  hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
-                  max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
-                "
-              >
-                <Link
-                  to={`/items/${item.id}`}
+      {/* Error State */}
+      {error ? (
+        <ErrorState onRetry={fetchRims} />
+      ) : (
+        <>
+          {/* Products Grid */}
+          <div
+            className="
+              grid
+              grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
+              gap-5
+              max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
+            "
+          >
+            {loading ? (
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
+            ) : items.length > 0 ? (
+              items.map((item) => (
+                <div
+                  key={item.id}
                   className="
                     flex
                     h-full
-                    w-full
+                    cursor-pointer
                     flex-col
                     items-center
-                    no-underline
-                    text-inherit
+                    rounded-xl
+                    bg-white
+                    p-3
+                    shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+                    transition-all
+                    duration-200
+                    hover:-translate-y-1
+                    hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                    max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
                   "
                 >
-                  <img
-                    src={item.image}
-                    alt={item.brand}
+                  <Link
+                    to={`/items/${item.id}`}
                     className="
-                      mb-[10px]
-                      h-[150px]
+                      flex
+                      h-full
                       w-full
-                      rounded-lg
-                      object-contain
-                      max-[480px]:h-auto
-                      max-[480px]:w-[60%]
-                      max-[480px]:object-cover
-                    "
-                  />
-                  <h4
-                    className="
-                      my-[5px]
-                      mb-[10px]
-                      text-center
-                      text-base
-                      text-[#333]
+                      flex-col
+                      items-center
+                      text-inherit
+                      no-underline
                     "
                   >
-                    {item.brand} {item.category} for{" "}
-                    {item.vehicle_type}
-                  </h4>
+                    <img
+                      src={item.image}
+                      alt={item.brand}
+                      className="
+                        mb-[10px]
+                        h-[150px]
+                        w-full
+                        rounded-lg
+                        object-contain
+                        max-[480px]:h-auto
+                        max-[480px]:w-[60%]
+                        max-[480px]:object-cover
+                      "
+                    />
 
-                  <p
-                    className="
-                      mb-[10px]
-                      text-lg
-                      font-bold
-                      text-[#FF0000]
-                    "
-                  >
-                    KES {item.buying_price.toLocaleString()}
+                    <h4
+                      className="
+                        my-[5px]
+                        mb-[10px]
+                        text-center
+                        text-base
+                        text-[#333]
+                      "
+                    >
+                      {item.brand} {item.category} for{" "}
+                      {item.vehicle_type}
+                    </h4>
 
-                    {item.discount_percentage > 0 && (
-                      <span
-                        className="
-                          ml-[5px]
-                          font-normal
-                          text-[#d9534f]
-                        "
-                      >
-                        (-{item.discount_percentage.toFixed(0)}%)
-                      </span>
-                    )}
+                    <p
+                      className="
+                        mb-[10px]
+                        text-lg
+                        font-bold
+                        text-[#FF0000]
+                      "
+                    >
+                      KES{" "}
+                      {item.buying_price.toLocaleString("en-US")}
 
-                  </p>
-                  <button
-                    onClick={(event) =>
-                      handleAddToCart(item,event)
-                    }
-                    className="
-                      rounded-md
-                      bg-[rgb(0,64,128)]
-                      px-3
-                      py-2
-                      font-bold
-                      text-white
-                      transition-colors
-                      hover:bg-[rgb(4,37,71)]
-                    "
-                  >
-                    Add To Cart
-                  </button>
+                      {item.discount_percentage > 0 && (
+                        <span
+                          className="
+                            ml-[5px]
+                            font-normal
+                            text-[#d9534f]
+                          "
+                        >
+                          (-{item.discount_percentage.toFixed(0)}%)
+                        </span>
+                      )}
+                    </p>
 
-                </Link>
-
-              </div>
-
-            ))
-
-          ) : (
-            <p
-              className="
-                col-span-full
-                mb-20
-                text-center
-                text-base
-                text-[#7f0d0d]
-              "
-            >
-              No truck rims found.
-            </p>
-          )}
-
-        </div>
-
-        {/* -------- Pagination -------- */}
-        {loading ? (
-          <div className="mt-4 flex justify-center gap-2">
-
-            {[1,2,3,4].map((item)=>(
-              <div
-                key={item}
+                    <button
+                      type="button"
+                      onClick={(event) =>
+                        handleAddToCart(item, event)
+                      }
+                      className="
+                        rounded-md
+                        bg-[rgb(0,64,128)]
+                        px-3
+                        py-2
+                        font-bold
+                        text-white
+                        transition-colors
+                        hover:bg-[rgb(4,37,71)]
+                      "
+                    >
+                      Add To Cart
+                    </button>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p
                 className="
-                  h-8
-                  w-10
-                  rounded-md
-                  bg-[#e0e0e0]
+                  col-span-full
+                  mb-20
+                  text-center
+                  text-base
+                  text-[#7f0d0d]
                 "
-              />
-            ))}
-
-          </div>
-        ) : totalPages > 1 && (
-          <div
-            className="
-              my-[30px]
-              flex
-              flex-wrap
-              items-center
-              justify-center
-              gap-[6px]
-            "
-          >
-            <button
-              disabled={currentPage === 1}
-              onClick={() =>
-                setCurrentPage((page)=>
-                  Math.max(page - 1,1)
-                )
-              }
-              className="
-                rounded
-                border
-                border-[#ddd]
-                bg-white
-                px-3
-                py-[6px]
-                text-sm
-                hover:bg-[#f0f0f0]
-                disabled:opacity-50
-              "
-            >
-              Prev
-            </button>
-
-            {visiblePages[0] > 1 && (
-              <span className="px-[6px]">
-                …
-              </span>
-            )}
-
-            {visiblePages.map((page)=>(
-              <button
-                key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`
-                  rounded
-                  border
-                  px-3
-                  py-[6px]
-                  text-sm
-                  ${
-                    page === currentPage
-                      ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] text-white"
-                      : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
-                  }
-                `}
               >
-                {page}
-              </button>
-            ))}
-
-            {visiblePages[visiblePages.length - 1] < totalPages && (
-              <span className="px-[6px]">
-                …
-              </span>
+                No bus rims found.
+              </p>
             )}
+          </div>
 
-            <button
-              disabled={currentPage === totalPages}
-              onClick={() =>
-                setCurrentPage((page)=>
-                  Math.min(page + 1,totalPages)
-                )
-              }
+          {/* Pagination */}
+          {loading ? (
+            <div
               className="
-                rounded
-                border
-                border-[#ddd]
-                bg-white
-                px-3
-                py-[6px]
-                text-sm
-                hover:bg-[#f0f0f0]
-                disabled:opacity-50
+                mt-4
+                flex
+                justify-center
+                gap-2
               "
             >
-              Next
-            </button>
-          </div>
-        )}
-      </>
-    )}
-  </div>
- );
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="
+                    h-8
+                    w-10
+                    rounded-md
+                    bg-[#e0e0e0]
+                  "
+                />
+              ))}
+            </div>
+          ) : (
+            totalPages > 1 && (
+              <div
+                className="
+                  my-[30px]
+                  flex
+                  flex-wrap
+                  items-center
+                  justify-center
+                  gap-[6px]
+                "
+              >
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
+                    )
+                  }
+                  className="
+                    rounded
+                    border
+                    border-[#ddd]
+                    bg-white
+                    px-3
+                    py-[6px]
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f0f0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  Prev
+                </button>
+
+                {visiblePages[0] > 1 && (
+                  <span
+                    className="
+                      select-none
+                      px-[6px]
+                      text-base
+                    "
+                  >
+                    …
+                  </span>
+                )}
+
+                {visiblePages.map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`
+                      rounded
+                      border
+                      px-3
+                      py-[6px]
+                      text-sm
+                      transition-colors
+                      ${
+                        page === currentPage
+                          ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
+                          : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
+                      }
+                    `}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                {visiblePages[
+                  visiblePages.length - 1
+                ] < totalPages && (
+                  <span
+                    className="
+                      select-none
+                      px-[6px]
+                      text-base
+                    "
+                  >
+                    …
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(
+                        page + 1,
+                        totalPages
+                      )
+                    )
+                  }
+                  className="
+                    rounded
+                    border
+                    border-[#ddd]
+                    bg-white
+                    px-3
+                    py-[6px]
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f0f0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  Next
+                </button>
+              </div>
+            )
+          )}
+        </>
+      )}
+    </div>
+  );
 };
 
 export default BusRims;

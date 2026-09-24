@@ -91,7 +91,22 @@ def valid_sparepart_data():
     }
 
 
+def valid_update_data():
+    return {
+        "category": "tyre",
+        "vehicle_type": "sedan",
+        "brand": "Updated Michelin",
+        "colour": "Blue",
+        "buying_price": "20000",
+        "marked_price": "25000",
+        "image": uploaded_image(),
+        "description": "Updated premium tyre",
+    }
+
+
 # AUTHORIZATION
+
+
 @pytest.mark.django_db
 def test_create_spare_requires_authentication(client):
     response = client.post(
@@ -104,10 +119,7 @@ def test_create_spare_requires_authentication(client):
 
 
 @pytest.mark.django_db
-def test_buyer_cannot_create_sparepart(
-    client,
-    buyer,
-):
+def test_buyer_cannot_create_sparepart(client, buyer):
     client.force_authenticate(user=buyer)
 
     response = client.post(
@@ -121,10 +133,7 @@ def test_buyer_cannot_create_sparepart(
 
 
 @pytest.mark.django_db
-def test_admin_can_create_sparepart(
-    client,
-    admin,
-):
+def test_admin_can_create_sparepart(client, admin):
     client.force_authenticate(user=admin)
 
     response = client.post(
@@ -137,15 +146,10 @@ def test_admin_can_create_sparepart(
 
     data = response.json()
 
-    assert data["message"] == (
-        "Spare part created successfully"
-    )
-
+    assert data["message"] == "Spare part created successfully"
     assert "sparepart" in data
 
-    spare = SpareParts.objects.get(
-        brand="Brembo"
-    )
+    spare = SpareParts.objects.get(brand="Brembo")
 
     assert spare.category == "brakes"
     assert spare.vehicle_type == "suv"
@@ -170,6 +174,8 @@ def test_super_admin_can_create_sparepart(
 
 
 # CREATE VALIDATION
+
+
 @pytest.mark.django_db
 def test_create_spare_rejects_invalid_buying_price(
     client,
@@ -187,10 +193,7 @@ def test_create_spare_rejects_invalid_buying_price(
     )
 
     assert response.status_code == 400
-
-    assert response.json()["error"] == (
-        "Invalid price values"
-    )
+    assert response.json()["error"] == "Invalid price values"
 
 
 @pytest.mark.django_db
@@ -210,10 +213,7 @@ def test_create_spare_rejects_invalid_marked_price(
     )
 
     assert response.status_code == 400
-
-    assert response.json()["error"] == (
-        "Invalid price values"
-    )
+    assert response.json()["error"] == "Invalid price values"
 
 
 @pytest.mark.django_db
@@ -231,14 +231,14 @@ def test_create_spare_calculates_discount(
 
     assert response.status_code == 201
 
-    spare = SpareParts.objects.get(
-        brand="Brembo"
-    )
+    spare = SpareParts.objects.get(brand="Brembo")
 
     assert spare.discount_percentage == 25
 
 
 # UPDATE
+
+
 @pytest.mark.django_db
 def test_buyer_cannot_update_sparepart(
     client,
@@ -249,9 +249,7 @@ def test_buyer_cannot_update_sparepart(
 
     response = client.put(
         f"/admin/spareparts/{sparepart.id}/",
-        {
-            "brand": "Updated Brand",
-        },
+        valid_update_data(),
         format="multipart",
     )
 
@@ -268,10 +266,7 @@ def test_admin_can_update_sparepart(
 
     response = client.put(
         f"/admin/spareparts/{sparepart.id}/",
-        {
-            "brand": "Updated Michelin",
-            "colour": "Blue",
-        },
+        valid_update_data(),
         format="multipart",
     )
 
@@ -279,9 +274,7 @@ def test_admin_can_update_sparepart(
 
     data = response.json()
 
-    assert data["message"] == (
-        "Spare part updated successfully"
-    )
+    assert data["message"] == "Spare part updated successfully"
 
     sparepart.refresh_from_db()
 
@@ -297,12 +290,13 @@ def test_update_spare_recalculates_discount(
 ):
     client.force_authenticate(user=admin)
 
+    data = valid_update_data()
+    data["buying_price"] = "30000"
+    data["marked_price"] = "40000"
+
     response = client.put(
         f"/admin/spareparts/{sparepart.id}/",
-        {
-            "buying_price": "30000",
-            "marked_price": "40000",
-        },
+        data,
         format="multipart",
     )
 
@@ -323,19 +317,17 @@ def test_update_invalid_buying_price(
 ):
     client.force_authenticate(user=admin)
 
+    data = valid_update_data()
+    data["buying_price"] = "invalid"
+
     response = client.put(
         f"/admin/spareparts/{sparepart.id}/",
-        {
-            "buying_price": "invalid",
-        },
+        data,
         format="multipart",
     )
 
     assert response.status_code == 400
-
-    assert response.json()["error"] == (
-        "Invalid value for buying_price"
-    )
+    assert response.json()["error"] == "Invalid value for buying_price"
 
 
 @pytest.mark.django_db
@@ -346,22 +338,22 @@ def test_update_invalid_marked_price(
 ):
     client.force_authenticate(user=admin)
 
+    data = valid_update_data()
+    data["marked_price"] = "invalid"
+
     response = client.put(
         f"/admin/spareparts/{sparepart.id}/",
-        {
-            "marked_price": "invalid",
-        },
+        data,
         format="multipart",
     )
 
     assert response.status_code == 400
-
-    assert response.json()["error"] == (
-        "Invalid value for marked_price"
-    )
+    assert response.json()["error"] == "Invalid value for marked_price"
 
 
 # DELETE
+
+
 @pytest.mark.django_db
 def test_buyer_cannot_delete_sparepart(
     client,

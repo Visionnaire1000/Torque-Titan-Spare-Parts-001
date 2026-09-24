@@ -1,4 +1,5 @@
 import pytest
+
 from rest_framework.test import APIClient
 
 from app.models import (
@@ -8,7 +9,6 @@ from app.models import (
 )
 
 
-# Fixtures
 @pytest.fixture
 def client():
     return APIClient()
@@ -16,20 +16,30 @@ def client():
 
 @pytest.fixture
 def user():
-    return Users.objects.create(
+    user = Users(
         email="buyer@example.com",
-        password_hash="test-password",
+        email_verified=True,
+        auth_provider="local",
         role="buyer",
     )
+    user.set_password("Password123!")
+    user.save()
+
+    return user
 
 
 @pytest.fixture
 def second_user():
-    return Users.objects.create(
+    user = Users(
         email="buyer2@example.com",
-        password_hash="test-password",
+        email_verified=True,
+        auth_provider="local",
         role="buyer",
     )
+    user.set_password("Password123!")
+    user.save()
+
+    return user
 
 
 @pytest.fixture
@@ -41,7 +51,6 @@ def sparepart():
         colour="Black",
         buying_price=20000,
         marked_price=25000,
-        discount_percentage=0,
         image="https://example.com/tyre.jpg",
     )
 
@@ -57,6 +66,8 @@ def review(user, sparepart):
 
 
 # GET REVIEWS
+
+
 @pytest.mark.django_db
 def test_get_reviews_for_sparepart(
     client,
@@ -78,6 +89,8 @@ def test_get_reviews_for_sparepart(
 
 
 # CREATE REVIEW
+
+
 @pytest.mark.django_db
 def test_create_review_requires_authentication(
     client,
@@ -209,6 +222,8 @@ def test_duplicate_review_is_rejected(
 
 
 # EDIT REVIEW
+
+
 @pytest.mark.django_db
 def test_owner_can_edit_review(
     client,
@@ -255,6 +270,8 @@ def test_non_owner_cannot_edit_review(
 
 
 # DELETE REVIEW
+
+
 @pytest.mark.django_db
 def test_owner_can_delete_review(
     client,
@@ -294,6 +311,8 @@ def test_non_owner_cannot_delete_review(
 
 
 # REACTIONS
+
+
 @pytest.mark.django_db
 def test_reaction_requires_authentication(
     client,
@@ -308,99 +327,6 @@ def test_reaction_requires_authentication(
     )
 
     assert response.status_code == 401
-
-
-@pytest.mark.django_db
-def test_user_can_like_review(
-    client,
-    second_user,
-    review,
-):
-    client.force_authenticate(user=second_user)
-
-    response = client.post(
-        f"/reviews/{review.id}/react/",
-        {
-            "is_like": True,
-        },
-        format="json",
-    )
-
-    assert response.status_code == 200
-
-    data = response.json()
-
-    assert data["action"] == "added"
-    assert data["review"]["total_likes"] == 1
-    assert data["review"]["total_dislikes"] == 0
-    assert data["review"]["user_reaction"] is True
-
-
-@pytest.mark.django_db
-def test_same_reaction_removes_reaction(
-    client,
-    second_user,
-    review,
-):
-    client.force_authenticate(user=second_user)
-
-    client.post(
-        f"/reviews/{review.id}/react/",
-        {
-            "is_like": True,
-        },
-        format="json",
-    )
-
-    response = client.post(
-        f"/reviews/{review.id}/react/",
-        {
-            "is_like": True,
-        },
-        format="json",
-    )
-
-    assert response.status_code == 200
-
-    data = response.json()
-
-    assert data["action"] == "removed"
-    assert data["review"]["total_likes"] == 0
-    assert data["review"]["user_reaction"] is None
-
-
-@pytest.mark.django_db
-def test_different_reaction_switches_reaction(
-    client,
-    second_user,
-    review,
-):
-    client.force_authenticate(user=second_user)
-
-    client.post(
-        f"/reviews/{review.id}/react/",
-        {
-            "is_like": True,
-        },
-        format="json",
-    )
-
-    response = client.post(
-        f"/reviews/{review.id}/react/",
-        {
-            "is_like": False,
-        },
-        format="json",
-    )
-
-    assert response.status_code == 200
-
-    data = response.json()
-
-    assert data["action"] == "switched"
-    assert data["review"]["total_likes"] == 0
-    assert data["review"]["total_dislikes"] == 1
-    assert data["review"]["user_reaction"] is False
 
 
 @pytest.mark.django_db

@@ -25,20 +25,12 @@ interface SkeletonProps {
   style?: CSSProperties;
 }
 
-interface ReviewLike {
-  id: string;
-  user_id: string;
-  is_like: boolean;
-}
-
 interface Review {
   id: string;
   user_id: string;
   rating: number | null;
   comment: string | null;
   created_at: string;
-
-  likes?: ReviewLike[];
 
   total_likes: number;
   total_dislikes: number;
@@ -64,7 +56,7 @@ interface SparePart {
 interface ReviewReactionResponse {
   action: "added" | "removed" | "switched";
 
-  review: {
+  comment: {
     id: string;
     total_likes: number;
     total_dislikes: number;
@@ -72,16 +64,17 @@ interface ReviewReactionResponse {
   };
 }
 
-interface ReviewActionOptions<T = unknown> {
+interface ReviewActionOptions {
   method: "POST" | "PATCH" | "DELETE";
   endpoint: string;
   body?: Record<string, unknown>;
   successMessage?: string;
-  updateFn?: (data: T) => void;
 }
 
 /* ----------------------------- ERROR STATE ------------------------- */
-const ErrorState = ({ onRetry }: ErrorStateProps) => (
+const ErrorState = ({
+  onRetry,
+}: ErrorStateProps) => (
   <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 text-center">
     <h2 className="text-3xl font-bold text-red-600">
       Something went wrong
@@ -119,90 +112,117 @@ const StarRating = ({
   size = 24,
   readonly = false,
 }: StarRatingProps) => {
-  const [hoverValue, setHoverValue] = useState<number>(0);
+  const [hoverValue, setHoverValue] =
+    useState<number>(0);
 
-  const [currentValue, setCurrentValue] = useState<number>(value);
+  const [currentValue, setCurrentValue] =
+    useState<number>(value);
 
   useEffect(() => {
     setCurrentValue(value);
   }, [value]);
 
-  const handleClick = (star: number) => {
-    if (readonly || !onChange) return;
+  const handleClick = (
+    star: number
+  ): void => {
+    if (readonly || !onChange) {
+      return;
+    }
 
     setCurrentValue(star);
     onChange(star);
   };
 
-  const handleMouseEnter = (star: number) => {
-    if (readonly) return;
+  const handleMouseEnter = (
+    star: number
+  ): void => {
+    if (readonly) {
+      return;
+    }
 
     setHoverValue(star);
   };
 
-  const handleMouseLeave = () => {
-    if (readonly) return;
+  const handleMouseLeave = (): void => {
+    if (readonly) {
+      return;
+    }
 
     setHoverValue(0);
   };
 
-  const displayValue = hoverValue || currentValue;
+  const displayValue =
+    hoverValue || currentValue;
 
-  const roundedValue = Math.round(displayValue * 2) / 2;
+  const roundedValue =
+    Math.round(displayValue * 2) / 2;
 
   return (
     <div className="my-2 flex gap-[2px]">
-      {[1, 2, 3, 4, 5].map((star) => {
-        let fillPercent = 0;
+      {[1, 2, 3, 4, 5].map(
+        (star) => {
+          let fillPercent = 0;
 
-        if (roundedValue >= star) {
-          fillPercent = 100;
-        } else if (roundedValue + 0.5 === star) {
-          fillPercent = 50;
-        }
+          if (
+            roundedValue >= star
+          ) {
+            fillPercent = 100;
+          } else if (
+            roundedValue + 0.5 ===
+            star
+          ) {
+            fillPercent = 50;
+          }
 
-        return (
-          <div
-            key={star}
-            className={
-              readonly
-                ? "relative"
-                : "relative cursor-pointer"
-            }
-            style={{
-              width: size,
-              height: size,
-            }}
-            onClick={() => handleClick(star)}
-            onMouseEnter={() => handleMouseEnter(star)}
-            onMouseLeave={handleMouseLeave}
-          >
-            <Star
-              size={size}
-              fill="#ddd"
-              stroke="#ddd"
-            />
-
+          return (
             <div
-              className="
-                absolute
-                left-0
-                top-0
-                overflow-hidden
-              "
+              key={star}
+              className={
+                readonly
+                  ? "relative"
+                  : "relative cursor-pointer"
+              }
               style={{
-                width: `${fillPercent}%`,
+                width: size,
+                height: size,
               }}
+              onClick={() =>
+                handleClick(star)
+              }
+              onMouseEnter={() =>
+                handleMouseEnter(star)
+              }
+              onMouseLeave={
+                handleMouseLeave
+              }
             >
               <Star
                 size={size}
-                fill="#FFD700"
-                stroke="#FFD700"
+                fill="#ddd"
+                stroke="#ddd"
               />
+
+              <div
+                className="
+                  absolute
+                  left-0
+                  top-0
+                  overflow-hidden
+                "
+                style={{
+                  width: `${fillPercent}%`,
+                }}
+              >
+                <Star
+                  size={size}
+                  fill="#FFD700"
+                  stroke="#FFD700"
+                />
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        }
+      )}
     </div>
   );
 };
@@ -272,31 +292,39 @@ const ItemDetailsSkeleton = () => (
         <Skeleton
           width="40%"
           height="24px"
-          style={{ marginTop: 8 }}
+          style={{
+            marginTop: 8,
+          }}
         />
 
         <Skeleton
           width="90%"
           height="16px"
-          style={{ marginTop: 8 }}
+          style={{
+            marginTop: 8,
+          }}
         />
 
         <div className="mt-2 flex gap-[5px]">
-          {[...Array(5)].map((_, i) => (
-            <Skeleton
-              key={i}
-              width="22px"
-              height="22px"
-              borderRadius={999}
-            />
-          ))}
+          {[...Array(5)].map(
+            (_, i) => (
+              <Skeleton
+                key={i}
+                width="22px"
+                height="22px"
+                borderRadius={999}
+              />
+            )
+          )}
         </div>
 
         <Skeleton
           width="120px"
           height="34px"
           borderRadius={6}
-          style={{ marginTop: 12 }}
+          style={{
+            marginTop: 12,
+          }}
         />
       </div>
     </div>
@@ -308,14 +336,16 @@ const ItemDetailsSkeleton = () => (
       />
 
       <div className="my-2 flex gap-[5px]">
-        {[...Array(5)].map((_, i) => (
-          <Skeleton
-            key={i}
-            width="22px"
-            height="22px"
-            borderRadius={999}
-          />
-        ))}
+        {[...Array(5)].map(
+          (_, i) => (
+            <Skeleton
+              key={i}
+              width="22px"
+              height="22px"
+              borderRadius={999}
+            />
+          )
+        )}
       </div>
 
       <Skeleton
@@ -328,75 +358,87 @@ const ItemDetailsSkeleton = () => (
         width="120px"
         height="34px"
         borderRadius={6}
-        style={{ marginTop: 8 }}
+        style={{
+          marginTop: 8,
+        }}
       />
     </div>
 
     <div>
-      {[...Array(3)].map((_, i) => (
-        <div
-          key={i}
-          className="
-            mb-3
-            rounded-md
-            border
-            border-gray-300
-            bg-[#fafafa]
-            p-3
-          "
-        >
-          <Skeleton
-            width="120px"
-            height="16px"
-          />
+      {[...Array(3)].map(
+        (_, i) => (
+          <div
+            key={i}
+            className="
+              mb-3
+              rounded-md
+              border
+              border-gray-300
+              bg-[#fafafa]
+              p-3
+            "
+          >
+            <Skeleton
+              width="120px"
+              height="16px"
+            />
 
-          <Skeleton
-            width="80px"
-            height="14px"
-            style={{ marginTop: 4 }}
-          />
+            <Skeleton
+              width="80px"
+              height="14px"
+              style={{
+                marginTop: 4,
+              }}
+            />
 
-          <div className="my-1 flex gap-[5px]">
-            {[...Array(5)].map((_, j) => (
+            <div className="my-1 flex gap-[5px]">
+              {[...Array(5)].map(
+                (_, j) => (
+                  <Skeleton
+                    key={j}
+                    width="20px"
+                    height="20px"
+                    borderRadius={999}
+                  />
+                )
+              )}
+            </div>
+
+            <Skeleton
+              width="90%"
+              height="14px"
+              style={{
+                marginTop: 4,
+              }}
+            />
+
+            <div className="mt-1 flex gap-[5px]">
               <Skeleton
-                key={j}
-                width="20px"
-                height="20px"
-                borderRadius={999}
+                width="60px"
+                height="30px"
+                borderRadius={6}
               />
-            ))}
+
+              <Skeleton
+                width="60px"
+                height="30px"
+                borderRadius={6}
+              />
+            </div>
           </div>
-
-          <Skeleton
-            width="90%"
-            height="14px"
-            style={{ marginTop: 4 }}
-          />
-
-          <div className="mt-1 flex gap-[5px]">
-            <Skeleton
-              width="60px"
-              height="30px"
-              borderRadius={6}
-            />
-
-            <Skeleton
-              width="60px"
-              height="30px"
-              borderRadius={6}
-            />
-          </div>
-        </div>
-      ))}
+        )
+      )}
     </div>
   </div>
 );
 
 /* ----------------------------- COMPONENT ------------------------- */
 const BuyerItemDetails = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } =
+    useParams<{ id: string }>();
 
-  const { addItem } = useCart();
+  const { addItem } =
+    useCart();
 
   const {
     user,
@@ -410,7 +452,9 @@ const BuyerItemDetails = () => {
       : null;
 
   const [item, setItem] =
-    useState<SparePart | null>(null);
+    useState<SparePart | null>(
+      null
+    );
 
   const [reviews, setReviews] =
     useState<Review[]>([]);
@@ -430,7 +474,9 @@ const BuyerItemDetails = () => {
   const [
     editingReviewId,
     setEditingReviewId,
-  ] = useState<string | null>(null);
+  ] = useState<string | null>(
+    null
+  );
 
   const [editRating, setEditRating] =
     useState<number>(0);
@@ -443,7 +489,9 @@ const BuyerItemDetails = () => {
   /* ----------------------------- FETCH ------------------------- */
   const fetchItemAndReviews =
     async (): Promise<void> => {
-      if (!id) return;
+      if (!id) {
+        return;
+      }
 
       setLoading(true);
       setError(false);
@@ -477,46 +525,48 @@ const BuyerItemDetails = () => {
         const reviewData: Review[] =
           await reviewsRes.json();
 
-        /* --------------------------- NORMALIZE REVIEWS --------------------------- */
         const normalizedReviews =
-          reviewData.map((review) => ({
-            ...review,
+          reviewData.map(
+            (review) => ({
+              ...review,
 
-            id: String(
-              review.id
-            ),
+              id: String(
+                review.id
+              ),
 
-            user_id: String(
-              review.user_id
-            ),
+              user_id: String(
+                review.user_id
+              ),
 
-            total_likes: Number(
-              review.total_likes ?? 0
-            ),
+              total_likes:
+                Number(
+                  review.total_likes ??
+                    0
+                ),
 
-            total_dislikes: Number(
-              review.total_dislikes ?? 0
-            ),
+              total_dislikes:
+                Number(
+                  review.total_dislikes ??
+                    0
+                ),
 
-            user_reaction:
-              review.user_reaction ===
-              true
-                ? true
-                : review.user_reaction ===
-                    false
-                  ? false
-                  : null,
+              user_reaction:
+                review.user_reaction ===
+                true
+                  ? true
+                  : review.user_reaction ===
+                      false
+                    ? false
+                    : null,
 
-            display_name:
-              review.user_display_name ??
-              review.display_name ??
-              "User",
-          }));
+              display_name:
+                review.user_display_name ??
+                review.display_name ??
+                "User",
+            })
+          );
 
-        setItem(
-          itemData
-        );
-
+        setItem(itemData);
         setReviews(
           normalizedReviews
         );
@@ -530,7 +580,9 @@ const BuyerItemDetails = () => {
 
   /* ----------------------------- INITIAL LOAD ------------------------- */
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading) {
+      return;
+    }
 
     void fetchItemAndReviews();
   }, [
@@ -543,9 +595,10 @@ const BuyerItemDetails = () => {
     window.scrollTo(0, 0);
   }, [id]);
 
-  const averageRating = Number(
-    item?.average_rating ?? 0
-  );
+  const averageRating =
+    Number(
+      item?.average_rating ?? 0
+    );
 
   /* ----------------------------- USER REVIEW ------------------------- */
   const userReview =
@@ -554,111 +607,126 @@ const BuyerItemDetails = () => {
           (review) =>
             String(
               review.user_id
-            ) === currentUserId
+            ) ===
+            currentUserId
         ) ?? null
       : null;
 
   /* ----------------------------- REVIEW ACTION ------------------------- */
-  const handleReviewAction = async <T,>({
-    method,
-    endpoint,
-    body,
-    successMessage,
-  }: ReviewActionOptions<T>): Promise<boolean> => {
-    try {
-      const res = await authFetch(
-        `${config.API_BASE_URL}${endpoint}`,
-        {
-          method,
+  const handleReviewAction =
+    async ({
+      method,
+      endpoint,
+      body,
+      successMessage,
+    }: ReviewActionOptions): Promise<boolean> => {
+      try {
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}${endpoint}`,
+            {
+              method,
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-          body: body
-            ? JSON.stringify(body)
-            : undefined,
+              body: body
+                ? JSON.stringify(
+                    body
+                  )
+                : undefined,
+            }
+          );
+
+        if (!res.ok) {
+          const errData =
+            await res
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          throw new Error(
+            errData.error ??
+              errData.detail ??
+              errData.message ??
+              "Action failed"
+          );
         }
-      );
 
-      if (!res.ok) {
-        const errData = await res
-          .json()
-          .catch(() => ({}));
-
-        throw new Error(
-          errData.error ??
-            errData.detail ??
-            errData.message ??
-            "Action failed"
-        );
-      }
-
-      if (successMessage) {
-        toast.success(
+        if (
           successMessage
+        ) {
+          toast.success(
+            successMessage
+          );
+        }
+
+        await fetchItemAndReviews();
+
+        return true;
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Action failed"
         );
+
+        return false;
       }
-
-      await fetchItemAndReviews();
-
-      return true;
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Action failed"
-      );
-
-      return false;
-    }
-  };
+    };
 
   /* ----------------------------- CREATE REVIEW ------------------------- */
-  const submitReview = (): void => {
-    if (userReview) {
-      toast.info(
-        "You already reviewed this item."
+  const submitReview =
+    (): void => {
+      if (userReview) {
+        toast.info(
+          "You already reviewed this item."
+        );
+
+        return;
+      }
+
+      if (
+        !rating &&
+        !comment.trim()
+      ) {
+        toast.error(
+          "Add a rating or comment"
+        );
+
+        return;
+      }
+
+      void handleReviewAction({
+        method: "POST",
+
+        endpoint: `/reviews/${id}/`,
+
+        body: {
+          rating:
+            rating || undefined,
+
+          comment:
+            comment.trim() ||
+            undefined,
+        },
+
+        successMessage:
+          "Review added",
+      }).then(
+        (success) => {
+          if (!success) {
+            return;
+          }
+
+          setRating(0);
+          setComment("");
+        }
       );
-
-      return;
-    }
-
-    if (
-      !rating &&
-      !comment.trim()
-    ) {
-      toast.error(
-        "Add a rating or comment"
-      );
-
-      return;
-    }
-
-    void handleReviewAction<Review>({
-      method: "POST",
-
-      endpoint: `/reviews/${id}/`,
-
-      body: {
-        rating:
-          rating || undefined,
-
-        comment:
-          comment.trim() ||
-          undefined,
-      },
-
-      successMessage:
-        "Review added",
-    }).then((success) => {
-      if (!success) return;
-
-      setRating(0);
-      setComment("");
-    });
-  };
+    };
 
   /* ----------------------------- EDIT ------------------------- */
   const startEdit = (
@@ -688,11 +756,15 @@ const BuyerItemDetails = () => {
     );
   };
 
-  const cancelEdit = (): void => {
-    setEditingReviewId(null);
-    setEditRating(0);
-    setEditComment("");
-  };
+  const cancelEdit =
+    (): void => {
+      setEditingReviewId(
+        null
+      );
+
+      setEditRating(0);
+      setEditComment("");
+    };
 
   const saveEdit = (
     review: Review
@@ -719,7 +791,7 @@ const BuyerItemDetails = () => {
       return;
     }
 
-    void handleReviewAction<Review>({
+    void handleReviewAction({
       method: "PATCH",
 
       endpoint: `/reviews/${review.id}/edit/`,
@@ -736,11 +808,13 @@ const BuyerItemDetails = () => {
 
       successMessage:
         "Review updated",
-    }).then((success) => {
-      if (success) {
-        cancelEdit();
+    }).then(
+      (success) => {
+        if (success) {
+          cancelEdit();
+        }
       }
-    });
+    );
   };
 
   /* ----------------------------- DELETE ------------------------- */
@@ -758,7 +832,7 @@ const BuyerItemDetails = () => {
       return;
     }
 
-    void handleReviewAction<void>({
+    void handleReviewAction({
       method: "DELETE",
 
       endpoint: `/reviews/${review.id}/delete/`,
@@ -768,113 +842,128 @@ const BuyerItemDetails = () => {
     });
   };
 
-  /* ----------------------------- REACTION ------------------------- */
-  const reactToReview = async (
-    review: Review,
-    isLike: boolean
-  ): Promise<void> => {
-    // The owner cannot react to their own review.
-    if (
-      userReview?.id ===
-      review.id
-    ) {
-      return;
-    }
-
-    if (
-      currentUserId === null
-    ) {
-      toast.info(
-        "Please log in to react to reviews."
-      );
-
-      return;
-    }
-
-    try {
-      const res =
-        await authFetch(
-          `${config.API_BASE_URL}/reviews/${review.id}/react/`,
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-
-            body: JSON.stringify({
-              is_like:
-                isLike,
-            }),
-          }
-        );
-
-      if (!res.ok) {
-        const errData = await res
-          .json()
-          .catch(() => ({}));
-
-        throw new Error(
-          errData.error ??
-            errData.detail ??
-            errData.message ??
-            "Failed to react"
-        );
+  /* ----------------------------- COMMENT REACTION ------------------------- */
+  const reactToComment =
+    async (
+      review: Review,
+      isLike: boolean
+    ): Promise<void> => {
+      if (
+        !review.comment?.trim()
+      ) {
+        return;
       }
 
-      const data: ReviewReactionResponse =
-        await res.json();
+      if (
+        userReview?.id ===
+        review.id
+      ) {
+        return;
+      }
 
-      setReviews((prev) =>
-        prev.map(
-          (
-            existingReview
-          ) =>
-            String(
-              existingReview.id
-            ) ===
-            String(review.id)
-              ? {
-                  ...existingReview,
+      if (
+        currentUserId === null
+      ) {
+        toast.info(
+          "Please log in to react to comments."
+        );
 
-                  total_likes:
-                    Number(
-                      data.review
-                        .total_likes
-                    ),
+        return;
+      }
 
-                  total_dislikes:
-                    Number(
-                      data.review
-                        .total_dislikes
-                    ),
+      try {
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/reviews/${review.id}/react/`,
+            {
+              method: "POST",
 
-                  user_reaction:
-                    data.review
-                      .user_reaction ===
-                    true
-                      ? true
-                      : data.review
-                            .user_reaction ===
-                          false
-                        ? false
-                        : null,
-                }
-              : existingReview
-        )
-      );
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to react"
-      );
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
 
-      // refetch
-      await fetchItemAndReviews();
-    }
-  };
+              body: JSON.stringify({
+                is_like:
+                  isLike,
+              }),
+            }
+          );
+
+        if (!res.ok) {
+          const errData =
+            await res
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          throw new Error(
+            errData.error ??
+              errData.detail ??
+              errData.message ??
+              "Failed to react to comment"
+          );
+        }
+
+        const data: ReviewReactionResponse =
+          await res.json();
+
+        setReviews(
+          (prev) =>
+            prev.map(
+              (
+                existingReview
+              ) =>
+                String(
+                  existingReview.id
+                ) ===
+                String(
+                  review.id
+                )
+                  ? {
+                      ...existingReview,
+
+                      total_likes:
+                        Number(
+                          data
+                            .comment
+                            .total_likes
+                        ),
+
+                      total_dislikes:
+                        Number(
+                          data
+                            .comment
+                            .total_dislikes
+                        ),
+
+                      user_reaction:
+                        data
+                          .comment
+                          .user_reaction ===
+                        true
+                          ? true
+                          : data
+                                .comment
+                                .user_reaction ===
+                              false
+                            ? false
+                            : null,
+                    }
+                  : existingReview
+            )
+        );
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Failed to react to comment"
+        );
+
+        await fetchItemAndReviews();
+      }
+    };
 
   /* ----------------------------- LOADING ------------------------- */
   if (
@@ -1164,6 +1253,11 @@ const BuyerItemDetails = () => {
               userReview?.id ===
               review.id;
 
+            const hasComment =
+              Boolean(
+                review.comment?.trim()
+              );
+
             return (
               <div
                 key={review.id}
@@ -1176,7 +1270,6 @@ const BuyerItemDetails = () => {
                   p-3
                 "
               >
-                
                 {/* ----------------------------- EDIT MODE ------------------------- */}
                 {editingReviewId ===
                 review.id ? (
@@ -1257,7 +1350,6 @@ const BuyerItemDetails = () => {
                   </>
                 ) : (
                   <>
-
                     {/* ----------------------------- REVIEW HEADER ------------------------- */}
                     <div className="mb-1.5 flex items-center justify-between">
                       <span className="ml-3 font-bold text-[rgb(0,64,128)]">
@@ -1279,7 +1371,7 @@ const BuyerItemDetails = () => {
                       </span>
                     </div>
 
-                    {/* ----------------------------- RATING ------------------------- */}
+                    {/* ----------------------------- STAR RATING ------------------------- */}
                     <StarRating
                       value={
                         review.rating ??
@@ -1290,7 +1382,7 @@ const BuyerItemDetails = () => {
                     />
 
                     {/* ----------------------------- COMMENT ------------------------- */}
-                    {review.comment && (
+                    {hasComment && (
                       <p className="my-2 leading-6">
                         {
                           review.comment
@@ -1342,82 +1434,80 @@ const BuyerItemDetails = () => {
                         </button>
                       </div>
                     ) : (
-
-                      /* ----------------------------- OTHER USER REACTIONS ------------------------- */
-                      <div className="flex gap-3">
-
-                        {/* ----------------------------- LIKE ------------------------- */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            reactToReview(
-                              review,
-                              true
-                            )
-                          }
-                          className={`
-                            inline-flex
-                            items-center
-                            gap-1
-                            rounded
-                            bg-[#e0e0e0]
-                            px-[10px]
-                            py-1
-                            transition-colors
-                            hover:bg-[#d5d5d5]
-                            ${
-                              review.user_reaction ===
-                              true
-                                ? "text-[#0f9d58]"
-                                : "text-[#333]"
+                      /* ----------------------------- COMMENT REACTIONS ------------------------- */
+                      hasComment && (
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              reactToComment(
+                                review,
+                                true
+                              )
                             }
-                          `}
-                        >
-                          <ThumbsUp
-                            size={16}
-                          />
+                            className={`
+                              inline-flex
+                              items-center
+                              gap-1
+                              rounded
+                              bg-[#e0e0e0]
+                              px-[10px]
+                              py-1
+                              transition-colors
+                              hover:bg-[#d5d5d5]
+                              ${
+                                review.user_reaction ===
+                                true
+                                  ? "text-[#0f9d58]"
+                                  : "text-[#333]"
+                              }
+                            `}
+                          >
+                            <ThumbsUp
+                              size={16}
+                            />
 
-                          {
-                            review.total_likes
-                          }
-                        </button>
-
-                        {/* ----------------------------- DISLIKE ------------------------- */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            reactToReview(
-                              review,
-                              false
-                            )
-                          }
-                          className={`
-                            inline-flex
-                            items-center
-                            gap-1
-                            rounded
-                            bg-[#e0e0e0]
-                            px-[10px]
-                            py-1
-                            transition-colors
-                            hover:bg-[#d5d5d5]
-                            ${
-                              review.user_reaction ===
-                              false
-                                ? "text-[#d93025]"
-                                : "text-[#333]"
+                            {
+                              review.total_likes
                             }
-                          `}
-                        >
-                          <ThumbsDown
-                            size={16}
-                          />
+                          </button>
 
-                          {
-                            review.total_dislikes
-                          }
-                        </button>
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              reactToComment(
+                                review,
+                                false
+                              )
+                            }
+                            className={`
+                              inline-flex
+                              items-center
+                              gap-1
+                              rounded
+                              bg-[#e0e0e0]
+                              px-[10px]
+                              py-1
+                              transition-colors
+                              hover:bg-[#d5d5d5]
+                              ${
+                                review.user_reaction ===
+                                false
+                                  ? "text-[#d93025]"
+                                  : "text-[#333]"
+                              }
+                            `}
+                          >
+                            <ThumbsDown
+                              size={16}
+                            />
+
+                            {
+                              review.total_dislikes
+                            }
+                          </button>
+                        </div>
+                      )
                     )}
                   </>
                 )}
@@ -1431,4 +1521,3 @@ const BuyerItemDetails = () => {
 };
 
 export default BuyerItemDetails;
-

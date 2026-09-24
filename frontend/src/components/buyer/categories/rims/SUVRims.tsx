@@ -1,6 +1,6 @@
-import { useEffect, useState,useRef, type MouseEvent, type ReactElement } from "react";
+import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown,ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -29,58 +29,25 @@ const SkeletonCard = (): ReactElement => (
   <div
     className="
       relative
+      flex
+      h-full
+      flex-col
+      items-center
       overflow-hidden
-      bg-[#f6f7f8]
       rounded-xl
+      bg-[#f6f7f8]
       p-3
     "
   >
-    <div
-      className="
-        w-full
-        h-[140px]
-        rounded-lg
-        bg-[#e0e0e0]
-        mb-2.5
-      "
-    />
-    <div
-      className="
-        h-3
-        rounded-md
-        bg-[#e0e0e0]
-        my-2
-        w-[80%]
-      "
-    />
-    <div
-      className="
-        h-3
-        rounded-md
-        bg-[#e0e0e0]
-        my-2
-        w-[60%]
-      "
-    />
-    <div
-      className="
-        h-3
-        rounded-md
-        bg-[#e0e0e0]
-        my-2
-        w-[40%]
-      "
-    />
-    <div
-      className="
-        h-8
-        rounded-lg
-        bg-[#e0e0e0]
-        mt-2.5
-        w-full
-      "
-    />
+    <div className="mb-[10px] h-[140px] w-full rounded-[10px] bg-[#e0e0e0]" />
 
+    <div className="my-2 h-3 w-[80%] rounded-md bg-[#e0e0e0]" />
+
+    <div className="my-2 h-3 w-[60%] rounded-md bg-[#e0e0e0]" />
+
+    <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
+
+    <div className="mt-[10px] h-8 w-full rounded-lg bg-[#e0e0e0]" />
   </div>
 );
 
@@ -88,66 +55,46 @@ const SkeletonCard = (): ReactElement => (
 const ErrorState = ({
   onRetry,
 }: ErrorStateProps): ReactElement => (
-  <div
-    className="
-      text-center
-      py-10
-      px-5
-    "
-  >
-    <h2
-      className="
-        text-2xl
-        mb-2.5
-      "
-    >
+  <div className="px-5 py-10 text-center">
+    <h2 className="mb-[10px] text-2xl font-semibold">
       Something went wrong
     </h2>
 
-    <p
-      className="
-        text-[#666]
-        mb-5
-      "
-    >
+    <p className="mb-5 text-[#666]">
       Unable to load spare parts. Please check your connection and try again.
     </p>
+
     <button
+      type="button"
       className="
+        mb-[30px]
         inline-flex
+        cursor-pointer
         items-center
         gap-2
-        py-2.5
-        px-5
-        bg-[#111]
-        text-white
         rounded-md
-        cursor-pointer
+        bg-[#111]
+        px-5
+        py-[10px]
+        text-white
         transition
         hover:opacity-85
-        mb-[30px]
       "
       onClick={() => void onRetry()}
     >
-
       <RefreshCw
         size={18}
-        className="
-          transition-transform
-          duration-500
-        "
+        className="transition-transform duration-500"
       />
-
       Retry
-
     </button>
-
   </div>
 );
 
 /* ---------------- Component ---------------- */
 const SUVRims = (): ReactElement => {
   const [items, setItems] = useState<SparePart[]>([]);
+
   const [brand, setBrand] = useState<string>("");
   const [colour, setColour] = useState<string>("");
   const [price, setPrice] = useState<string>("");
@@ -156,12 +103,11 @@ const SUVRims = (): ReactElement => {
   const [brandOpen, setBrandOpen] = useState<boolean>(false);
   const [colourOpen, setColourOpen] = useState<boolean>(false);
   const [priceOpen, setPriceOpen] = useState<boolean>(false);
-  
+
   /* ---------------- Dropdown Refs ---------------- */
   const brandDropdownRef = useRef<HTMLDivElement>(null);
   const colourDropdownRef = useRef<HTMLDivElement>(null);
   const priceDropdownRef = useRef<HTMLDivElement>(null);
-    
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -170,7 +116,7 @@ const SUVRims = (): ReactElement => {
 
   const { addItem } = useCart();
 
-    const availableBrands: string[] = [
+  const availableBrands: string[] = [
     "Enkei",
     "BBS",
     "OZ Racing",
@@ -180,17 +126,14 @@ const SUVRims = (): ReactElement => {
     "Advan",
   ];
 
-
   const availableColours: string[] = [
     "silver",
     "black",
     "gold",
   ];
 
-
   /* ---------------- Fetch Rims ---------------- */
   const fetchRims = async (): Promise<void> => {
-
     setLoading(true);
     setError(false);
 
@@ -205,39 +148,34 @@ const SUVRims = (): ReactElement => {
     });
 
     try {
-
       const response = await fetch(
         `${config.API_BASE_URL}/spareparts/?${params.toString()}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed");
+        throw new Error("Failed to fetch rims");
       }
 
-      const data: SparePartsResponse =
-        await response.json();
+      const data: SparePartsResponse = await response.json();
 
       setItems(data.items ?? []);
       setTotalPages(data.pages ?? 1);
-
     } catch (err) {
       console.error(err);
       setItems([]);
       setError(true);
-
     } finally {
       setLoading(false);
     }
   };
 
   /* ---------------- Effects ---------------- */
-  // Scrolls to the top whenever the pagination page changes
   useEffect(() => {
-   window.scrollTo({
-     top: 0,
-     left: 0,
-     behavior: "auto",
-   });
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
   }, [currentPage]);
 
   useEffect(() => {
@@ -250,27 +188,34 @@ const SUVRims = (): ReactElement => {
   ]);
 
   useEffect(() => {
-
     setCurrentPage(1);
-
   }, [
     brand,
     colour,
     price,
   ]);
 
+  /* ---------------- Back To Available Parts ---------------- */
+  const handleBackToAvailableParts = (): void => {
+    setBrand("");
+    setColour("");
+    setPrice("");
+    setCurrentPage(1);
+
+    setBrandOpen(false);
+    setColourOpen(false);
+    setPriceOpen(false);
+  };
+
   /* ---------------- Cart ---------------- */
   const handleAddToCart = (
     item: SparePart,
     event: MouseEvent<HTMLButtonElement>
   ): void => {
-
     event.preventDefault();
-
     event.stopPropagation();
 
     addItem(item);
-
   };
 
   /* ---------------- Filters Dropdown ---------------- */
@@ -339,18 +284,11 @@ const SUVRims = (): ReactElement => {
       1
     );
 
-    for (
-      let i = start;
-      i <= end;
-      i++
-    ) {
-
+    for (let i = start; i <= end; i += 1) {
       pages.push(i);
-
     }
 
     return pages;
-
   };
 
   const visiblePages = getVisiblePages();
@@ -359,15 +297,43 @@ const SUVRims = (): ReactElement => {
   return (
     <div
       className="
+        mt-[70px]
         min-h-screen
+        bg-[#f9f9f9]
         p-5
         pb-[70px]
-        mt-[70px]
-        bg-[#f9f9f9]
         font-[Arial,sans-serif]
+        max-[480px]:max-w-[480px]
+        max-[480px]:pb-5
       "
     >
-      
+      {/* Back To Available Parts */}
+      {!error &&
+        (brand !== "" ||
+          colour !== "" ||
+          price !== "") && (
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={handleBackToAvailableParts}
+              aria-label="Back to available parts"
+              className="
+                mt-4
+                inline-flex
+                items-center
+                justify-center
+                rounded-md
+                p-2
+                text-[rgb(0,64,128)]
+                transition-colors
+                hover:bg-[#eaf2f8]
+              "
+            >
+              <ArrowLeft size={30} />
+            </button>
+          </div>
+        )}
+
       {/* Filters */}
       {!error && (
         <div
@@ -387,11 +353,10 @@ const SUVRims = (): ReactElement => {
               justify-center
               gap-4
               max-[480px]:mt-3
-              max-[480px]:gap-2
               max-[480px]:items-center
+              max-[480px]:gap-2
             "
           >
-
             {/* Brand Dropdown */}
             <div
               ref={brandDropdownRef}
@@ -437,20 +402,12 @@ const SUVRims = (): ReactElement => {
                 {brandOpen ? (
                   <ChevronUp
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                    "
+                    className="ml-2 shrink-0 text-gray-600"
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                    "
+                    className="ml-2 shrink-0 text-gray-600"
                   />
                 )}
               </button>
@@ -497,36 +454,34 @@ const SUVRims = (): ReactElement => {
                     All Brands
                   </button>
 
-                  {availableBrands.map(
-                    (itemBrand) => (
-                      <button
-                        key={itemBrand}
-                        type="button"
-                        onClick={() => {
-                          setBrand(itemBrand);
-                          setBrandOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:text-base
-                          ${
-                            brand === itemBrand
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemBrand}
-                      </button>
-                    )
-                  )}
+                  {availableBrands.map((itemBrand) => (
+                    <button
+                      key={itemBrand}
+                      type="button"
+                      onClick={() => {
+                        setBrand(itemBrand);
+                        setBrandOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          brand === itemBrand
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemBrand}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -543,9 +498,7 @@ const SUVRims = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setColourOpen(
-                    (open) => !open
-                  );
+                  setColourOpen((open) => !open);
                   setBrandOpen(false);
                   setPriceOpen(false);
                 }}
@@ -581,20 +534,12 @@ const SUVRims = (): ReactElement => {
                 {colourOpen ? (
                   <ChevronUp
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                    "
+                    className="ml-2 shrink-0 text-gray-600"
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                    "
+                    className="ml-2 shrink-0 text-gray-600"
                   />
                 )}
               </button>
@@ -641,39 +586,35 @@ const SUVRims = (): ReactElement => {
                     All Colours
                   </button>
 
-                  {availableColours.map(
-                    (itemColour) => (
-                      <button
-                        key={itemColour}
-                        type="button"
-                        onClick={() => {
-                          setColour(itemColour);
-                          setColourOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:text-base
-                          ${
-                            colour === itemColour
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemColour
-                          .charAt(0)
-                          .toUpperCase() +
-                          itemColour.slice(1)}
-                      </button>
-                    )
-                  )}
+                  {availableColours.map((itemColour) => (
+                    <button
+                      key={itemColour}
+                      type="button"
+                      onClick={() => {
+                        setColour(itemColour);
+                        setColourOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          colour === itemColour
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemColour.charAt(0).toUpperCase() +
+                        itemColour.slice(1)}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -690,9 +631,7 @@ const SUVRims = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setPriceOpen(
-                    (open) => !open
-                  );
+                  setPriceOpen((open) => !open);
                   setBrandOpen(false);
                   setColourOpen(false);
                 }}
@@ -731,20 +670,12 @@ const SUVRims = (): ReactElement => {
                 {priceOpen ? (
                   <ChevronUp
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                    "
+                    className="ml-2 shrink-0 text-gray-600"
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                    "
+                    className="ml-2 shrink-0 text-gray-600"
                   />
                 )}
               </button>
@@ -875,14 +806,12 @@ const SUVRims = (): ReactElement => {
         </div>
       )}
 
-   {/* -------- Error State -------- */}
-   {error ? (
-     <ErrorState
-       onRetry={fetchRims}
-      />
-       ) : (
+      {/* Error */}
+      {error ? (
+        <ErrorState onRetry={fetchRims} />
+      ) : (
         <>
-          {/* -------- Products Grid -------- */}
+          {/* Products Grid */}
           <div
             className="
               grid
@@ -892,62 +821,63 @@ const SUVRims = (): ReactElement => {
             "
           >
             {loading ? (
-              Array.from({
-                length: 8
-              }).map((_, index) => (
-                <SkeletonCard
-                  key={index}
-                />
-
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
               ))
-            ) : items.length ? (
+            ) : items.length > 0 ? (
               items.map((item) => (
                 <div
                   key={item.id}
                   className="
-                    bg-white
+                    flex
+                    h-full
+                    cursor-pointer
+                    flex-col
+                    items-center
                     rounded-xl
+                    bg-white
                     p-3
                     shadow-[0_4px_10px_rgba(0,0,0,0.1)]
                     transition-all
                     duration-200
-                    flex
-                    flex-col
-                    items-center
-                    cursor-pointer
-                    h-full
                     hover:-translate-y-1
                     hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                    max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
+                    max-[480px]:hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)]
                   "
                 >
                   <Link
                     to={`/items/${item.id}`}
                     className="
-                      w-full
                       flex
+                      h-full
+                      w-full
                       flex-col
                       items-center
+                      text-inherit
+                      no-underline
                     "
                   >
                     <img
                       src={item.image}
                       alt={item.brand}
                       className="
-                        w-full
+                        mb-[10px]
                         h-[150px]
-                        object-contain
-                        mb-2.5
+                        w-full
                         rounded-lg
-                        max-[480px]:w-[60%]
+                        object-contain
                         max-[480px]:h-auto
+                        max-[480px]:w-[60%]
                         max-[480px]:object-cover
                       "
                     />
+
                     <h4
                       className="
-                        text-center
                         my-[5px]
-                        mb-2.5
+                        mb-[10px]
+                        text-center
                         text-base
                         text-[#333]
                       "
@@ -955,47 +885,46 @@ const SUVRims = (): ReactElement => {
                       {item.brand} {item.category} for{" "}
                       {item.vehicle_type}
                     </h4>
+
                     <p
                       className="
+                        mb-[10px]
+                        text-lg
                         font-bold
                         text-red-600
-                        text-lg
-                        mb-2.5
                       "
                     >
                       KES{" "}
-                      {item.buying_price?.toLocaleString("en-US")}
+                      {item.buying_price.toLocaleString("en-US")}
+
                       {item.discount_percentage > 0 && (
                         <span
                           className="
-                            text-[#d9534f]
-                            font-normal
                             ml-1
+                            font-normal
+                            text-[#d9534f]
                           "
                         >
                           (-{item.discount_percentage.toFixed(0)}%)
                         </span>
                       )}
                     </p>
+
                     <button
+                      type="button"
+                      onClick={(event) =>
+                        handleAddToCart(item, event)
+                      }
                       className="
-                        bg-[rgb(0,64,128)]
-                        text-white
-                        border-none
-                        py-2
-                        px-3
                         rounded-md
-                        cursor-pointer
+                        bg-[rgb(0,64,128)]
+                        px-3
+                        py-2
                         font-bold
+                        text-white
                         transition-colors
                         hover:bg-[rgb(4,37,71)]
                       "
-                      onClick={(event) =>
-                        handleAddToCart(
-                          item,
-                          event
-                        )
-                      }
                     >
                       Add To Cart
                     </button>
@@ -1006,218 +935,148 @@ const SUVRims = (): ReactElement => {
               <p
                 className="
                   col-span-full
+                  mb-20
                   text-center
-                  text-[#7f0d0d]
                   text-base
-                  mb-[80px]
+                  text-[#7f0d0d]
                 "
               >
                 No SUV rims found.
               </p>
             )}
           </div>
-                    {/* -------- Pagination -------- */}
 
-
+          {/* Pagination */}
           {loading ? (
-
-            <div
-              className="
-                flex
-                justify-center
-                items-center
-                gap-2
-                mt-4
-              "
-            >
-
+            <div className="mt-4 flex items-center justify-center gap-2">
               {[1, 2, 3, 4].map((item) => (
-
                 <div
                   key={item}
                   className="
-                    w-10
                     h-8
+                    w-10
                     rounded-md
                     bg-[#e0e0e0]
                   "
                 />
-
               ))}
-
             </div>
-
-
-
-          ) : totalPages > 1 && (
-
-            <div
-              className="
-                flex
-                justify-center
-                items-center
-                gap-1.5
-                my-[30px]
-                flex-wrap
-              "
-            >
-
-
-              <button
-                disabled={
-                  currentPage === 1
-                }
+          ) : (
+            totalPages > 1 && (
+              <div
                 className="
-                  py-1.5
-                  px-3
-                  border
-                  border-[#ddd]
-                  bg-white
-                  rounded
-                  text-sm
-                  cursor-pointer
-                  hover:bg-[#f0f0f0]
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
+                  my-[30px]
+                  flex
+                  flex-wrap
+                  items-center
+                  justify-center
+                  gap-[6px]
                 "
-                onClick={() =>
-                  setCurrentPage((page) =>
-                    Math.max(
-                      page - 1,
-                      1
-                    )
-                  )
-                }
               >
-                Prev
-              </button>
-
-
-
-
-
-              {visiblePages[0] > 1 && (
-
-                <span
+                <button
+                  type="button"
+                  disabled={currentPage === 1}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
+                    )
+                  }
                   className="
-                    px-1.5
-                    text-base
-                    select-none
+                    rounded
+                    border
+                    border-[#ddd]
+                    bg-white
+                    px-3
+                    py-[6px]
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f0f0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
                   "
                 >
-                  …
-                </span>
-
-              )}
-
-
-
-
-
-
-              {visiblePages.map((page) => (
-
-                <button
-                  key={page}
-                  className={`
-                    py-1.5
-                    px-3
-                    border
-                    rounded
-                    text-sm
-                    cursor-pointer
-                    ${
-                      page === currentPage
-                        ? `
-                          bg-[#004080]
-                          text-white
-                          border-[#004080]
-                          font-semibold
-                        `
-                        : `
-                          border-[#ddd]
-                          bg-white
-                          hover:bg-[#f0f0f0]
-                        `
-                    }
-                  `}
-                  onClick={() =>
-                    setCurrentPage(page)
-                  }
-                >
-                  {page}
+                  Prev
                 </button>
 
-              ))}
+                {visiblePages[0] > 1 && (
+                  <span
+                    className="
+                      select-none
+                      px-[6px]
+                      text-base
+                    "
+                  >
+                    …
+                  </span>
+                )}
 
+                {visiblePages.map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`
+                      rounded
+                      border
+                      px-3
+                      py-[6px]
+                      text-sm
+                      transition-colors
+                      ${
+                        page === currentPage
+                          ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
+                          : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
+                      }
+                    `}
+                  >
+                    {page}
+                  </button>
+                ))}
 
+                {visiblePages[
+                  visiblePages.length - 1
+                ] < totalPages && (
+                  <span
+                    className="
+                      select-none
+                      px-[6px]
+                      text-base
+                    "
+                  >
+                    …
+                  </span>
+                )}
 
-
-
-              {visiblePages[
-                visiblePages.length - 1
-              ] < totalPages && (
-
-                <span
+                <button
+                  type="button"
+                  disabled={currentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, totalPages)
+                    )
+                  }
                   className="
-                    px-1.5
-                    text-base
-                    select-none
+                    rounded
+                    border
+                    border-[#ddd]
+                    bg-white
+                    px-3
+                    py-[6px]
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f0f0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
                   "
                 >
-                  …
-                </span>
-
-              )}
-
-
-
-
-
-
-              <button
-                disabled={
-                  currentPage === totalPages
-                }
-                className="
-                  py-1.5
-                  px-3
-                  border
-                  border-[#ddd]
-                  bg-white
-                  rounded
-                  text-sm
-                  cursor-pointer
-                  hover:bg-[#f0f0f0]
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                "
-                onClick={() =>
-                  setCurrentPage((page) =>
-                    Math.min(
-                      page + 1,
-                      totalPages
-                    )
-                  )
-                }
-              >
-                Next
-              </button>
-
-
-
-            </div>
-
+                  Next
+                </button>
+              </div>
+            )
           )}
-
-
         </>
-
       )}
-
-
     </div>
-
   );
 };
 

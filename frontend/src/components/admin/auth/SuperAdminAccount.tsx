@@ -6,29 +6,26 @@ import { useAuth } from "../../../contexts/AuthContext";
 const SuperAdminAccount = (): React.JSX.Element => {
   const {
     user,
+    logout,
     sendChangePasswordOtp,
     completeChangePassword,
     sendDeleteAccountOtp,
     completeDeleteAccount,
     resendOtp,
     otpSent,
-    otpCountdown,
+    otpCountdowns,
     changePasswordLoading,
     resendLoading,
     deleteAccountLoading,
   } = useAuth();
 
-  if (!user) {
-    return <></>;
-  }
-
-  // ---------------- Visibility ----------------
+  // ------------------------------ Visibility State -------------------------------------------
   const [
     showChangePassword,
     setShowChangePassword,
   ] = useState<boolean>(false);
 
-  // ---------------- Change Password ----------------
+  // ------------------------------ Change Password State -------------------------------------------
   const [step, setStep] =
     useState<number>(1);
 
@@ -60,7 +57,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
     setPasswordFocused,
   ] = useState<boolean>(false);
 
-  // ---------------- Delete Account ----------------
+  // ------------------------------ Delete Account State -------------------------------------------
   const [
     showDeleteConfirm,
     setShowDeleteConfirm,
@@ -76,7 +73,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
     setDeleteOtp,
   ] = useState<string>("");
 
-  // ---------------- Password Validation ----------------
+  // ------------------------------ Password Validation -------------------------------------------
   const passwordPattern =
     /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
@@ -86,7 +83,13 @@ const SuperAdminAccount = (): React.JSX.Element => {
   const requirementMessage =
     "Password must be at least 8 characters and include one uppercase letter, one number, and one special character.";
 
-  // ---------------- Request Change Password OTP ----------------
+  const changePasswordCountdown =
+    otpCountdowns.change_password;
+
+  const deleteAccountCountdown =
+    otpCountdowns.delete_account;
+
+  // ------------------------------ Request Change Password OTP -------------------------------------------
   const handleRequestOtp = async (
     e: {
       preventDefault: () => void;
@@ -115,7 +118,8 @@ const SuperAdminAccount = (): React.JSX.Element => {
 
     const success =
       await sendChangePasswordOtp(
-        currentPassword
+        currentPassword,
+        newPassword
       );
 
     if (success) {
@@ -123,7 +127,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
     }
   };
 
-  // ---------------- Complete Password Change ----------------
+  // ------------------------------ Complete Password Change -------------------------------------------
   const handleCompleteChangePassword =
     async (
       e: {
@@ -132,13 +136,14 @@ const SuperAdminAccount = (): React.JSX.Element => {
     ): Promise<void> => {
       e.preventDefault();
 
-      if (!otp) return;
+      if (!otp) {
+        return;
+      }
 
       const success =
         await completeChangePassword(
-          currentPassword,
-          newPassword,
-          otp
+          otp,
+          newPassword
         );
 
       if (success) {
@@ -147,18 +152,39 @@ const SuperAdminAccount = (): React.JSX.Element => {
         setConfirmNewPassword("");
         setOtp("");
         setStep(1);
+        setPasswordError("");
+
+        await logout();
       }
     };
 
-  // ---------------- Resend OTP ----------------
-  const handleResendOtp =
+  // ------------------------------ Resend Change Password OTP -------------------------------------------
+  const handleResendChangePasswordOtp =
     async (): Promise<void> => {
-      if (!user) return;
+      if (changePasswordCountdown > 0) {
+        return;
+      }
 
-      await resendOtp(user.email);
+      await resendOtp(
+        null,
+        "change_password"
+      );
     };
 
-  // ---------------- Start Delete Account ----------------
+  // ------------------------------ Resend Delete Account OTP -------------------------------------------
+  const handleResendDeleteAccountOtp =
+    async (): Promise<void> => {
+      if (deleteAccountCountdown > 0) {
+        return;
+      }
+
+      await resendOtp(
+        null,
+        "delete_account"
+      );
+    };
+
+  // ------------------------------ Start Delete Account -------------------------------------------
   const handleStartDeleteAccount =
     (): void => {
       setShowDeleteConfirm(true);
@@ -166,7 +192,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
       setDeleteOtp("");
     };
 
-  // ---------------- Request Delete Account OTP ----------------
+  // ------------------------------ Request Delete Account OTP -------------------------------------------
   const handleRequestDeleteOtp =
     async (): Promise<void> => {
       const success =
@@ -177,7 +203,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
       }
     };
 
-  // ---------------- Complete Delete Account ----------------
+  // ------------------------------ Complete Delete Account -------------------------------------------
   const handleCompleteDeleteAccount =
     async (): Promise<void> => {
       if (!deleteOtp) {
@@ -193,16 +219,22 @@ const SuperAdminAccount = (): React.JSX.Element => {
         setDeleteOtp("");
         setDeleteStep(1);
         setShowDeleteConfirm(false);
+
+        await logout();
       }
     };
 
-  // ---------------- Cancel Delete ----------------
+  // ------------------------------ Cancel Delete Account -------------------------------------------
   const handleCancelDelete =
     (): void => {
       setShowDeleteConfirm(false);
       setDeleteStep(1);
       setDeleteOtp("");
     };
+
+  if (!user) {
+    return <></>;
+  }
 
   return (
     <div
@@ -233,7 +265,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
         Hello {user.display_name}
       </h2>
 
-      {/* ================= Change Password ================= */}
+      {/* ---------------Change Password------------- */}
       <section className="mb-8">
         <h3
           className="
@@ -410,12 +442,19 @@ const SuperAdminAccount = (): React.JSX.Element => {
 
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={6}
                 placeholder="OTP"
                 value={otp}
                 onChange={(
                   e: ChangeEvent<HTMLInputElement>
                 ) =>
-                  setOtp(e.target.value)
+                  setOtp(
+                    e.target.value.replace(
+                      /\D/g,
+                      ""
+                    )
+                  )
                 }
                 required
                 className="
@@ -447,7 +486,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
                 "
               >
                 {otpSent &&
-                  otpCountdown > 0 && (
+                  changePasswordCountdown > 0 && (
                     <span
                       className="
                         rounded-md
@@ -459,17 +498,17 @@ const SuperAdminAccount = (): React.JSX.Element => {
                       "
                     >
                       Resend OTP in{" "}
-                      {otpCountdown}s
+                      {changePasswordCountdown}s
                     </span>
                   )}
 
                 <button
                   type="button"
                   onClick={
-                    handleResendOtp
+                    handleResendChangePasswordOtp
                   }
                   disabled={
-                    otpCountdown > 0 ||
+                    changePasswordCountdown > 0 ||
                     resendLoading
                   }
                   className="
@@ -571,7 +610,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
         </form>
       </section>
 
-      {/* ================= Delete Account ================= */}
+      {/* ---------------Delete Account------------- */}
       <section
         className="
           border-t
@@ -623,7 +662,6 @@ const SuperAdminAccount = (): React.JSX.Element => {
               p-4
             "
           >
-            {/* ================= Confirmation Step ================= */}
             {deleteStep === 1 && (
               <>
                 <div className="mb-5">
@@ -713,7 +751,6 @@ const SuperAdminAccount = (): React.JSX.Element => {
               </>
             )}
 
-            {/* ================= OTP Step ================= */}
             {deleteStep === 2 && (
               <>
                 <h4
@@ -721,7 +758,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
                     mb-2
                     text-[1rem]
                     font-bold
-                    text-[#991b1b]
+                    text-[#991c1c]
                   "
                 >
                   Confirm Account Deletion
@@ -742,13 +779,17 @@ const SuperAdminAccount = (): React.JSX.Element => {
                 <input
                   type="text"
                   inputMode="numeric"
+                  maxLength={6}
                   placeholder="Enter OTP"
                   value={deleteOtp}
                   onChange={(
                     e: ChangeEvent<HTMLInputElement>
                   ) =>
                     setDeleteOtp(
-                      e.target.value
+                      e.target.value.replace(
+                        /\D/g,
+                        ""
+                      )
                     )
                   }
                   required
@@ -781,7 +822,7 @@ const SuperAdminAccount = (): React.JSX.Element => {
                   "
                 >
                   {otpSent &&
-                    otpCountdown > 0 && (
+                    deleteAccountCountdown > 0 && (
                       <span
                         className="
                           rounded-md
@@ -793,17 +834,17 @@ const SuperAdminAccount = (): React.JSX.Element => {
                         "
                       >
                         Resend OTP in{" "}
-                        {otpCountdown}s
+                        {deleteAccountCountdown}s
                       </span>
                     )}
 
                   <button
                     type="button"
                     onClick={
-                      handleResendOtp
+                      handleResendDeleteAccountOtp
                     }
                     disabled={
-                      otpCountdown > 0 ||
+                      deleteAccountCountdown > 0 ||
                       resendLoading
                     }
                     className="
@@ -891,56 +932,56 @@ const SuperAdminAccount = (): React.JSX.Element => {
         )}
       </section>
 
-      {/* ----------------------Link to Admin Management------------------- */}
-      {user?.role === "super_admin" && (
-      <section
-        className="
-          mt-6
-          rounded-xl
-          border
-          border-gray-200
-          bg-gradient-to-br
-          from-blue-50
-          to-gray-50
-          p-5
-          text-center
-      "
-      >
-     <h3
-       className="
-         mb-2
-         text-base
-         font-semibold
-         text-gray-800
-      "
-    >
-      Admin Management
-    </h3>
-    <Link
-      to="/admin-management"
-      className="
-        inline-flex
-        items-center
-        justify-center
-        rounded-full
-        bg-[rgb(0,64,128)]
-        px-5
-        py-2.5
-        text-sm
-        font-medium
-        text-white
-        transition-all
-        duration-200
-        hover:opacity-90
-        active:scale-95
-      "
-    >
-      Manage Admin Accounts →
-    </Link>
-   </section>
-   )}
- </div>
- );
+      {user.role === "super_admin" && (
+        <section
+          className="
+            mt-6
+            rounded-xl
+            border
+            border-gray-200
+            bg-gradient-to-br
+            from-blue-50
+            to-gray-50
+            p-5
+            text-center
+          "
+        >
+          <h3
+            className="
+              mb-2
+              text-base
+              font-semibold
+              text-gray-800
+            "
+          >
+            Admin Management
+          </h3>
+
+          <Link
+            to="/admin-management"
+            className="
+              inline-flex
+              items-center
+              justify-center
+              rounded-full
+              bg-[rgb(0,64,128)]
+              px-5
+              py-2.5
+              text-sm
+              font-medium
+              text-white
+              transition-all
+              duration-200
+              hover:opacity-90
+              active:scale-95
+            "
+          >
+            Manage Admin Accounts →
+          </Link>
+        </section>
+      )}
+    </div>
+  );
 };
 
 export default SuperAdminAccount;

@@ -5,31 +5,27 @@ import { useAuth } from "../../../contexts/AuthContext";
 const AccountManagement = (): React.JSX.Element => {
   const {
     user,
+    logout,
     sendChangePasswordOtp,
     completeChangePassword,
     sendDeleteAccountOtp,
     completeDeleteAccount,
     resendOtp,
     otpSent,
-    otpCountdown,
+    otpCountdowns,
     changePasswordLoading,
     resendLoading,
     deleteAccountLoading,
   } = useAuth();
 
-  if (!user) {
-    return <></>;
-  }
-
-  // ---------------- Visibility ----------------
+  // ------------------------------ Visibility State -------------------------------------------
   const [
     showChangePassword,
     setShowChangePassword,
   ] = useState<boolean>(false);
 
-  // ---------------- Change Password ----------------
-  const [step, setStep] =
-    useState<number>(1);
+  // ------------------------------ Change Password State -------------------------------------------
+  const [step, setStep] = useState<number>(1);
 
   const [
     currentPassword,
@@ -46,8 +42,7 @@ const AccountManagement = (): React.JSX.Element => {
     setConfirmNewPassword,
   ] = useState<string>("");
 
-  const [otp, setOtp] =
-    useState<string>("");
+  const [otp, setOtp] = useState<string>("");
 
   const [
     passwordError,
@@ -59,7 +54,7 @@ const AccountManagement = (): React.JSX.Element => {
     setPasswordFocused,
   ] = useState<boolean>(false);
 
-  // ---------------- Delete Account ----------------
+  // ------------------------------ Delete Account State -------------------------------------------
   const [
     showDeleteConfirm,
     setShowDeleteConfirm,
@@ -75,7 +70,7 @@ const AccountManagement = (): React.JSX.Element => {
     setDeleteOtp,
   ] = useState<string>("");
 
-  // ---------------- Password Validation ----------------
+  // ------------------------------ Password Validation -------------------------------------------
   const passwordPattern =
     /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
@@ -85,7 +80,13 @@ const AccountManagement = (): React.JSX.Element => {
   const requirementMessage =
     "Password must be at least 8 characters and include one uppercase letter, one number, and one special character.";
 
-  // ---------------- Request Change Password OTP ----------------
+  const changePasswordCountdown =
+    otpCountdowns.change_password;
+
+  const deleteAccountCountdown =
+    otpCountdowns.delete_account;
+
+  // ------------------------------ Request Change Password OTP -------------------------------------------
   const handleRequestOtp = async (
     e: {
       preventDefault: () => void;
@@ -114,7 +115,8 @@ const AccountManagement = (): React.JSX.Element => {
 
     const success =
       await sendChangePasswordOtp(
-        currentPassword
+        currentPassword,
+        newPassword
       );
 
     if (success) {
@@ -122,7 +124,7 @@ const AccountManagement = (): React.JSX.Element => {
     }
   };
 
-  // ---------------- Complete Password Change ----------------
+  // ------------------------------ Complete Password Change -------------------------------------------
   const handleCompleteChangePassword =
     async (
       e: {
@@ -131,33 +133,48 @@ const AccountManagement = (): React.JSX.Element => {
     ): Promise<void> => {
       e.preventDefault();
 
-      if (!otp) return;
+      if (!otp) {
+        return;
+      }
 
       const success =
         await completeChangePassword(
-          currentPassword,
-          newPassword,
-          otp
+          otp,
+          newPassword
         );
 
       if (success) {
-        setCurrentPassword("");
-        setNewPassword("");
-        setConfirmNewPassword("");
-        setOtp("");
-        setStep(1);
+        await logout();
       }
     };
 
-  // ---------------- Resend OTP ----------------
-  const handleResendOtp =
+  // ------------------------------ Resend Change Password OTP -------------------------------------------
+  const handleResendChangePasswordOtp =
     async (): Promise<void> => {
-      if (!user) return;
+      if (changePasswordCountdown > 0) {
+        return;
+      }
 
-      await resendOtp(user.email);
+      await resendOtp(
+        null,
+        "change_password"
+      );
     };
 
-  // ---------------- Start Delete Account ----------------
+  // ------------------------------ Resend Delete Account OTP -------------------------------------------
+  const handleResendDeleteAccountOtp =
+    async (): Promise<void> => {
+      if (deleteAccountCountdown > 0) {
+        return;
+      }
+
+      await resendOtp(
+        null,
+        "delete_account"
+      );
+    };
+
+  // ------------------------------ Start Delete Account -------------------------------------------
   const handleStartDeleteAccount =
     (): void => {
       setShowDeleteConfirm(true);
@@ -165,7 +182,7 @@ const AccountManagement = (): React.JSX.Element => {
       setDeleteOtp("");
     };
 
-  // ---------------- Request Delete Account OTP ----------------
+  // ------------------------------ Request Delete Account OTP -------------------------------------------
   const handleRequestDeleteOtp =
     async (): Promise<void> => {
       const success =
@@ -176,7 +193,7 @@ const AccountManagement = (): React.JSX.Element => {
       }
     };
 
-  // ---------------- Complete Delete Account ----------------
+  // ------------------------------ Complete Delete Account -------------------------------------------
   const handleCompleteDeleteAccount =
     async (): Promise<void> => {
       if (!deleteOtp) {
@@ -189,19 +206,21 @@ const AccountManagement = (): React.JSX.Element => {
         );
 
       if (success) {
-        setDeleteOtp("");
-        setDeleteStep(1);
-        setShowDeleteConfirm(false);
+        await logout();
       }
     };
 
-  // ---------------- Cancel Delete ----------------
+  // ------------------------------ Cancel Delete Account -------------------------------------------
   const handleCancelDelete =
     (): void => {
       setShowDeleteConfirm(false);
       setDeleteStep(1);
       setDeleteOtp("");
     };
+
+  if (!user) {
+    return <></>;
+  }
 
   return (
     <div
@@ -409,12 +428,19 @@ const AccountManagement = (): React.JSX.Element => {
 
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength={6}
                 placeholder="OTP"
                 value={otp}
                 onChange={(
                   e: ChangeEvent<HTMLInputElement>
                 ) =>
-                  setOtp(e.target.value)
+                  setOtp(
+                    e.target.value.replace(
+                      /\D/g,
+                      ""
+                    )
+                  )
                 }
                 required
                 className="
@@ -446,7 +472,7 @@ const AccountManagement = (): React.JSX.Element => {
                 "
               >
                 {otpSent &&
-                  otpCountdown > 0 && (
+                  changePasswordCountdown > 0 && (
                     <span
                       className="
                         rounded-md
@@ -458,17 +484,17 @@ const AccountManagement = (): React.JSX.Element => {
                       "
                     >
                       Resend OTP in{" "}
-                      {otpCountdown}s
+                      {changePasswordCountdown}s
                     </span>
                   )}
 
                 <button
                   type="button"
                   onClick={
-                    handleResendOtp
+                    handleResendChangePasswordOtp
                   }
                   disabled={
-                    otpCountdown > 0 ||
+                    changePasswordCountdown > 0 ||
                     resendLoading
                   }
                   className="
@@ -622,7 +648,6 @@ const AccountManagement = (): React.JSX.Element => {
               p-4
             "
           >
-            {/* ================= Confirmation Step ================= */}
             {deleteStep === 1 && (
               <>
                 <div className="mb-5">
@@ -652,12 +677,7 @@ const AccountManagement = (): React.JSX.Element => {
                   </p>
                 </div>
 
-                <div
-                  className="
-                    flex
-                    gap-3
-                  "
-                >
+                <div className="flex gap-3">
                   <button
                     type="button"
                     onClick={
@@ -712,7 +732,6 @@ const AccountManagement = (): React.JSX.Element => {
               </>
             )}
 
-            {/* ================= OTP Step ================= */}
             {deleteStep === 2 && (
               <>
                 <h4
@@ -741,13 +760,17 @@ const AccountManagement = (): React.JSX.Element => {
                 <input
                   type="text"
                   inputMode="numeric"
+                  maxLength={6}
                   placeholder="Enter OTP"
                   value={deleteOtp}
                   onChange={(
                     e: ChangeEvent<HTMLInputElement>
                   ) =>
                     setDeleteOtp(
-                      e.target.value
+                      e.target.value.replace(
+                        /\D/g,
+                        ""
+                      )
                     )
                   }
                   required
@@ -780,7 +803,7 @@ const AccountManagement = (): React.JSX.Element => {
                   "
                 >
                   {otpSent &&
-                    otpCountdown > 0 && (
+                    deleteAccountCountdown > 0 && (
                       <span
                         className="
                           rounded-md
@@ -792,17 +815,17 @@ const AccountManagement = (): React.JSX.Element => {
                         "
                       >
                         Resend OTP in{" "}
-                        {otpCountdown}s
+                        {deleteAccountCountdown}s
                       </span>
                     )}
 
                   <button
                     type="button"
                     onClick={
-                      handleResendOtp
+                      handleResendDeleteAccountOtp
                     }
                     disabled={
-                      otpCountdown > 0 ||
+                      deleteAccountCountdown > 0 ||
                       resendLoading
                     }
                     className="
@@ -894,3 +917,4 @@ const AccountManagement = (): React.JSX.Element => {
 };
 
 export default AccountManagement;
+

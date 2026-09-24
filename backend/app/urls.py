@@ -7,6 +7,7 @@ from app.views.authViews import (
     ResendOTPView,
     LoginView,
     GoogleLoginView,
+    ForgotPasswordView,
     ChangePasswordView,
     DeleteAccountView,
     TokenRefreshView,
@@ -34,19 +35,24 @@ from app.views.adminViews import (
     RevenueAnalyticsView,
 )
 
-from  app.views.stripeCheckoutViews import (
+from app.views.checkout.stripeViews import (
     CreateStripeSessionView,
-    StripeCancelSessionView,
+    CancelStripeSessionView,
     StripeWebhookView,
 )
 
-
-from app.views.paystackCheckoutViews import (
+from app.views.checkout.paystackViews import (
     CreatePaystackSessionView,
-    VerifyPaystackPaymentView,
+    VerifyPaystackSessionView,
     PaystackWebhookView,
 )
 
+from app.views.checkout.paypalViews import (
+    CreatePayPalSessionView,
+    CapturePayPalSessionView,
+    CancelPaypalSessionView,
+    PayPalWebhookView,
+)
 
 urlpatterns = [
 
@@ -79,6 +85,12 @@ urlpatterns = [
         "auth/google/",
         GoogleLoginView.as_view(),
         name="login",
+    ),
+
+    path(
+        "forgot-password/",
+        ForgotPasswordView.as_view(),
+        name="forgot-password",
     ),
 
     path(
@@ -227,6 +239,7 @@ urlpatterns = [
         name="admin-order-detail",
     ),
 
+
     # ---------------------- STRIPE CHECKOUT -------------------------------------
     path(
         "checkout/create-stripe-session/",
@@ -236,7 +249,7 @@ urlpatterns = [
 
      path(
         "checkout/stripe-cancel/",
-        StripeCancelSessionView.as_view(),
+        CancelStripeSessionView.as_view(),
         name="stripe-cancel",
     ),
 
@@ -254,9 +267,9 @@ urlpatterns = [
     ),
 
     path(
-    "checkout/verify-paystack-payment/<str:reference>/",
-    VerifyPaystackPaymentView.as_view(),
-    name="verify-paystack-payment",
+        "checkout/verify-paystack-session/<str:reference>/",
+        VerifyPaystackSessionView.as_view(),
+        name="verify-paystack-session",
     ),
 
     path(
@@ -265,6 +278,31 @@ urlpatterns = [
         name="paystack-webhook",
     ),
 
+    # ---------------------- PAYPAL CHECKOUT -------------------------------------
+    path(
+        "checkout/create-paypal-session/",
+        CreatePayPalSessionView.as_view(),
+        name="create-paypal-session",
+    ),
+    
+    path(
+        "checkout/paypal-capture/",
+        CapturePayPalSessionView.as_view(),
+        name="paypal-capture",
+    ),
+
+    path(
+        "checkout/paypal-cancel/",
+        CancelPaypalSessionView.as_view(),
+        name="paypal-cancel",
+    ),
+
+    path(
+        "webhook/paypal/",
+        PayPalWebhookView.as_view(),
+        name="paypal-webhook",
+    ),
+       
     # ---------------------- DATA ANALYTICS -------------------------------------
     path(
         "admin/revenue-analytics/",

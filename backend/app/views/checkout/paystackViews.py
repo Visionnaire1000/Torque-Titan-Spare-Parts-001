@@ -561,8 +561,8 @@ class CreatePaystackSessionView(APIView):
         )
 
 
-# --------------------------- VERIFY PAYSTACK PAYMENT ---------------------------
-class VerifyPaystackPaymentView(APIView):
+# ---------------VERIFY PAYSTACK PAYMENT--------------------------
+class VerifyPaystackSessionView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, reference):

@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -68,11 +69,6 @@ class Command(BaseCommand):
             password_hash=make_password(password),
             role="super_admin",
             email_verified=True,
-            otp_resend_count=0,
-            otp_attempts=0,
-            otp_last_sent=None,
-            email_otp_hash=None,
-            email_otp_expires=None,
         )
 
         super_admin.save()
@@ -114,11 +110,48 @@ class Command(BaseCommand):
             password_hash=make_password(password),
             role="buyer",
             email_verified=True,
-            otp_resend_count=0,
-            otp_attempts=0,
-            otp_last_sent=None,
-            email_otp_hash=None,
-            email_otp_expires=None,
+        )
+
+        buyer.save()
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Default buyer '{email}' created successfully"
+            )
+        )
+
+
+    def seed_buyer(self):
+        """
+        Create the default buyer without OTP verification.
+        """
+
+        email = os.getenv("USER_EMAIL")
+        password = os.getenv("USER_PASSWORD")
+
+        if not email or not password:
+            raise ValueError(
+                "USER_EMAIL and USER_PASSWORD "
+                "must be set in .env"
+            )
+
+        existing_buyer = Users.objects.filter(
+            email=email
+        ).first()
+
+        if existing_buyer:
+            self.stdout.write(
+                self.style.WARNING(
+                    "Default buyer already exists"
+                )
+            )
+            return
+
+        buyer = Users(
+            email=email,
+            password_hash=make_password(password),
+            role="buyer",
+            email_verified=True,
         )
 
         buyer.save()

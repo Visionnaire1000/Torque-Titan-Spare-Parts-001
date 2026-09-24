@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import AdminManagement from "../../../components/admin/adminDashboard/AdminManagement";
+import AdminManagement from "../../../components/admin/auth/AdminManagement";
 import { useAuth } from "../../../contexts/AuthContext";
 
 vi.mock("../../../contexts/AuthContext", () => ({

@@ -14,8 +14,10 @@ interface Address {
 
 interface CheckoutResponse {
   checkout_url?: string;
+  approval_url?: string;
   reference?: string;
   order_id?: string;
+  id?: string;
   status?: string;
   display_text?: string;
   error?: string;
@@ -25,7 +27,7 @@ interface CheckoutResponse {
   payment_status?: string;
 }
 
-type PaymentMethod = "stripe" | "paystack";
+type PaymentMethod = "stripe" | "paystack" | "paypal";
 type MobileMoneyMethod = "mpesa" | "airtel";
 
 const PAYSTACK_POLL_INTERVAL = 3000;
@@ -69,15 +71,11 @@ const Checkout = () => {
       setAddress({
         street: parsedAddress.street ?? "",
         city: parsedAddress.city ?? "",
-        postal_code:
-          parsedAddress.postal_code ?? "",
+        postal_code: parsedAddress.postal_code ?? "",
         country: parsedAddress.country ?? "",
       });
     } catch (error) {
-      console.error(
-        "Invalid saved address:",
-        error
-      );
+      console.error("Invalid saved address:", error);
 
       localStorage.removeItem(
         `address_${user.id}`
@@ -120,7 +118,7 @@ const Checkout = () => {
     ) {
       try {
         const res = await authFetch(
-          `${config.API_BASE_URL}/checkout/verify-paystack-payment/${reference}/`,
+          `${config.API_BASE_URL}/checkout/verify-paystack-session/${reference}/`,
           {
             method: "GET",
           }
@@ -136,7 +134,6 @@ const Checkout = () => {
           );
 
           await wait();
-
           continue;
         }
 
@@ -215,18 +212,24 @@ const Checkout = () => {
     setLoading(true);
 
     try {
-      const endpoint =
-        paymentMethod === "stripe"
-          ? "/checkout/create-stripe-session/"
-          : "/checkout/create-paystack-session/";
+      let endpoint = "";
+
+      if (paymentMethod === "stripe") {
+        endpoint =
+          "/checkout/create-stripe-session/";
+      } else if (paymentMethod === "paystack") {
+        endpoint =
+          "/checkout/create-paystack-session/";
+      } else {
+        endpoint =
+          "/checkout/create-paypal-session/";
+      }
 
       const requestBody: Record<string, unknown> = {
-        items: items.map(
-          (item: CartItem) => ({
-            sparepart_id: item.id,
-            quantity: item.quantity,
-          })
-        ),
+        items: items.map((item: CartItem) => ({
+          sparepart_id: item.id,
+          quantity: item.quantity,
+        })),
         street: address.street,
         city: address.city,
         postal_code: address.postal_code,
@@ -237,8 +240,7 @@ const Checkout = () => {
         requestBody.payment_method =
           mobileMoneyMethod;
 
-        requestBody.phone =
-          phone.trim();
+        requestBody.phone = phone.trim();
       }
 
       const res = await authFetch(
@@ -287,6 +289,40 @@ const Checkout = () => {
         return;
       }
 
+      if (paymentMethod === "paypal") {
+        if (!data.approval_url) {
+          toast.error(
+            "No PayPal approval URL was returned by the server"
+          );
+
+          return;
+        }
+
+        if (data.id) {
+          localStorage.setItem(
+            "paypal_order_id",
+            data.id
+          );
+        }
+
+        if (data.order_id) {
+          localStorage.setItem(
+            "paypal_local_order_id",
+            data.order_id
+          );
+        }
+
+        localStorage.setItem(
+          "checkout_address",
+          JSON.stringify(address)
+        );
+
+        window.location.href =
+          data.approval_url;
+
+        return;
+      }
+
       if (
         data.status === "failed" ||
         data.status === "timeout" ||
@@ -323,7 +359,9 @@ const Checkout = () => {
         `Error initiating ${
           paymentMethod === "stripe"
             ? "Stripe"
-            : "Paystack"
+            : paymentMethod === "paystack"
+              ? "Paystack"
+              : "PayPal"
         } payment`
       );
     } finally {
@@ -385,14 +423,14 @@ const Checkout = () => {
             Payment Method
           </h3>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() =>
                 setPaymentMethod("stripe")
               }
               disabled={loading}
-              className={`flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 font-semibold transition ${
+              className={`flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-3 font-semibold transition ${
                 paymentMethod === "stripe"
                   ? "border-[#004080] bg-[#004080] text-white"
                   : "cursor-pointer border-gray-300 bg-white text-[#004080] hover:border-[#004080]"
@@ -412,7 +450,7 @@ const Checkout = () => {
                 setPaymentMethod("paystack")
               }
               disabled={loading}
-              className={`flex items-center justify-center gap-2 rounded-lg border-2 px-4 py-3 font-semibold transition ${
+              className={`flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-3 font-semibold transition ${
                 paymentMethod === "paystack"
                   ? "border-[#004080] bg-[#004080] text-white"
                   : "cursor-pointer border-gray-300 bg-white text-[#004080] hover:border-[#004080]"
@@ -425,6 +463,23 @@ const Checkout = () => {
 
               <span>Mobile Money</span>
             </button>
+
+            <button
+             type="button"
+             onClick={() => setPaymentMethod("paypal")}
+             disabled={loading}
+             className={`flex items-center justify-center gap-3 rounded-lg border-2 px-4 py-3 font-semibold transition ${
+             paymentMethod === "paypal"
+              ? "border-[#004080]"
+              : "cursor-pointer border-gray-300 bg-white hover:border-[#004080]"
+             }`}
+            >
+               <img
+                 src="https://i.imgur.com/nPULbde.png"
+                 alt="PayPal"
+                 className="h-13 w-auto max-w-[100%] object-contain"
+               />
+            </button>
           </div>
         </div>
 
@@ -433,6 +488,7 @@ const Checkout = () => {
             <h3 className="mb-3 text-base font-semibold text-[#004080]">
               Select your Mobile Money Provider
             </h3>
+
             <div className="mb-4 grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -447,7 +503,7 @@ const Checkout = () => {
                 }`}
               >
                 <img
-                  src="https://i.imgur.com/0MGAvJ4.jpeg"
+                  src="https://i.imgur.com/ZJrVqS3.jpeg"
                   alt="M-PESA"
                   className="h-13 w-auto max-w-[100%] object-contain"
                 />
@@ -471,11 +527,18 @@ const Checkout = () => {
                   className="h-13 w-auto max-w-[100%] object-contain"
                 />
               </button>
-               <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-gray-700">
-                <span className="font-semibold text-amber-700">Note:</span>{" "}
-                   The maximum mobile money transaction limit is{" "}
-                <span className="font-bold">KES 250,000</span>.
-                </p>
+
+              <p className="col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-gray-700">
+                <span className="font-semibold text-amber-700">
+                  Note:
+                </span>{" "}
+                The maximum mobile money transaction
+                limit is{" "}
+                <span className="font-bold">
+                  KES 250,000
+                </span>
+                .
+              </p>
             </div>
 
             <input
@@ -496,6 +559,13 @@ const Checkout = () => {
           </div>
         )}
 
+        {paymentMethod === "paypal" && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-gray-700">
+            You will be redirected to PayPal to
+            securely approve your payment.
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={loading}
@@ -505,11 +575,13 @@ const Checkout = () => {
             ? "Processing..."
             : paymentMethod === "stripe"
               ? "Pay with Card"
-              : `Pay with ${
-                  mobileMoneyMethod === "mpesa"
-                    ? "M-PESA"
-                    : "Airtel Money"
-                }`}
+              : paymentMethod === "paypal"
+                ? "Pay with PayPal"
+                : `Pay with ${
+                    mobileMoneyMethod === "mpesa"
+                      ? "M-PESA"
+                      : "Airtel Money"
+                  }`}
         </button>
       </form>
     </div>

@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -13,6 +14,7 @@ load_dotenv()
 
 
 class Command(BaseCommand):
+
     def seed_super_admin(self):
         """
         Create the default super admin without OTP verification.
@@ -44,11 +46,6 @@ class Command(BaseCommand):
             password_hash=make_password(password),
             role="super_admin",
             email_verified=True,
-            otp_resend_count=0,
-            otp_attempts=0,
-            otp_last_sent=None,
-            email_otp_hash=None,
-            email_otp_expires=None,
         )
 
         super_admin.save()

@@ -867,8 +867,7 @@ class ReviewEditView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
-# --------------------------- REVIEW REACTIONS ----------------------------------------------
+# --------------------------- REVIEW COMMENT REACTIONS ----------------------------------------------
 class ReviewReactionsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -877,7 +876,6 @@ class ReviewReactionsView(APIView):
         request,
         review_id,
     ):
-
         review = get_object_or_404(
             Reviews,
             pk=review_id,
@@ -885,14 +883,11 @@ class ReviewReactionsView(APIView):
 
         current_user = request.user
 
-        # --------------------------- OWN REVIEW ---------------------------
+        # --------------------------- OWN COMMENT ---------------------------
         if review.user_id == current_user.id:
-
             return Response(
                 {
-                    "error": (
-                        "Cannot react to your own review"
-                    )
+                    "error": "Cannot react to your own comment"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -901,7 +896,6 @@ class ReviewReactionsView(APIView):
         data = request.data or {}
 
         if "is_like" not in data:
-
             return Response(
                 {
                     "error": "is_like is required"
@@ -909,25 +903,17 @@ class ReviewReactionsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        is_like = data.get(
-            "is_like"
-        )
+        is_like = data.get("is_like")
 
-        if not isinstance(
-            is_like,
-            bool,
-        ):
-
+        if not isinstance(is_like, bool):
             return Response(
                 {
-                    "error": (
-                        "is_like must be a boolean"
-                    )
+                    "error": "is_like must be a boolean"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- EXISTING ---------------------------
+        # --------------------------- EXISTING REACTION ---------------------------
         existing = (
             ReviewReactions.objects
             .filter(
@@ -941,31 +927,24 @@ class ReviewReactionsView(APIView):
 
         # --------------------------- REACTION ---------------------------
         try:
-
             with transaction.atomic():
 
                 if existing:
 
+                    # removes same reaction
                     if existing.is_like == is_like:
-
                         existing.delete()
-
                         action = "removed"
 
+                    # Switches to different reaction
                     else:
-
                         existing.is_like = is_like
-
                         existing.save(
-                            update_fields=[
-                                "is_like"
-                            ]
+                            update_fields=["is_like"]
                         )
-
                         action = "switched"
 
                 else:
-
                     ReviewReactions.objects.create(
                         user=current_user,
                         review=review,
@@ -973,17 +952,14 @@ class ReviewReactionsView(APIView):
                     )
 
         except Exception:
-
             return Response(
                 {
-                    "error": (
-                        "Failed to update reaction"
-                    )
+                    "error": "Failed to update reaction"
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # --------------------------- COUNTS ---------------------------
+        # --------------------------- COMMENT REACTION COUNTS ---------------------------
         total_likes = (
             ReviewReactions.objects
             .filter(
@@ -1002,7 +978,7 @@ class ReviewReactionsView(APIView):
             .count()
         )
 
-        # --------------------------- CURRENT REACTION ---------------------------
+        # --------------------------- CURRENT COMMENT REACTION ---------------------------
         current_reaction = (
             ReviewReactions.objects
             .filter(
@@ -1021,18 +997,12 @@ class ReviewReactionsView(APIView):
             {
                 "action": action,
 
-                "review": {
-                    "id": str(
-                        review.id
-                    ),
+                "comment": {
+                    "id": str(review.id),
 
-                    "total_likes": (
-                        total_likes
-                    ),
+                    "total_likes": total_likes,
 
-                    "total_dislikes": (
-                        total_dislikes
-                    ),
+                    "total_dislikes": total_dislikes,
 
                     "user_reaction": (
                         current_reaction
@@ -1044,7 +1014,7 @@ class ReviewReactionsView(APIView):
             status=status.HTTP_200_OK,
         )
 
-
+    
 # --------------------------- MY REVIEWS ----------------------------------------------
 class MyReviewsView(APIView):
     permission_classes = [IsAuthenticated]

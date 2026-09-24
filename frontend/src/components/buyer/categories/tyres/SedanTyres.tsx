@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, ChevronUp, ChevronDown, } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown,ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -97,6 +97,7 @@ const SedanTyres = (): ReactElement => {
 
   const [brandOpen, setBrandOpen] = useState<boolean>(false);
   const [priceOpen, setPriceOpen] = useState<boolean>(false);
+
   const brandDropdownRef = useRef<HTMLDivElement>(null);
   const priceDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -144,9 +145,7 @@ const SedanTyres = (): ReactElement => {
       );
 
       if (!response.ok) {
-        throw new Error(
-          "Failed to fetch tyres"
-        );
+        throw new Error("Failed to fetch tyres");
       }
 
       const data: SparePartsResponse =
@@ -165,14 +164,14 @@ const SedanTyres = (): ReactElement => {
   };
 
   /* ---------------- Effects ---------------- */
-  // Scrolls to the top whenever the pagination page changes
-    useEffect(() => {
-     window.scrollTo({
-       top: 0,
-       left: 0,
-       behavior: "auto",
-     });
-    }, [currentPage]);
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [currentPage]);
 
   useEffect(() => {
     void fetchTyres();
@@ -189,6 +188,15 @@ const SedanTyres = (): ReactElement => {
     price,
   ]);
 
+  /* ---------------- Back To Available Parts ---------------- */
+  const handleBackToAvailableParts = (): void => {
+    setBrand("");
+    setPrice("");
+    setCurrentPage(1);
+    setBrandOpen(false);
+    setPriceOpen(false);
+  };
+
   /* ---------------- Cart ---------------- */
   const handleAddToCart = (
     item: SparePart,
@@ -200,30 +208,42 @@ const SedanTyres = (): ReactElement => {
     addItem(item);
   };
 
-  // Filters Dropdown
+  /* ---------------- Filters Dropdown ---------------- */
   useEffect(() => {
-  const handleClickOutside = (event: globalThis.MouseEvent): void => {
-    if (
-      brandDropdownRef.current &&
-      !brandDropdownRef.current.contains(event.target as Node)
-    ) {
-      setBrandOpen(false);
-    }
+    const handleClickOutside = (
+      event: globalThis.MouseEvent
+    ): void => {
+      if (
+        brandDropdownRef.current &&
+        !brandDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setBrandOpen(false);
+      }
 
-    if (
-      priceDropdownRef.current &&
-      !priceDropdownRef.current.contains(event.target as Node)
-    ) {
-      setPriceOpen(false);
-    }
-  };
+      if (
+        priceDropdownRef.current &&
+        !priceDropdownRef.current.contains(
+          event.target as Node
+        )
+      ) {
+        setPriceOpen(false);
+      }
+    };
 
-  document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
 
-  return () => {
-    document.removeEventListener("mousedown", handleClickOutside);
-  };
- }, []);
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
+    };
+  }, []);
 
   /* ---------------- Pagination ---------------- */
   const getVisiblePages = (): number[] => {
@@ -262,525 +282,584 @@ const SedanTyres = (): ReactElement => {
 
   /* ---------------- Render ---------------- */
   return (
-  <div
-    className="
-      mt-[70px]
-      bg-[#f9f9f9]
-      p-5
-      pb-[70px]
-      font-[Arial,sans-serif]
-      max-[480px]:max-w-[480px]
-      max-[480px]:pb-5
-    "
-  >
-    
-  {/* Filters */}
-  {!error && (
-  <div
-    className="
-      mt-5
-      mb-[25px]
-      flex
-      w-full
-      justify-center
-    "
-  >
     <div
       className="
-        flex
-        flex-wrap
-        items-center
-        justify-center
-        gap-4
-        max-[480px]:mt-3
-        max-[480px]:gap-2
-        max-[480px]:items-center
-    "
+        mt-[70px]
+        bg-[#f9f9f9]
+        p-5
+        pb-[70px]
+        font-[Arial,sans-serif]
+        max-[480px]:max-w-[480px]
+        max-[480px]:pb-5
+      "
     >
-      {/* Brand Dropdown */}
-      <div
-        ref={brandDropdownRef}
-        className="
-          relative
-          w-[180px]
-          max-[480px]:w-[160px]
-        "
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setBrandOpen((open) => !open);
-            setPriceOpen(false);
-          }}
-          className="
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-md
-            border
-            border-[#ccc]
-            bg-white
-            px-3
-            py-2
-            text-left
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            focus:border-[#0077ff]
-            focus:outline-none
-            max-[480px]:px-4
-            max-[480px]:py-1
-            max-[480px]:text-base
-          "
-        >
-          <span className="truncate">
-            {brand || "All Brands"}
-          </span>
-
-          {brandOpen ? (
-            <ChevronUp
-              size={18}
-              className="ml-2 shrink-0 text-gray-600"
-            />
-          ) : (
-            <ChevronDown
-              size={18}
-              className="ml-2 shrink-0 text-gray-600"
-            />
-          )}
-        </button>
-
-        {brandOpen && (
-          <div
-            className="
-              absolute
-              left-0
-              z-50
-              mt-1
-              w-full
-              overflow-hidden
-              rounded-md
-              border
-              border-[#ddd]
-              bg-white
-              shadow-lg
-            "
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setBrand("");
-                setBrandOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:text-base
-                ${
-                  brand === ""
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              All Brands
-            </button>
-
-            {availableBrands.map((itemBrand) => (
+      {/* Filters */}
+      {!error && (
+        <>
+          {/* Back Button */}
+          {(brand !== "" || price !== "") && (
+            <div className="mb-4">
               <button
-                key={itemBrand}
                 type="button"
-                onClick={() => {
-                  setBrand(itemBrand);
-                  setBrandOpen(false);
-                }}
-                className={`
-                  block
-                  w-full
-                  px-3
-                  py-2
-                  text-left
-                  text-[14px]
-                  transition-colors
-                  hover:bg-[#f0f6ff]
-                  max-[480px]:text-base
-                  ${
-                    brand === itemBrand
-                      ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                      : "text-[#333]"
-                  }
-                `}
-              >
-                {itemBrand}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Price Dropdown */}
-      <div
-        ref={priceDropdownRef}
-        className="
-          relative
-          w-[180px]
-          max-[480px]:w-[160px]
-        "
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setPriceOpen((open) => !open);
-            setBrandOpen(false);
-          }}
-          className="
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-md
-            border
-            border-[#ccc]
-            bg-white
-            px-3
-            py-2
-            text-left
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            focus:border-[#0077ff]
-            focus:outline-none
-            max-[480px]:px-4
-            max-[480px]:py-1
-            max-[480px]:text-base
-          "
-        >
-          <span className="truncate">
-            {price === ""
-              ? "All Prices"
-              : price === "low"
-                ? "Low (< 15k)"
-                : price === "medium"
-                  ? "Medium (15k–30k)"
-                  : "High (> 30k)"}
-          </span>
-
-          {priceOpen ? (
-            <ChevronUp
-              size={18}
-              className="ml-2 shrink-0 text-gray-600"
-            />
-          ) : (
-            <ChevronDown
-              size={18}
-              className="ml-2 shrink-0 text-gray-600"
-            />
-          )}
-        </button>
-
-        {priceOpen && (
-          <div
-            className="
-              absolute
-              left-0
-              z-50
-              mt-1
-              w-full
-              overflow-hidden
-              rounded-md
-              border
-              border-[#ddd]
-              bg-white
-              shadow-lg
-            "
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:text-base
-                ${
-                  price === ""
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              All Prices
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("low");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:text-base
-                ${
-                  price === "low"
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              Low (&lt; 15k)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("medium");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:text-base
-                ${
-                  price === "medium"
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              Medium (15k–30k)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("high");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:text-base
-                ${
-                  price === "high"
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              High (&gt; 30k)
-            </button>
-          </div>
-        )}
-       </div>
-      </div>
-     </div>
-    )}
-
-    {/* Error */}
-    {error ? (
-      <ErrorState onRetry={fetchTyres} />
-    ) : (
-
-      <>
-        {/* Products */}
-        <div
-          className="
-            grid
-            grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
-            gap-5
-            max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
-          "
-        >
-          {loading ? (
-            Array.from({ length: 8 }).map((_, index) => (
-              <SkeletonCard key={index} />
-            ))
-          ) : items.length > 0 ? (
-            items.map((item) => (
-              <div
-                key={item.id}
+                onClick={handleBackToAvailableParts}
+                aria-label="Back to available parts"
                 className="
-                  flex
-                  h-full
-                  flex-col
+                  inline-flex
                   items-center
-                  rounded-xl
-                  bg-white
-                  p-3
-                  shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                  transition-all
-                  duration-200
-                  cursor-pointer
-                  hover:-translate-y-1
-                  hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
-                  max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
-                  max-[480px]:hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)]
+                  justify-center
+                  rounded-md
+                  p-2
+                  mt-4
+                  text-[rgb(0,64,128)]
+                  transition-colors
+                  hover:bg-[#eaf2f8]
                 "
               >
-                <Link
-                  to={`/items/${item.id}`}
-                  className="flex h-full w-full flex-col items-center text-inherit no-underline"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.brand}
-                    className="
-                      mb-[10px]
-                      h-[150px]
-                      w-full
-                      rounded-lg
-                      object-contain
-                      max-[480px]:h-auto
-                      max-[480px]:w-[60%]
-                      max-[480px]:object-cover
-                    "
-                  />
-
-                  <h4 className="my-[5px] mb-[10px] text-center text-base text-[#333]">
-                    {item.brand} {item.category} for {item.vehicle_type}
-                  </h4>
-
-                  <p className="mb-[10px] text-lg font-bold text-[rgb(255,0,0)]">
-                    KES {item.buying_price.toLocaleString()}
-
-                    {item.discount_percentage > 0 && (
-                      <span className="ml-[5px] font-normal text-[#d9534f]">
-                        (-{item.discount_percentage.toFixed(0)}%)
-                      </span>
-                    )}
-                  </p>
-
-                  <button
-                    onClick={(event) =>
-                      handleAddToCart(item, event)
-                    }
-                    className="
-                      rounded-md
-                      bg-[rgb(0,64,128)]
-                      px-3
-                      py-2
-                      font-bold
-                      text-white
-                      transition-colors
-                      hover:bg-[rgb(4,37,71)]
-                    "
-                  >
-                    Add To Cart
-                  </button>
-                </Link>
-              </div>
-            ))
-          ) : (
-            <p className="col-span-full mb-20 text-center text-base text-[#7f0d0d]">
-              No sedan tyres found.
-            </p>
-          )}
-        </div>
-
-        {/* Pagination */}
-        {loading ? (
-          <div className="mt-4 flex justify-center gap-2">
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
-                className="h-8 w-10 rounded-md bg-[#e0e0e0]"
-              />
-            ))}
-          </div>
-        ) : (
-          totalPages > 1 && (
-            <div className="my-[30px] flex flex-wrap items-center justify-center gap-[6px]">
-              <button
-                disabled={currentPage === 1}
-                onClick={() =>
-                  setCurrentPage((page) =>
-                    Math.max(page - 1, 1)
-                  )
-                }
-                className="rounded border border-[#ddd] bg-white px-3 py-[6px] text-sm transition-colors hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Prev
-              </button>
-
-              {visiblePages[0] > 1 && (
-                <span className="select-none px-[6px] text-base">
-                  …
-                </span>
-              )}
-
-              {visiblePages.map((page) => (
-                <button
-                  key={page}
-                  onClick={() => setCurrentPage(page)}
-                  className={`rounded border px-3 py-[6px] text-sm transition-colors ${
-                    page === currentPage
-                      ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
-                      : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-
-              {visiblePages[visiblePages.length - 1] < totalPages && (
-                <span className="select-none px-[6px] text-base">
-                  …
-                </span>
-              )}
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() =>
-                  setCurrentPage((page) =>
-                    Math.min(page + 1, totalPages)
-                  )
-                }
-                className="rounded border border-[#ddd] bg-white px-3 py-[6px] text-sm transition-colors hover:bg-[#f0f0f0] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Next
+                <ArrowLeft size={30} />
               </button>
             </div>
-          )
-        )}
-      </>
-    )}
-  </div>
- );
+          )}
+
+          <div
+            className="
+              mt-5
+              mb-[25px]
+              flex
+              w-full
+              justify-center
+            "
+          >
+            <div
+              className="
+                flex
+                flex-wrap
+                items-center
+                justify-center
+                gap-4
+                max-[480px]:mt-3
+                max-[480px]:gap-2
+                max-[480px]:items-center
+              "
+            >
+              {/* Brand Dropdown */}
+              <div
+                ref={brandDropdownRef}
+                className="
+                  relative
+                  w-[180px]
+                  max-[480px]:w-[160px]
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBrandOpen((open) => !open);
+                    setPriceOpen(false);
+                  }}
+                  className="
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-md
+                    border
+                    border-[#ccc]
+                    bg-white
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:border-[#0077ff]
+                    focus:border-[#0077ff]
+                    focus:outline-none
+                    max-[480px]:px-4
+                    max-[480px]:py-1
+                    max-[480px]:text-base
+                  "
+                >
+                  <span className="truncate">
+                    {brand || "All Brands"}
+                  </span>
+
+                  {brandOpen ? (
+                    <ChevronUp
+                      size={18}
+                      className="ml-2 shrink-0 text-gray-600"
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={18}
+                      className="ml-2 shrink-0 text-gray-600"
+                    />
+                  )}
+                </button>
+
+                {brandOpen && (
+                  <div
+                    className="
+                      absolute
+                      left-0
+                      z-50
+                      mt-1
+                      w-full
+                      overflow-hidden
+                      rounded-md
+                      border
+                      border-[#ddd]
+                      bg-white
+                      shadow-lg
+                    "
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBrand("");
+                        setBrandOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          brand === ""
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      All Brands
+                    </button>
+
+                    {availableBrands.map((itemBrand) => (
+                      <button
+                        key={itemBrand}
+                        type="button"
+                        onClick={() => {
+                          setBrand(itemBrand);
+                          setBrandOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            brand === itemBrand
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemBrand}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Price Dropdown */}
+              <div
+                ref={priceDropdownRef}
+                className="
+                  relative
+                  w-[180px]
+                  max-[480px]:w-[160px]
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceOpen((open) => !open);
+                    setBrandOpen(false);
+                  }}
+                  className="
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-md
+                    border
+                    border-[#ccc]
+                    bg-white
+                    px-3
+                    py-2
+                    text-left
+                    text-[14px]
+                    transition-colors
+                    hover:border-[#0077ff]
+                    focus:border-[#0077ff]
+                    focus:outline-none
+                    max-[480px]:px-4
+                    max-[480px]:py-1
+                    max-[480px]:text-base
+                  "
+                >
+                  <span className="truncate">
+                    {price === ""
+                      ? "All Prices"
+                      : price === "low"
+                        ? "Low (< 15k)"
+                        : price === "medium"
+                          ? "Medium (15k–30k)"
+                          : "High (> 30k)"}
+                  </span>
+
+                  {priceOpen ? (
+                    <ChevronUp
+                      size={18}
+                      className="ml-2 shrink-0 text-gray-600"
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={18}
+                      className="ml-2 shrink-0 text-gray-600"
+                    />
+                  )}
+                </button>
+
+                {priceOpen && (
+                  <div
+                    className="
+                      absolute
+                      left-0
+                      z-50
+                      mt-1
+                      w-full
+                      overflow-hidden
+                      rounded-md
+                      border
+                      border-[#ddd]
+                      bg-white
+                      shadow-lg
+                    "
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrice("");
+                        setPriceOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          price === ""
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      All Prices
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrice("low");
+                        setPriceOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          price === "low"
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      Low (&lt; 15k)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrice("medium");
+                        setPriceOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          price === "medium"
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      Medium (15k–30k)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrice("high");
+                        setPriceOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:text-base
+                        ${
+                          price === "high"
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      High (&gt; 30k)
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Error */}
+      {error ? (
+        <ErrorState onRetry={fetchTyres} />
+      ) : (
+        <>
+          {/* Products */}
+          <div
+            className="
+              grid
+              grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
+              gap-5
+              max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
+            "
+          >
+            {loading ? (
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
+            ) : items.length > 0 ? (
+              items.map((item) => (
+                <div
+                  key={item.id}
+                  className="
+                    flex
+                    h-full
+                    flex-col
+                    items-center
+                    rounded-xl
+                    bg-white
+                    p-3
+                    shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+                    transition-all
+                    duration-200
+                    cursor-pointer
+                    hover:-translate-y-1
+                    hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                    max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
+                    max-[480px]:hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)]
+                  "
+                >
+                  <Link
+                    to={`/items/${item.id}`}
+                    className="flex h-full w-full flex-col items-center text-inherit no-underline"
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.brand}
+                      className="
+                        mb-[10px]
+                        h-[150px]
+                        w-full
+                        rounded-lg
+                        object-contain
+                        max-[480px]:h-auto
+                        max-[480px]:w-[60%]
+                        max-[480px]:object-cover
+                      "
+                    />
+
+                    <h4 className="my-[5px] mb-[10px] text-center text-base text-[#333]">
+                      {item.brand} {item.category} for{" "}
+                      {item.vehicle_type}
+                    </h4>
+
+                    <p className="mb-[10px] text-lg font-bold text-[rgb(255,0,0)]">
+                      KES {item.buying_price.toLocaleString()}
+
+                      {item.discount_percentage > 0 && (
+                        <span className="ml-[5px] font-normal text-[#d9534f]">
+                          (-{item.discount_percentage.toFixed(0)}%)
+                        </span>
+                      )}
+                    </p>
+
+                    <button
+                      onClick={(event) =>
+                        handleAddToCart(item, event)
+                      }
+                      className="
+                        rounded-md
+                        bg-[rgb(0,64,128)]
+                        px-3
+                        py-2
+                        font-bold
+                        text-white
+                        transition-colors
+                        hover:bg-[rgb(4,37,71)]
+                      "
+                    >
+                      Add To Cart
+                    </button>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p className="col-span-full mb-20 text-center text-base text-[#7f0d0d]">
+                No sedan tyres found.
+              </p>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {loading ? (
+            <div className="mt-4 flex justify-center gap-2">
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="h-8 w-10 rounded-md bg-[#e0e0e0]"
+                />
+              ))}
+            </div>
+          ) : (
+            totalPages > 1 && (
+              <div className="my-[30px] flex flex-wrap items-center justify-center gap-[6px]">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
+                    )
+                  }
+                  className="
+                    rounded
+                    border
+                    border-[#ddd]
+                    bg-white
+                    px-3
+                    py-[6px]
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f0f0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  Prev
+                </button>
+
+                {visiblePages[0] > 1 && (
+                  <span className="select-none px-[6px] text-base">
+                    …
+                  </span>
+                )}
+
+                {visiblePages.map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`
+                      rounded
+                      border
+                      px-3
+                      py-[6px]
+                      text-sm
+                      transition-colors
+                      ${
+                        page === currentPage
+                          ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
+                          : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
+                      }
+                    `}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                {visiblePages[
+                  visiblePages.length - 1
+                ] < totalPages && (
+                  <span className="select-none px-[6px] text-base">
+                    …
+                  </span>
+                )}
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, totalPages)
+                    )
+                  }
+                  className="
+                    rounded
+                    border
+                    border-[#ddd]
+                    bg-white
+                    px-3
+                    py-[6px]
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f0f0]
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  Next
+                </button>
+              </div>
+            )
+          )}
+        </>
+      )}
+    </div>
+  );
 };
 
 export default SedanTyres;

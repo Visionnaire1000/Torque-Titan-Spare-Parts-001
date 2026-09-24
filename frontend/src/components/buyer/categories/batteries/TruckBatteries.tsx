@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, ChevronUp, ChevronDown } from "lucide-react";
+import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
 
@@ -123,7 +123,6 @@ const TruckBatteries = (): ReactElement => {
   const colourDropdownRef = useRef<HTMLDivElement>(null);
   const priceDropdownRef = useRef<HTMLDivElement>(null);
 
-
   const [currentPage, setCurrentPage] =
     useState<number>(1);
 
@@ -157,7 +156,6 @@ const TruckBatteries = (): ReactElement => {
   /* ---------------- Fetch ---------------- */
   const fetchBatteries =
     async (): Promise<void> => {
-
       setLoading(true);
       setError(false);
 
@@ -185,27 +183,24 @@ const TruckBatteries = (): ReactElement => {
 
         setItems(data.items ?? []);
         setTotalPages(data.pages ?? 1);
-
       } catch (err) {
         console.error(err);
 
         setItems([]);
         setError(true);
-
       } finally {
         setLoading(false);
       }
     };
 
   /* ---------------- Effects ---------------- */
-  // Scrolls to the top whenever the pagination page changes
-    useEffect(() => {
-     window.scrollTo({
-       top: 0,
-       left: 0,
-       behavior: "auto",
-     });
-    }, [currentPage]);
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [currentPage]);
 
   useEffect(() => {
     void fetchBatteries();
@@ -224,19 +219,28 @@ const TruckBatteries = (): ReactElement => {
     price,
   ]);
 
+  /* ---------------- Back To Available Parts ---------------- */
+  const handleBackToAvailableParts = (): void => {
+    setBrand("");
+    setColour("");
+    setPrice("");
+    setCurrentPage(1);
+    setBrandOpen(false);
+    setColourOpen(false);
+    setPriceOpen(false);
+  };
+
   /* ---------------- Cart ---------------- */
   const handleAddToCart = (
     item: SparePart,
     event: MouseEvent<HTMLButtonElement>
   ): void => {
-
     event.preventDefault();
     event.stopPropagation();
 
     addItem(item);
   };
 
-  
   /* ---------------- Filters Dropdown ---------------- */
   useEffect(() => {
     const handleClickOutside = (
@@ -281,13 +285,11 @@ const TruckBatteries = (): ReactElement => {
         handleClickOutside
       );
     };
-   }, []);
-
+  }, []);
 
   /* ---------------- Pagination ---------------- */
   const getVisiblePages =
     (): number[] => {
-
       const pages: number[] = [];
 
       const maxVisible = 5;
@@ -321,817 +323,849 @@ const TruckBatteries = (): ReactElement => {
   const visiblePages =
     getVisiblePages();
 
-
   /* ---------------- Render ---------------- */
   return (
-  <div
-    className="
-      mt-[70px]
-      bg-[#f9f9f9]
-      p-5
-      pb-[70px]
-      font-[Arial,sans-serif]
-      max-[480px]:max-w-[480px]
-    "
-  >
-
-
-  {/* ---------------- Filters ---------------- */}
-  {!error && (
-  <div
-    className="
-      mt-5
-      mb-[25px]
-      flex
-      w-full
-      justify-center
-    "
-  >
-   <div
+    <div
       className="
-        flex
-        flex-wrap
-        items-center
-        justify-center
-        gap-4
-        max-[480px]:mt-3
-        max-[480px]:gap-2
-        max-[480px]:items-center
+        mt-[70px]
+        bg-[#f9f9f9]
+        p-5
+        pb-[70px]
+        font-[Arial,sans-serif]
+        max-[480px]:max-w-[480px]
       "
     >
-
-      {/* ---------------- Brand Dropdown ---------------- */}
-      <div
-        ref={brandDropdownRef}
-        className="
-          relative
-          w-[180px]
-          max-[480px]:w-[110px]
-        "
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setBrandOpen((open) => !open);
-            setColourOpen(false);
-            setPriceOpen(false);
-          }}
-          className="
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-md
-            border
-            border-gray-300
-            bg-white
-            px-3
-            py-2
-            text-left
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            focus:border-[#0077ff]
-            focus:outline-none
-            max-[480px]:px-2
-            max-[480px]:py-2
-            max-[480px]:text-xs
-          "
-        >
-          <span className="truncate">
-            {brand || "All Brands"}
-          </span>
-
-          {brandOpen ? (
-            <ChevronUp
-              size={18}
-              className="
-                ml-2
-                shrink-0
-                text-gray-600
-                max-[480px]:h-4
-                max-[480px]:w-4
-              "
-            />
-          ) : (
-            <ChevronDown
-              size={18}
-              className="
-                ml-2
-                shrink-0
-                text-gray-600
-                max-[480px]:h-4
-                max-[480px]:w-4
-              "
-            />
-          )}
-        </button>
-
-        {brandOpen && (
-          <div
+      {/* ---------------- Back To Available Parts ---------------- */}
+      {!error &&
+        (brand !== "" ||
+          colour !== "" ||
+          price !== "") && (
+          <button
+            type="button"
+            onClick={handleBackToAvailableParts}
+            aria-label="Back to available parts"
             className="
-              absolute
-              left-0
-              z-50
-              mt-1
-              w-full
-              overflow-hidden
+              mb-3
+              inline-flex
+              items-center
+              justify-center
               rounded-md
-              border
-              border-[#ddd]
-              bg-white
-              shadow-lg
+              p-2
+              text-[rgb(0,64,128)]
+              transition-colors
+              hover:bg-[#eaf2f8]
             "
           >
-            <button
-              type="button"
-              onClick={() => {
-                setBrand("");
-                setBrandOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:px-2
-                max-[480px]:py-2
-                max-[480px]:text-xs
-                ${
-                  brand === ""
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              All Brands
-            </button>
-
-            {availableBrands.map((itemBrand) => (
-              <button
-                key={itemBrand}
-                type="button"
-                onClick={() => {
-                  setBrand(itemBrand);
-                  setBrandOpen(false);
-                }}
-                className={`
-                  block
-                  w-full
-                  px-3
-                  py-2
-                  text-left
-                  text-[14px]
-                  transition-colors
-                  hover:bg-[#f0f6ff]
-                  max-[480px]:px-2
-                  max-[480px]:py-2
-                  max-[480px]:text-xs
-                  ${
-                    brand === itemBrand
-                      ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                      : "text-[#333]"
-                  }
-                `}
-              >
-                {itemBrand}
-              </button>
-            ))}
-          </div>
+            <ArrowLeft size={30} />
+          </button>
         )}
-      </div>
 
-      {/* ---------------- Colour Dropdown ---------------- */}
-      <div
-        ref={colourDropdownRef}
-        className="
-          relative
-          w-[180px]
-          max-[480px]:w-[110px]
-        "
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setColourOpen((open) => !open);
-            setBrandOpen(false);
-            setPriceOpen(false);
-          }}
-          className="
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-md
-            border
-            border-gray-300
-            bg-white
-            px-3
-            py-2
-            text-left
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            focus:border-[#0077ff]
-            focus:outline-none
-            max-[480px]:px-2
-            max-[480px]:py-2
-            max-[480px]:text-xs
-          "
-        >
-          <span className="truncate">
-            {colour === ""
-              ? "All Colours"
-              : colour.charAt(0).toUpperCase() +
-                colour.slice(1)}
-          </span>
-
-          {colourOpen ? (
-            <ChevronUp
-              size={18}
-              className="
-                ml-2
-                shrink-0
-                text-gray-600
-                max-[480px]:h-4
-                max-[480px]:w-4
-              "
-            />
-          ) : (
-            <ChevronDown
-              size={18}
-              className="
-                ml-2
-                shrink-0
-                text-gray-600
-                max-[480px]:h-4
-                max-[480px]:w-4
-              "
-            />
-          )}
-        </button>
-
-        {colourOpen && (
-          <div
-            className="
-              absolute
-              left-0
-              z-50
-              mt-1
-              w-full
-              overflow-hidden
-              rounded-md
-              border
-              border-[#ddd]
-              bg-white
-              shadow-lg
-            "
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setColour("");
-                setColourOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:px-2
-                max-[480px]:py-2
-                max-[480px]:text-xs
-                ${
-                  colour === ""
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              All Colours
-            </button>
-
-            {availableColours.map((itemColour) => (
-              <button
-                key={itemColour}
-                type="button"
-                onClick={() => {
-                  setColour(itemColour);
-                  setColourOpen(false);
-                }}
-                className={`
-                  block
-                  w-full
-                  px-3
-                  py-2
-                  text-left
-                  text-[14px]
-                  transition-colors
-                  hover:bg-[#f0f6ff]
-                  max-[480px]:px-2
-                  max-[480px]:py-2
-                  max-[480px]:text-xs
-                  ${
-                    colour === itemColour
-                      ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                      : "text-[#333]"
-                  }
-                `}
-              >
-                {itemColour.charAt(0).toUpperCase() +
-                  itemColour.slice(1)}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* ---------------- Price Dropdown ---------------- */}
-      <div
-        ref={priceDropdownRef}
-        className="
-          relative
-          w-[180px]
-          max-[480px]:w-[110px]
-        "
-      >
-        <button
-          type="button"
-          onClick={() => {
-            setPriceOpen((open) => !open);
-            setBrandOpen(false);
-            setColourOpen(false);
-          }}
-          className="
-            flex
-            w-full
-            items-center
-            justify-between
-            rounded-md
-            border
-            border-gray-300
-            bg-white
-            px-3
-            py-2
-            text-left
-            text-[14px]
-            transition-colors
-            hover:border-[#0077ff]
-            focus:border-[#0077ff]
-            focus:outline-none
-            max-[480px]:px-2
-            max-[480px]:py-2
-            max-[480px]:text-xs
-          "
-        >
-          <span className="truncate">
-            {price === ""
-              ? "All Prices"
-              : price === "low"
-                ? "Low (< 26k)"
-                : price === "medium"
-                  ? "Medium (26k–35k)"
-                  : "High (> 35k)"}
-          </span>
-
-          {priceOpen ? (
-            <ChevronUp
-              size={18}
-              className="
-                ml-2
-                shrink-0
-                text-gray-600
-                max-[480px]:h-4
-                max-[480px]:w-4
-              "
-            />
-          ) : (
-            <ChevronDown
-              size={18}
-              className="
-                ml-2
-                shrink-0
-                text-gray-600
-                max-[480px]:h-4
-                max-[480px]:w-4
-              "
-            />
-          )}
-        </button>
-
-        {priceOpen && (
-          <div
-            className="
-              absolute
-              left-0
-              z-50
-              mt-1
-              w-full
-              overflow-hidden
-              rounded-md
-              border
-              border-[#ddd]
-              bg-white
-              shadow-lg
-            "
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:px-2
-                max-[480px]:py-2
-                max-[480px]:text-xs
-                ${
-                  price === ""
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              All Prices
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("low");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:px-2
-                max-[480px]:py-2
-                max-[480px]:text-xs
-                ${
-                  price === "low"
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              Low (&lt; 26k)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("medium");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:px-2
-                max-[480px]:py-2
-                max-[480px]:text-xs
-                ${
-                  price === "medium"
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              Medium (26k–35k)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setPrice("high");
-                setPriceOpen(false);
-              }}
-              className={`
-                block
-                w-full
-                px-3
-                py-2
-                text-left
-                text-[14px]
-                transition-colors
-                hover:bg-[#f0f6ff]
-                max-[480px]:px-2
-                max-[480px]:py-2
-                max-[480px]:text-xs
-                ${
-                  price === "high"
-                    ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                    : "text-[#333]"
-                }
-              `}
-            >
-              High (&gt; 35k)
-            </button>
-          </div>
-        )}
-       </div>
-      </div>
-     </div>
-    )}
-
-    {/* ---------------- Error ---------------- */}
-    {error ? (
-      <ErrorState
-        onRetry={fetchBatteries}
-      />
-    ) : (
-      <>
-
-        {/* ---------------- Products Grid ---------------- */}
+      {/* ---------------- Filters ---------------- */}
+      {!error && (
         <div
           className="
-            grid
-            grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
-            gap-5
-            max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
+            mt-5
+            mb-[25px]
+            flex
+            w-full
+            justify-center
           "
         >
-          {loading ? (
-            Array.from({ length: 8 }).map((_, index) => (
-              <SkeletonCard key={index} />
-            ))
-          ) : items.length ? (
-            items.map((item) => (
-              <div
-                key={item.id}
+          <div
+            className="
+              flex
+              flex-wrap
+              items-center
+              justify-center
+              gap-4
+              max-[480px]:mt-3
+              max-[480px]:gap-2
+              max-[480px]:items-center
+            "
+          >
+            {/* ---------------- Brand Dropdown ---------------- */}
+            <div
+              ref={brandDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[110px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setBrandOpen((open) => !open);
+                  setColourOpen(false);
+                  setPriceOpen(false);
+                }}
                 className="
                   flex
-                  h-full
-                  flex-col
+                  w-full
                   items-center
-                  rounded-xl
+                  justify-between
+                  rounded-md
+                  border
+                  border-gray-300
                   bg-white
-                  p-3
-                  shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                  transition-all
-                  duration-200
-                  hover:-translate-y-1
-                  hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-2
+                  max-[480px]:py-2
+                  max-[480px]:text-xs
                 "
               >
-                <Link
-                  to={`/items/${item.id}`}
+                <span className="truncate">
+                  {brand || "All Brands"}
+                </span>
+
+                {brandOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                      max-[480px]:h-4
+                      max-[480px]:w-4
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                      max-[480px]:h-4
+                      max-[480px]:w-4
+                    "
+                  />
+                )}
+              </button>
+
+              {brandOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBrand("");
+                      setBrandOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:px-2
+                      max-[480px]:py-2
+                      max-[480px]:text-xs
+                      ${
+                        brand === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Brands
+                  </button>
+
+                  {availableBrands.map((itemBrand) => (
+                    <button
+                      key={itemBrand}
+                      type="button"
+                      onClick={() => {
+                        setBrand(itemBrand);
+                        setBrandOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:px-2
+                        max-[480px]:py-2
+                        max-[480px]:text-xs
+                        ${
+                          brand === itemBrand
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemBrand}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ---------------- Colour Dropdown ---------------- */}
+            <div
+              ref={colourDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[110px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setColourOpen((open) => !open);
+                  setBrandOpen(false);
+                  setPriceOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-gray-300
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-2
+                  max-[480px]:py-2
+                  max-[480px]:text-xs
+                "
+              >
+                <span className="truncate">
+                  {colour === ""
+                    ? "All Colours"
+                    : colour.charAt(0).toUpperCase() +
+                      colour.slice(1)}
+                </span>
+
+                {colourOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                      max-[480px]:h-4
+                      max-[480px]:w-4
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                      max-[480px]:h-4
+                      max-[480px]:w-4
+                    "
+                  />
+                )}
+              </button>
+
+              {colourOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setColour("");
+                      setColourOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:px-2
+                      max-[480px]:py-2
+                      max-[480px]:text-xs
+                      ${
+                        colour === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Colours
+                  </button>
+
+                  {availableColours.map((itemColour) => (
+                    <button
+                      key={itemColour}
+                      type="button"
+                      onClick={() => {
+                        setColour(itemColour);
+                        setColourOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:px-2
+                        max-[480px]:py-2
+                        max-[480px]:text-xs
+                        ${
+                          colour === itemColour
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemColour.charAt(0).toUpperCase() +
+                        itemColour.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ---------------- Price Dropdown ---------------- */}
+            <div
+              ref={priceDropdownRef}
+              className="
+                relative
+                w-[180px]
+                max-[480px]:w-[110px]
+              "
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setPriceOpen((open) => !open);
+                  setBrandOpen(false);
+                  setColourOpen(false);
+                }}
+                className="
+                  flex
+                  w-full
+                  items-center
+                  justify-between
+                  rounded-md
+                  border
+                  border-gray-300
+                  bg-white
+                  px-3
+                  py-2
+                  text-left
+                  text-[14px]
+                  transition-colors
+                  hover:border-[#0077ff]
+                  focus:border-[#0077ff]
+                  focus:outline-none
+                  max-[480px]:px-2
+                  max-[480px]:py-2
+                  max-[480px]:text-xs
+                "
+              >
+                <span className="truncate">
+                  {price === ""
+                    ? "All Prices"
+                    : price === "low"
+                      ? "Low (< 26k)"
+                      : price === "medium"
+                        ? "Medium (26k–35k)"
+                        : "High (> 35k)"}
+                </span>
+
+                {priceOpen ? (
+                  <ChevronUp
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                      max-[480px]:h-4
+                      max-[480px]:w-4
+                    "
+                  />
+                ) : (
+                  <ChevronDown
+                    size={18}
+                    className="
+                      ml-2
+                      shrink-0
+                      text-gray-600
+                      max-[480px]:h-4
+                      max-[480px]:w-4
+                    "
+                  />
+                )}
+              </button>
+
+              {priceOpen && (
+                <div
+                  className="
+                    absolute
+                    left-0
+                    z-50
+                    mt-1
+                    w-full
+                    overflow-hidden
+                    rounded-md
+                    border
+                    border-[#ddd]
+                    bg-white
+                    shadow-lg
+                  "
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:px-2
+                      max-[480px]:py-2
+                      max-[480px]:text-xs
+                      ${
+                        price === ""
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    All Prices
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("low");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:px-2
+                      max-[480px]:py-2
+                      max-[480px]:text-xs
+                      ${
+                        price === "low"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    Low (&lt; 26k)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("medium");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:px-2
+                      max-[480px]:py-2
+                      max-[480px]:text-xs
+                      ${
+                        price === "medium"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    Medium (26k–35k)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrice("high");
+                      setPriceOpen(false);
+                    }}
+                    className={`
+                      block
+                      w-full
+                      px-3
+                      py-2
+                      text-left
+                      text-[14px]
+                      transition-colors
+                      hover:bg-[#f0f6ff]
+                      max-[480px]:px-2
+                      max-[480px]:py-2
+                      max-[480px]:text-xs
+                      ${
+                        price === "high"
+                          ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                          : "text-[#333]"
+                      }
+                    `}
+                  >
+                    High (&gt; 35k)
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- Error ---------------- */}
+      {error ? (
+        <ErrorState
+          onRetry={fetchBatteries}
+        />
+      ) : (
+        <>
+          {/* ---------------- Products Grid ---------------- */}
+          <div
+            className="
+              grid
+              grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
+              gap-5
+              max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
+            "
+          >
+            {loading ? (
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
+            ) : items.length ? (
+              items.map((item) => (
+                <div
+                  key={item.id}
                   className="
                     flex
                     h-full
-                    w-full
                     flex-col
                     items-center
+                    rounded-xl
+                    bg-white
+                    p-3
+                    shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+                    transition-all
+                    duration-200
+                    hover:-translate-y-1
+                    hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
                   "
                 >
-                  <img
-                    src={item.image}
-                    alt={item.brand}
+                  <Link
+                    to={`/items/${item.id}`}
                     className="
-                      mb-[10px]
-                      h-[150px]
+                      flex
+                      h-full
                       w-full
-                      rounded-lg
-                      object-contain
-                      max-[480px]:h-auto
-                      max-[480px]:w-[60%]
-                      max-[480px]:object-cover
-                    "
-                  />
-
-                  <h4
-                    className="
-                      my-[5px]
-                      mb-[10px]
-                      text-center
-                      text-base
-                      text-[#333]
+                      flex-col
+                      items-center
                     "
                   >
-                    {item.brand} {item.category} for{" "}
-                    {item.vehicle_type}
-                  </h4>
-                   <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
-                  KES {item.buying_price.toLocaleString()}
+                    <img
+                      src={item.image}
+                      alt={item.brand}
+                      className="
+                        mb-[10px]
+                        h-[150px]
+                        w-full
+                        rounded-lg
+                        object-contain
+                        max-[480px]:h-auto
+                        max-[480px]:w-[60%]
+                        max-[480px]:object-cover
+                      "
+                    />
 
-                  {item.discount_percentage > 0 && (
-                    <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
-                      (-{item.discount_percentage.toFixed(0)}%)
-                    </span>
-                  )}
-                </p>
+                    <h4
+                      className="
+                        my-[5px]
+                        mb-[10px]
+                        text-center
+                        text-base
+                        text-[#333]
+                      "
+                    >
+                      {item.brand} {item.category} for{" "}
+                      {item.vehicle_type}
+                    </h4>
 
-                <button
-                  onClick={(e) => handleAddToCart(item, e)}
-                  className="rounded-md bg-[rgb(0,64,128)] px-4 py-2 
-                             text-sm font-bold text-white hover:bg-[rgb(4,37,71)] 
-                             transition-colors duration-200"
-                >
-                  Add To Cart
-                </button>
-                </Link>
-              </div>
-            ))
-          ) : (
-            <p
-              className="
-                col-span-full
-                mb-20
-                text-center
-                text-base
-                text-[#7f0d0d]
-              "
-            >
-              No truck batteries found.
-            </p>
-          )}
-        </div>
+                    <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
+                      KES {item.buying_price.toLocaleString()}
 
-        {/* ---------------- Pagination ---------------- */}
-        {loading ? (
-          <div
-            className="
-              mt-4
-              flex
-              justify-center
-              gap-2
-            "
-          >
-            {[1, 2, 3, 4].map((item) => (
-              <div
-                key={item}
+                      {item.discount_percentage > 0 && (
+                        <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
+                          (-{item.discount_percentage.toFixed(0)}%)
+                        </span>
+                      )}
+                    </p>
+
+                    <button
+                      onClick={(e) =>
+                        handleAddToCart(item, e)
+                      }
+                      className="
+                        rounded-md
+                        bg-[rgb(0,64,128)]
+                        px-4
+                        py-2
+                        text-sm
+                        font-bold
+                        text-white
+                        transition-colors
+                        duration-200
+                        hover:bg-[rgb(4,37,71)]
+                      "
+                    >
+                      Add To Cart
+                    </button>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p
                 className="
-                  h-8
-                  w-10
-                  animate-pulse
-                  rounded-md
-                  bg-gray-200
+                  col-span-full
+                  mb-20
+                  text-center
+                  text-base
+                  text-[#7f0d0d]
                 "
-              />
-            ))}
+              >
+                No truck batteries found.
+              </p>
+            )}
           </div>
-        ) : (
-          totalPages > 1 && (
+
+          {/* ---------------- Pagination ---------------- */}
+          {loading ? (
             <div
               className="
-                my-[30px]
+                mt-4
                 flex
-                flex-wrap
-                items-center
                 justify-center
-                gap-[6px]
+                gap-2
               "
             >
-              <button
-                disabled={currentPage === 1}
-                onClick={() =>
-                  setCurrentPage((page) =>
-                    Math.max(page - 1, 1)
-                  )
-                }
-                className="
-                  cursor-pointer
-                  rounded
-                  border
-                  border-gray-300
-                  bg-white
-                  px-3
-                  py-1.5
-                  text-sm
-                  transition-colors
-                  hover:bg-gray-100
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                "
-              >
-                Prev
-              </button>
-
-              {visiblePages[0] > 1 && (
-                <span
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
                   className="
-                    select-none
-                    px-1.5
-                    text-base
+                    h-8
+                    w-10
+                    animate-pulse
+                    rounded-md
+                    bg-gray-200
                   "
-                >
-                  …
-                </span>
-              )}
-
-              {visiblePages.map((page) => (
-                <button
-                  key={page}
-                  onClick={() =>
-                    setCurrentPage(page)
-                  }
-                  className={
-                    page === currentPage
-                      ? `
-                        rounded
-                        border
-                        border-[#004080]
-                        bg-[#004080]
-                        px-3
-                        py-1.5
-                        text-sm
-                        font-semibold
-                        text-white
-                      `
-                      : `
-                        rounded
-                        border
-                        border-gray-300
-                        bg-white
-                        px-3
-                        py-1.5
-                        text-sm
-                        transition-colors
-                        hover:bg-gray-100
-                      `
-                  }
-                >
-                  {page}
-                </button>
+                />
               ))}
-
-              {visiblePages[
-                visiblePages.length - 1
-              ] < totalPages && (
-                <span
-                  className="
-                    select-none
-                    px-1.5
-                    text-base
-                  "
-                >
-                  …
-                </span>
-              )}
-
-              <button
-                disabled={
-                  currentPage === totalPages
-                }
-                onClick={() =>
-                  setCurrentPage((page) =>
-                    Math.min(
-                      page + 1,
-                      totalPages
-                    )
-                  )
-                }
+            </div>
+          ) : (
+            totalPages > 1 && (
+              <div
                 className="
-                  cursor-pointer
-                  rounded
-                  border
-                  border-gray-300
-                  bg-white
-                  px-3
-                  py-1.5
-                  text-sm
-                  transition-colors
-                  hover:bg-gray-100
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
+                  my-[30px]
+                  flex
+                  flex-wrap
+                  items-center
+                  justify-center
+                  gap-[6px]
                 "
               >
-                Next
-              </button>
-            </div>
-          )
-        )}
-      </>
-    )}
-  </div>
- );
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
+                    )
+                  }
+                  className="
+                    cursor-pointer
+                    rounded
+                    border
+                    border-gray-300
+                    bg-white
+                    px-3
+                    py-1.5
+                    text-sm
+                    transition-colors
+                    hover:bg-gray-100
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  Prev
+                </button>
+
+                {visiblePages[0] > 1 && (
+                  <span
+                    className="
+                      select-none
+                      px-1.5
+                      text-base
+                    "
+                  >
+                    …
+                  </span>
+                )}
+
+                {visiblePages.map((page) => (
+                  <button
+                    key={page}
+                    onClick={() =>
+                      setCurrentPage(page)
+                    }
+                    className={
+                      page === currentPage
+                        ? `
+                          rounded
+                          border
+                          border-[#004080]
+                          bg-[#004080]
+                          px-3
+                          py-1.5
+                          text-sm
+                          font-semibold
+                          text-white
+                        `
+                        : `
+                          rounded
+                          border
+                          border-gray-300
+                          bg-white
+                          px-3
+                          py-1.5
+                          text-sm
+                          transition-colors
+                          hover:bg-gray-100
+                        `
+                    }
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                {visiblePages[
+                  visiblePages.length - 1
+                ] < totalPages && (
+                  <span
+                    className="
+                      select-none
+                      px-1.5
+                      text-base
+                    "
+                  >
+                    …
+                  </span>
+                )}
+
+                <button
+                  disabled={
+                    currentPage === totalPages
+                  }
+                  onClick={() =>
+                    setCurrentPage((page) =>
+                      Math.min(
+                        page + 1,
+                        totalPages
+                      )
+                    )
+                  }
+                  className="
+                    cursor-pointer
+                    rounded
+                    border
+                    border-gray-300
+                    bg-white
+                    px-3
+                    py-1.5
+                    text-sm
+                    transition-colors
+                    hover:bg-gray-100
+                    disabled:cursor-not-allowed
+                    disabled:opacity-50
+                  "
+                >
+                  Next
+                </button>
+              </div>
+            )
+          )}
+        </>
+      )}
+    </div>
+  );
 };
 
 export default TruckBatteries;

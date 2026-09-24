@@ -287,9 +287,32 @@ PAYSTACK_SECRET_KEY = env(
     "PAYSTACK_SECRET_KEY"
 )
 
-PAYSTACK_PUBLIC_KEY = os.getenv(
+PAYSTACK_PUBLIC_KEY = env(
     "PAYSTACK_PUBLIC_KEY"
 )
+
+#-------------------------PAYPAL CONFIG-------------------------
+PAYPAL_CLIENT_ID = env(
+    "PAYPAL_CLIENT_ID"
+)
+
+PAYPAL_CLIENT_SECRET = env(
+    "PAYPAL_CLIENT_SECRET"
+)
+
+PAYPAL_ENVIRONMENT = env(
+    "PAYPAL_ENVIRONMENT"
+)
+
+PAYPAL_CURRENCY = env(
+    "PAYPAL_CURRENCY"
+)
+
+
+PAYPAL_WEBHOOK_ID = env(
+    "PAYPAL_WEBHOOK_ID"
+)
+
 
 #------------------------- CLOUDFLARE CONFIG--------------------
 R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID")

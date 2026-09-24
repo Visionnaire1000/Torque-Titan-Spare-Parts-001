@@ -14,7 +14,8 @@ import RoleProtectedRoutes from "./components/shared/auth/RoleProtectedRoutes";
 import Navbar from "./components/shared/layout/Navbar";
 import Registration from "./components/shared/auth/Registration";
 import Login from "./components/shared/auth/Login";
-import AccountManagement from "./components/buyer/buyerDashboard/AccountManagement"; 
+import ForgotPassword from "./components/shared/auth/ForgotPassword";
+import AccountManagement from "./components/shared/auth/AccountManagement"; 
 import Homepage from "./components/shared/Homepage";
 import Cart from "./components/buyer/Cart";
 import SearchBar from "./components/buyer/search/SearchBar"; 
@@ -31,8 +32,8 @@ import PaymentCancel from "./components/buyer/checkout/PaymentCancel";
 import AdminReviews from "./components/admin/adminDashboard/AdminReviews";
 import AdminOrders from "./components/admin/adminDashboard/AdminOrders";
 import RevenueAnalytics from "./components/admin/adminDashboard/RevenueAnalytics";
-import SuperAdminAccount from "./components/admin/adminDashboard/SuperAdminAccount";
-import AdminManagement from "./components/admin/adminDashboard/AdminManagement";
+import SuperAdminAccount from "./components/admin/auth/SuperAdminAccount";
+import AdminManagement from "./components/admin/auth/AdminManagement";
 
 
 //pages(categories)
@@ -64,6 +65,7 @@ function App() {
              <Routes>
                 <Route path="/register" element={<Registration />} /> 
                 <Route path="/login" element={<Login />} /> 
+                <Route path="/forgot-password" element={<ForgotPassword />} /> 
                 <Route path="/" element={<Homepage />} /> ,
                  <Route 
                   path="/account-management" 

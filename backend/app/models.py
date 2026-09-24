@@ -49,6 +49,46 @@ class UsersManager(BaseUserManager):
 
         return user
 
+    def create_superuser(
+        self,
+        email,
+        password,
+        **extra_fields
+    ):
+
+        if not password:
+            raise ValueError(
+                "Superuser password is required"
+            )
+
+        extra_fields.setdefault(
+            "role",
+            "super_admin"
+        )
+
+        extra_fields.setdefault(
+            "is_staff",
+            True
+        )
+
+        extra_fields.setdefault(
+            "is_superuser",
+            True
+        )
+
+        extra_fields.setdefault(
+            "is_active",
+            True
+        )
+
+        user = self.create_user(
+            email=email,
+            password=password,
+            **extra_fields
+        )
+
+        return user
+
 
 # ------------------------------ USERS MODEL ------------------------------------------
 class Users(AbstractBaseUser):
@@ -82,19 +122,29 @@ class Users(AbstractBaseUser):
 
     # ------------------------------ PASSWORD -------------------------------------
     password_hash = models.CharField(
-        max_length=255
+        max_length=255,
+        default="",
     )
 
     role = models.CharField(
         max_length=30,
-        default="buyer"
+        choices=[
+            ("buyer", "Buyer"),
+            ("admin", "Admin"),
+            ("super_admin", "Super Admin"),
+        ],
+        default="buyer",
     )
 
     is_active = models.BooleanField(
         default=True
     )
 
-    # ------------------------------ EMAIL VERIFICATION ---------------------------
+    is_staff = models.BooleanField(
+        default=False
+    )
+
+    # ------------------------------ EMAIL VERIFICATION --------------------------
     email_verified = models.BooleanField(
         default=False
     )
@@ -110,7 +160,25 @@ class Users(AbstractBaseUser):
         blank=True
     )
 
-    # ------------------------------ CHANGE PASSWORD OTP ---------------------------
+    email_otp_last_sent = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    email_otp_resend_count = models.IntegerField(
+        default=0
+    )
+
+    email_otp_attempts = models.IntegerField(
+        default=0
+    )
+
+    email_otp_locked_until = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    # ------------------------------ CHANGE PASSWORD / FORGOT PASSWORD OTP -------
     change_password_otp_hash = models.CharField(
         max_length=255,
         null=True,
@@ -122,7 +190,25 @@ class Users(AbstractBaseUser):
         blank=True
     )
 
-    # ------------------------------ DELETE ACCOUNT OTP ----------------------------
+    change_password_otp_last_sent = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    change_password_otp_resend_count = models.IntegerField(
+        default=0
+    )
+
+    change_password_otp_attempts = models.IntegerField(
+        default=0
+    )
+
+    change_password_otp_locked_until = models.DateTimeField(
+        null=True,
+        blank=True
+    )
+
+    # ------------------------------ DELETE ACCOUNT OTP --------------------------
     delete_account_otp_hash = models.CharField(
         max_length=255,
         null=True,
@@ -134,26 +220,25 @@ class Users(AbstractBaseUser):
         blank=True
     )
 
-    # ------------------------------ OTP CONTROL -----------------------------------
-    otp_last_sent = models.DateTimeField(
+    delete_account_otp_last_sent = models.DateTimeField(
         null=True,
         blank=True
     )
 
-    otp_resend_count = models.IntegerField(
+    delete_account_otp_resend_count = models.IntegerField(
         default=0
     )
 
-    otp_attempts = models.IntegerField(
+    delete_account_otp_attempts = models.IntegerField(
         default=0
     )
 
-    otp_locked_until = models.DateTimeField(
+    delete_account_otp_locked_until = models.DateTimeField(
         null=True,
         blank=True
     )
 
-    # ------------------------------ OTP CONSTANTS ---------------------------------
+    # ------------------------------ OTP CONSTANTS -------------------------------
     OTP_EXPIRY_MINUTES = 5
 
     OTP_RESEND_COOLDOWN_SECONDS = 60
@@ -164,7 +249,7 @@ class Users(AbstractBaseUser):
 
     OTP_LOCK_MINUTES = 5
 
-    # ------------------------------ AUTH CONFIGURATION ----------------------------
+    # ------------------------------ AUTH CONFIGURATION --------------------------
     USERNAME_FIELD = "email"
 
     REQUIRED_FIELDS = []
@@ -174,7 +259,7 @@ class Users(AbstractBaseUser):
     class Meta:
         db_table = "users"
 
-    # ------------------------------ VALIDATION ------------------------------------
+    # ------------------------------ VALIDATION ----------------------------------
     def clean(self):
 
         if (
@@ -191,7 +276,7 @@ class Users(AbstractBaseUser):
             .strip()
         )
 
-    # ------------------------------ PASSWORD --------------------------------------
+    # ------------------------------ PASSWORD ------------------------------------
     def set_password(
         self,
         password: str
@@ -206,6 +291,9 @@ class Users(AbstractBaseUser):
         password: str
     ) -> bool:
 
+        if not self.password_hash:
+            return False
+
         return check_password(
             password,
             self.password_hash
@@ -216,7 +304,7 @@ class Users(AbstractBaseUser):
 
         return self.password_hash
 
-    # ------------------------------ OTP HASH --------------------------------------
+    # ------------------------------ OTP HASH ------------------------------------
     def _hash_otp(
         self,
         otp: str
@@ -226,17 +314,27 @@ class Users(AbstractBaseUser):
             otp.encode()
         ).hexdigest()
 
-    # ------------------------------ GENERIC ACTION OTP ----------------------------
-    def _generate_action_otp(
-        self,
-        hash_field: str,
-        expires_field: str
-    ):
+    def _generate_otp(self) -> str:
 
-        raw_otp = str(
+        return str(
             secrets.randbelow(900000)
             + 100000
         )
+
+    # ------------------------------ GENERIC OTP GENERATION -----------------------
+    def _generate_action_otp(
+        self,
+        hash_field: str,
+        expires_field: str,
+        last_sent_field: str,
+        resend_count_field: str,
+        attempts_field: str,
+        locked_until_field: str,
+    ):
+
+        raw_otp = self._generate_otp()
+
+        now = timezone.now()
 
         setattr(
             self,
@@ -247,150 +345,188 @@ class Users(AbstractBaseUser):
         setattr(
             self,
             expires_field,
-            timezone.now()
-            + timedelta(
+            now + timedelta(
                 minutes=self.OTP_EXPIRY_MINUTES
             )
+        )
+
+        setattr(
+            self,
+            last_sent_field,
+            now
+        )
+
+        setattr(
+            self,
+            resend_count_field,
+            (
+                getattr(
+                    self,
+                    resend_count_field
+                )
+                or 0
+            ) + 1
+        )
+
+        setattr(
+            self,
+            attempts_field,
+            0
+        )
+
+        setattr(
+            self,
+            locked_until_field,
+            None
         )
 
         self.save(
             update_fields=[
                 hash_field,
                 expires_field,
+                last_sent_field,
+                resend_count_field,
+                attempts_field,
+                locked_until_field,
             ]
         )
 
         return raw_otp
 
-    # ------------------------------ EMAIL OTP -------------------------------------
+    # ------------------------------ EMAIL OTP -----------------------------------
     def generate_email_otp(self):
 
-        raw_otp = str(
-            secrets.randbelow(900000)
-            + 100000
+        return self._generate_action_otp(
+            "email_otp_hash",
+            "email_otp_expires",
+            "email_otp_last_sent",
+            "email_otp_resend_count",
+            "email_otp_attempts",
+            "email_otp_locked_until",
         )
 
-        self.email_otp_hash = (
-            self._hash_otp(raw_otp)
-        )
-
-        self.email_otp_expires = (
-            timezone.now()
-            + timedelta(
-                minutes=self.OTP_EXPIRY_MINUTES
-            )
-        )
-
-        self.otp_last_sent = timezone.now()
-
-        self.otp_resend_count = (
-            self.otp_resend_count or 0
-        ) + 1
-
-        self.otp_attempts = 0
-
-        self.otp_locked_until = None
-
-        self.save(
-            update_fields=[
-                "email_otp_hash",
-                "email_otp_expires",
-                "otp_last_sent",
-                "otp_resend_count",
-                "otp_attempts",
-                "otp_locked_until",
-            ]
-        )
-
-        return raw_otp
-
-    # ------------------------------ CHANGE PASSWORD OTP ---------------------------
+    # ------------------------------ CHANGE PASSWORD / FORGOT PASSWORD OTP --------
     def generate_change_password_otp(self):
 
-        raw_otp = self._generate_action_otp(
+        return self._generate_action_otp(
             "change_password_otp_hash",
             "change_password_otp_expires",
+            "change_password_otp_last_sent",
+            "change_password_otp_resend_count",
+            "change_password_otp_attempts",
+            "change_password_otp_locked_until",
         )
 
-        self.otp_last_sent = timezone.now()
-
-        self.otp_resend_count = (
-            self.otp_resend_count or 0
-        ) + 1
-
-        self.otp_attempts = 0
-
-        self.otp_locked_until = None
-
-        self.save(
-            update_fields=[
-                "otp_last_sent",
-                "otp_resend_count",
-                "otp_attempts",
-                "otp_locked_until",
-            ]
-        )
-
-        return raw_otp
-
-    # ------------------------------ DELETE ACCOUNT OTP ----------------------------
+    # ------------------------------ DELETE ACCOUNT OTP --------------------------
     def generate_delete_account_otp(self):
 
-        raw_otp = self._generate_action_otp(
+        return self._generate_action_otp(
             "delete_account_otp_hash",
             "delete_account_otp_expires",
+            "delete_account_otp_last_sent",
+            "delete_account_otp_resend_count",
+            "delete_account_otp_attempts",
+            "delete_account_otp_locked_until",
         )
 
-        self.otp_last_sent = timezone.now()
-
-        self.otp_resend_count = (
-            self.otp_resend_count or 0
-        ) + 1
-
-        self.otp_attempts = 0
-
-        self.otp_locked_until = None
-
-        self.save(
-            update_fields=[
-                "otp_last_sent",
-                "otp_resend_count",
-                "otp_attempts",
-                "otp_locked_until",
-            ]
-        )
-
-        return raw_otp
-
-    # ------------------------------ RESEND CONTROL --------------------------------
-    def can_resend_otp(
+    # ------------------------------ GENERIC RESEND CONTROL -----------------------
+    def _can_resend_otp(
         self,
-        cooldown_seconds=60,
-        max_resends=5
+        last_sent_field: str,
+        resend_count_field: str,
+        cooldown_seconds=None,
+        max_resends=None,
     ):
+
+        cooldown_seconds = (
+            cooldown_seconds
+            if cooldown_seconds is not None
+            else self.OTP_RESEND_COOLDOWN_SECONDS
+        )
+
+        max_resends = (
+            max_resends
+            if max_resends is not None
+            else self.MAX_OTP_RESENDS
+        )
 
         now = timezone.now()
 
-        if self.otp_resend_count >= max_resends:
+        resend_count = getattr(
+            self,
+            resend_count_field
+        ) or 0
+
+        if resend_count >= max_resends:
             return False, 0
 
-        if not self.otp_last_sent:
+        last_sent = getattr(
+            self,
+            last_sent_field
+        )
+
+        if not last_sent:
             return True, 0
 
         elapsed = (
-            now - self.otp_last_sent
+            now - last_sent
         ).total_seconds()
 
         if elapsed >= cooldown_seconds:
             return True, 0
 
-        remaining = int(
-            cooldown_seconds - elapsed
+        remaining = max(
+            0,
+            int(
+                cooldown_seconds - elapsed
+            )
         )
 
         return False, remaining
 
-    # ------------------------------ EMAIL OTP VERIFY ------------------------------
+    # ------------------------------ EMAIL RESEND CONTROL ------------------------
+    def can_resend_email_otp(
+        self,
+        cooldown_seconds=None,
+        max_resends=None
+    ):
+
+        return self._can_resend_otp(
+            "email_otp_last_sent",
+            "email_otp_resend_count",
+            cooldown_seconds,
+            max_resends,
+        )
+
+    # ------------------------------ CHANGE PASSWORD RESEND CONTROL --------------
+    def can_resend_change_password_otp(
+        self,
+        cooldown_seconds=None,
+        max_resends=None
+    ):
+
+        return self._can_resend_otp(
+            "change_password_otp_last_sent",
+            "change_password_otp_resend_count",
+            cooldown_seconds,
+            max_resends,
+        )
+
+    # ------------------------------ DELETE ACCOUNT RESEND CONTROL ---------------
+    def can_resend_delete_account_otp(
+        self,
+        cooldown_seconds=None,
+        max_resends=None
+    ):
+
+        return self._can_resend_otp(
+            "delete_account_otp_last_sent",
+            "delete_account_otp_resend_count",
+            cooldown_seconds,
+            max_resends,
+        )
+
+    # ------------------------------ EMAIL OTP VERIFY ----------------------------
     def verify_email_otp(
         self,
         otp: str
@@ -399,8 +535,8 @@ class Users(AbstractBaseUser):
         now = timezone.now()
 
         if (
-            self.otp_locked_until
-            and now < self.otp_locked_until
+            self.email_otp_locked_until
+            and now < self.email_otp_locked_until
         ):
             return "locked"
 
@@ -413,12 +549,18 @@ class Users(AbstractBaseUser):
         if self.email_otp_expires < now:
             return False
 
-        if self._hash_otp(otp) != self.email_otp_hash:
+        if (
+            self._hash_otp(otp)
+            != self.email_otp_hash
+        ):
 
-            self.otp_attempts += 1
+            self.email_otp_attempts += 1
 
-            if self.otp_attempts >= self.MAX_OTP_ATTEMPTS:
-                self.otp_locked_until = (
+            if (
+                self.email_otp_attempts
+                >= self.MAX_OTP_ATTEMPTS
+            ):
+                self.email_otp_locked_until = (
                     now
                     + timedelta(
                         minutes=self.OTP_LOCK_MINUTES
@@ -427,8 +569,8 @@ class Users(AbstractBaseUser):
 
             self.save(
                 update_fields=[
-                    "otp_attempts",
-                    "otp_locked_until",
+                    "email_otp_attempts",
+                    "email_otp_locked_until",
                 ]
             )
 
@@ -437,24 +579,26 @@ class Users(AbstractBaseUser):
         self.email_verified = True
         self.email_otp_hash = None
         self.email_otp_expires = None
-        self.otp_attempts = 0
-        self.otp_resend_count = 0
-        self.otp_locked_until = None
+        self.email_otp_last_sent = None
+        self.email_otp_resend_count = 0
+        self.email_otp_attempts = 0
+        self.email_otp_locked_until = None
 
         self.save(
             update_fields=[
                 "email_verified",
                 "email_otp_hash",
                 "email_otp_expires",
-                "otp_attempts",
-                "otp_resend_count",
-                "otp_locked_until",
+                "email_otp_last_sent",
+                "email_otp_resend_count",
+                "email_otp_attempts",
+                "email_otp_locked_until",
             ]
         )
 
         return True
 
-    # ------------------------------ CHANGE PASSWORD VERIFY ------------------------
+    # ------------------------------ CHANGE PASSWORD OTP VERIFY ------------------
     def verify_change_password_otp(
         self,
         otp: str
@@ -463,8 +607,8 @@ class Users(AbstractBaseUser):
         now = timezone.now()
 
         if (
-            self.otp_locked_until
-            and now < self.otp_locked_until
+            self.change_password_otp_locked_until
+            and now < self.change_password_otp_locked_until
         ):
             return "locked"
 
@@ -477,12 +621,18 @@ class Users(AbstractBaseUser):
         if self.change_password_otp_expires < now:
             return False
 
-        if self._hash_otp(otp) != self.change_password_otp_hash:
+        if (
+            self._hash_otp(otp)
+            != self.change_password_otp_hash
+        ):
 
-            self.otp_attempts += 1
+            self.change_password_otp_attempts += 1
 
-            if self.otp_attempts >= self.MAX_OTP_ATTEMPTS:
-                self.otp_locked_until = (
+            if (
+                self.change_password_otp_attempts
+                >= self.MAX_OTP_ATTEMPTS
+            ):
+                self.change_password_otp_locked_until = (
                     now
                     + timedelta(
                         minutes=self.OTP_LOCK_MINUTES
@@ -491,8 +641,8 @@ class Users(AbstractBaseUser):
 
             self.save(
                 update_fields=[
-                    "otp_attempts",
-                    "otp_locked_until",
+                    "change_password_otp_attempts",
+                    "change_password_otp_locked_until",
                 ]
             )
 
@@ -500,21 +650,25 @@ class Users(AbstractBaseUser):
 
         self.change_password_otp_hash = None
         self.change_password_otp_expires = None
-        self.otp_attempts = 0
-        self.otp_locked_until = None
+        self.change_password_otp_last_sent = None
+        self.change_password_otp_resend_count = 0
+        self.change_password_otp_attempts = 0
+        self.change_password_otp_locked_until = None
 
         self.save(
             update_fields=[
                 "change_password_otp_hash",
                 "change_password_otp_expires",
-                "otp_attempts",
-                "otp_locked_until",
+                "change_password_otp_last_sent",
+                "change_password_otp_resend_count",
+                "change_password_otp_attempts",
+                "change_password_otp_locked_until",
             ]
         )
 
         return True
 
-    # ------------------------------ DELETE ACCOUNT VERIFY -------------------------
+    # ------------------------------ DELETE ACCOUNT OTP VERIFY -------------------
     def verify_delete_account_otp(
         self,
         otp: str
@@ -523,8 +677,8 @@ class Users(AbstractBaseUser):
         now = timezone.now()
 
         if (
-            self.otp_locked_until
-            and now < self.otp_locked_until
+            self.delete_account_otp_locked_until
+            and now < self.delete_account_otp_locked_until
         ):
             return "locked"
 
@@ -537,12 +691,18 @@ class Users(AbstractBaseUser):
         if self.delete_account_otp_expires < now:
             return False
 
-        if self._hash_otp(otp) != self.delete_account_otp_hash:
+        if (
+            self._hash_otp(otp)
+            != self.delete_account_otp_hash
+        ):
 
-            self.otp_attempts += 1
+            self.delete_account_otp_attempts += 1
 
-            if self.otp_attempts >= self.MAX_OTP_ATTEMPTS:
-                self.otp_locked_until = (
+            if (
+                self.delete_account_otp_attempts
+                >= self.MAX_OTP_ATTEMPTS
+            ):
+                self.delete_account_otp_locked_until = (
                     now
                     + timedelta(
                         minutes=self.OTP_LOCK_MINUTES
@@ -551,8 +711,8 @@ class Users(AbstractBaseUser):
 
             self.save(
                 update_fields=[
-                    "otp_attempts",
-                    "otp_locked_until",
+                    "delete_account_otp_attempts",
+                    "delete_account_otp_locked_until",
                 ]
             )
 
@@ -560,21 +720,25 @@ class Users(AbstractBaseUser):
 
         self.delete_account_otp_hash = None
         self.delete_account_otp_expires = None
-        self.otp_attempts = 0
-        self.otp_locked_until = None
+        self.delete_account_otp_last_sent = None
+        self.delete_account_otp_resend_count = 0
+        self.delete_account_otp_attempts = 0
+        self.delete_account_otp_locked_until = None
 
         self.save(
             update_fields=[
                 "delete_account_otp_hash",
                 "delete_account_otp_expires",
-                "otp_attempts",
-                "otp_locked_until",
+                "delete_account_otp_last_sent",
+                "delete_account_otp_resend_count",
+                "delete_account_otp_attempts",
+                "delete_account_otp_locked_until",
             ]
         )
 
         return True
 
-    # ------------------------------ DISPLAY NAME ----------------------------------
+    # ------------------------------ DISPLAY NAME --------------------------------
     @property
     def display_name(self):
 
@@ -598,7 +762,7 @@ class Users(AbstractBaseUser):
 
         return "User"
 
-    # ------------------------------ SAVE -------------------------------------------
+    # ------------------------------ SAVE -----------------------------------------
     def save(
         self,
         *args,
@@ -620,11 +784,10 @@ class Users(AbstractBaseUser):
             **kwargs
         )
 
-    # ------------------------------ STRING -----------------------------------------
+    # ------------------------------ STRING ---------------------------------------
     def __str__(self):
 
         return self.email
-
 
 # ------------------------------ SPAREPARTS MODEL ------------------------------------------
 class SpareParts(models.Model):
@@ -1019,6 +1182,21 @@ class Orders(models.Model):
         decimal_places=2,
         default=Decimal("0.00")
     )
+
+    paypal_exchange_rate = models.DecimalField(
+        max_digits=12,
+        decimal_places=6,
+        null=True,
+        blank=True,
+    )
+
+    paypal_total = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
 
     shipped_at = models.DateTimeField(
         null=True,
