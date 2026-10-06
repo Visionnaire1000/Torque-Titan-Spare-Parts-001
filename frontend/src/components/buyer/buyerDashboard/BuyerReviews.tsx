@@ -1,6 +1,6 @@
-import { useEffect, useState, useRef, type FC } from "react";
+import { useEffect, useState, useRef, type FC, type MouseEvent } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import config from "../../../config";
 import { RefreshCw, Star, ThumbsUp, ThumbsDown } from "lucide-react";
 
@@ -18,7 +18,6 @@ interface Review {
     image_url: string;
     buying_price: number;
     discount_percentage: number;
-
   };
 
   user_display_name: string;
@@ -32,6 +31,114 @@ interface Review {
 interface ErrorStateProps {
   onRetry: () => void;
 }
+
+
+/* ----------------------------- PROFILE CIRCLE ------------------------- */
+const getProfileInitials = (
+  displayName: string
+): string => {
+  const name = displayName.trim();
+
+  if (!name) {
+    return "U";
+  }
+
+  const parts = name
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .charAt(0)
+      .toUpperCase();
+  }
+
+  const firstInitial =
+    parts[0].charAt(0).toUpperCase();
+
+  const lastInitial =
+    parts[parts.length - 1]
+      .charAt(0)
+      .toUpperCase();
+
+  return `${firstInitial}${lastInitial}`;
+};
+
+const getProfileColor = (
+  displayName: string
+): string => {
+  const initials =
+    getProfileInitials(displayName);
+
+  const initial = initials.charAt(0);
+
+  const colors: Record<string, string> = {
+    A: "bg-red-500",
+    B: "bg-orange-500",
+    C: "bg-amber-500",
+    D: "bg-yellow-500",
+    E: "bg-lime-500",
+    F: "bg-green-500",
+    G: "bg-emerald-500",
+    H: "bg-teal-500",
+    I: "bg-cyan-500",
+    J: "bg-sky-500",
+    K: "bg-blue-500",
+    L: "bg-indigo-500",
+    M: "bg-violet-500",
+    N: "bg-purple-500",
+    O: "bg-fuchsia-500",
+    P: "bg-pink-500",
+    Q: "bg-rose-500",
+    R: "bg-red-600",
+    S: "bg-orange-600",
+    T: "bg-yellow-600",
+    U: "bg-green-600",
+    V: "bg-teal-600",
+    W: "bg-cyan-600",
+    X: "bg-blue-600",
+    Y: "bg-indigo-600",
+    Z: "bg-purple-600",
+  };
+
+  return (
+    colors[initial] ??
+    "bg-gray-500"
+  );
+};
+
+const ProfileCircle = ({
+  displayName,
+}: {
+  displayName: string;
+}) => {
+  const initials =
+    getProfileInitials(displayName);
+
+  const color =
+    getProfileColor(displayName);
+
+  return (
+    <div
+      className={`
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
+        text-sm
+        font-bold
+        text-white
+        ${color}
+      `}
+      aria-label={`${displayName} profile`}
+    >
+      {initials}
+    </div>
+  );
+ };
 
 /* ---------------- Skeleton Loader ---------------- */
 const SkeletonCard: FC = () => (
@@ -47,6 +154,8 @@ const SkeletonCard: FC = () => (
       animate-pulse
     "
   >
+    <div className="mb-2 h-10 w-10 rounded-full bg-gray-200" />
+
     <div className="mb-2 h-3 w-2/5 rounded bg-gray-200" />
 
     <div className="mb-2 h-3 rounded bg-gray-200" />
@@ -91,6 +200,7 @@ const ErrorState: FC<ErrorStateProps> = ({
     </p>
 
     <button
+      type="button"
       onClick={onRetry}
       className="
         inline-flex
@@ -105,10 +215,7 @@ const ErrorState: FC<ErrorStateProps> = ({
         hover:bg-gray-800
       "
     >
-      <RefreshCw
-        size={18}
-        className="transition group-hover:rotate-90"
-      />
+      <RefreshCw size={18} />
       Retry
     </button>
   </div>
@@ -118,9 +225,9 @@ const ErrorState: FC<ErrorStateProps> = ({
 const EmptyState: FC = () => (
   <div
     className="
+      mt-[90px]
       py-10
       text-center
-      mt-[90px]
       text-base
       font-medium
       text-red-600
@@ -130,14 +237,31 @@ const EmptyState: FC = () => (
   </div>
 );
 
-
 /* ---------------- Component ---------------- */
 const BuyerReviews: FC = () => {
   const { authFetch, user } = useAuth();
 
-  const [reviews, setReviews] = useState<Review[]>(
-    []
-  );
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const restoreState = location.state as {
+    restoreScrollY?: number;
+  } | null;
+
+  const restoreScrollYRef =
+    useRef<number | null>(
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : null
+    );
+
+  const isRestoringRef =
+    useRef<boolean>(
+      typeof restoreState?.restoreScrollY === "number"
+    );
+
+  const [reviews, setReviews] =
+    useState<Review[]>([]);
 
   const [loading, setLoading] =
     useState<boolean>(true);
@@ -145,20 +269,22 @@ const BuyerReviews: FC = () => {
   const [error, setError] =
     useState<string>("");
 
-  const reviewsRef = useRef<Review[]>([]);
+  const reviewsRef =
+    useRef<Review[]>([]);
 
- /* ---------------- Helpers ---------------- */
+  /* ---------------- Helpers ---------------- */
   const formatDate = (
     dateString: string
   ): string => {
-    if (!dateString) return "";
+    if (!dateString) {
+      return "";
+    }
 
     const date = new Date(dateString);
 
-    return `${String(date.getDate()).padStart(
-      2,
-      "0"
-    )}/${String(
+    return `${String(
+      date.getDate()
+    ).padStart(2, "0")}/${String(
       date.getMonth() + 1
     ).padStart(2, "0")}/${date.getFullYear()}`;
   };
@@ -166,10 +292,15 @@ const BuyerReviews: FC = () => {
   const hasReviewsChanged = (
     newData: Review[]
   ): boolean => {
-    const previous = reviewsRef.current;
+    const previous =
+      reviewsRef.current;
 
-    if (previous.length !== newData.length)
+    if (
+      previous.length !==
+      newData.length
+    ) {
       return true;
+    }
 
     const previousMap = new Map(
       previous.map((review) => [
@@ -199,6 +330,7 @@ const BuyerReviews: FC = () => {
       if (isInitial) {
         setLoading(false);
       }
+
       return;
     }
 
@@ -214,10 +346,13 @@ const BuyerReviews: FC = () => {
       );
 
       if (!res.ok) {
-        throw new Error("Failed to fetch reviews");
+        throw new Error(
+          "Failed to fetch reviews"
+        );
       }
 
-      const data: Review[] = await res.json();
+      const data: Review[] =
+        await res.json();
 
       if (hasReviewsChanged(data)) {
         setReviews(data);
@@ -230,7 +365,9 @@ const BuyerReviews: FC = () => {
         );
 
         window.dispatchEvent(
-          new Event("buyer_reviews_updated")
+          new Event(
+            "buyer_reviews_updated"
+          )
         );
       }
     } catch (err) {
@@ -251,21 +388,29 @@ const BuyerReviews: FC = () => {
   const markReviewsAsSeen = (
     data: Review[]
   ): void => {
-    if (!data.length) return;
+    if (!data.length) {
+      return;
+    }
 
-    const existing: string[] = JSON.parse(
-      localStorage.getItem(
-        "buyer_seen_review_ids"
-      ) || "[]"
+    const existing: string[] =
+      JSON.parse(
+        localStorage.getItem(
+          "buyer_seen_review_ids"
+        ) || "[]"
+      );
+
+    const ids = data.map(
+      (review) => review.id
     );
-
-    const ids = data.map((review) => review.id);
 
     const hasNew = ids.some(
-      (id) => !existing.includes(id)
+      (id) =>
+        !existing.includes(id)
     );
 
-    if (!hasNew) return;
+    if (!hasNew) {
+      return;
+    }
 
     localStorage.setItem(
       "admin_seen_review_ids",
@@ -273,19 +418,23 @@ const BuyerReviews: FC = () => {
     );
 
     window.dispatchEvent(
-      new Event("admin_reviews_updated")
+      new Event(
+        "admin_reviews_updated"
+      )
     );
   };
 
   /* ---------------- Effects ---------------- */
   useEffect(() => {
-    fetchReviews(true);
+    void fetchReviews(true);
 
-    const interval = window.setInterval(() => {
-      fetchReviews(false);
-    }, 30000);
+    const interval =
+      window.setInterval(() => {
+        void fetchReviews(false);
+      }, 30000);
 
-    return () => window.clearInterval(interval);
+    return () =>
+      window.clearInterval(interval);
   }, [user]);
 
   useEffect(() => {
@@ -293,6 +442,168 @@ const BuyerReviews: FC = () => {
       markReviewsAsSeen(reviews);
     }
   }, [reviews]);
+
+  /* ---------------- Restore Scroll Position ---------------- */
+  useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY =
+      restoreScrollYRef.current;
+
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) {
+              return;
+            }
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+          });
+        });
+      });
+    };
+
+    const images = Array.from(
+      document.images
+    );
+
+    const pendingImages = images.filter(
+      (image) => !image.complete
+    );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining =
+        pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer =
+        window.setTimeout(() => {
+          restoreScroll();
+        }, 1500);
+
+      return () => {
+        cancelled = true;
+
+        window.clearTimeout(
+          fallbackTimer
+        );
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading]);
+
+  /* ---------------- Review Navigation ---------------- */
+  const handleReviewClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    sparepartId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${sparepartId}`, {
+      state: {
+        from: location.pathname,
+        restoreScrollY: window.scrollY,
+      },
+    });
+  };
+
+  /* ---------------- Newest To Oldest ---------------- */
+  const orderedReviews = [
+    ...reviews,
+  ].sort(
+    (a, b) =>
+      new Date(
+        b.created_at
+      ).getTime() -
+      new Date(
+        a.created_at
+      ).getTime()
+  );
 
   /* ---------------- Loading ---------------- */
   if (loading) {
@@ -313,8 +624,12 @@ const BuyerReviews: FC = () => {
           max-[640px]:p-4
         "
       >
-        {Array.from({ length: 4 }).map((_, index) => (
-          <SkeletonCard key={index} />
+        {Array.from({
+          length: 4,
+        }).map((_, index) => (
+          <SkeletonCard
+            key={index}
+          />
         ))}
       </div>
     );
@@ -324,7 +639,9 @@ const BuyerReviews: FC = () => {
   if (error) {
     return (
       <ErrorState
-        onRetry={() => fetchReviews(true)}
+        onRetry={() =>
+          fetchReviews(true)
+        }
       />
     );
   }
@@ -334,7 +651,7 @@ const BuyerReviews: FC = () => {
     return <EmptyState />;
   }
 
-    return (
+  return (
     <div
       className="
         mx-auto
@@ -357,190 +674,222 @@ const BuyerReviews: FC = () => {
     >
       {/* ---------- Summary ---------- */}
       <div className="text-[15px] font-medium text-gray-700">
-        <strong>Total Reviews:</strong> {reviews.length}
+        <strong>Total Reviews:</strong>{" "}
+        {reviews.length}
       </div>
 
       {/* ---------- Reviews ---------- */}
-      {reviews.map((review) => (
-        <Link
-          key={review.id}
-          to={`/items/${review.sparepart_id}`}
-          className="text-inherit no-underline"
-        >
-          <div
-            className="
-              rounded-xl
-              border
-              border-gray-200
-              bg-white
-              p-4
-              transition-all
-              duration-200
-              hover:-translate-y-[1px]
-              hover:shadow-md
-            "
+      {orderedReviews.map(
+        (review) => (
+          <Link
+            key={review.id}
+            to={`/items/${review.sparepart_id}`}
+            onClick={(event) =>
+              handleReviewClick(
+                event,
+                review.sparepart_id
+              )
+            }
+            className="text-inherit no-underline"
           >
-            {/* ---------- Header ---------- */}
             <div
               className="
-                mb-2
-                flex
-                items-center
-                justify-between
-                gap-3
+                rounded-xl
+                border
+                border-gray-200
+                bg-white
+                p-4
+                transition-all
+                duration-200
+                hover:-translate-y-[1px]
+                hover:shadow-md
               "
             >
-              <strong
-                className="
-                  text-[15px]
-                  font-semibold
-                  text-[#004080]
-                  break-words
-                "
-              >
-              </strong>
+              {/* ---------- Header ---------- */}
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <ProfileCircle
+                    displayName={
+                      review.user_display_name?.trim() ||
+                      "User"
+                    }
+                  />
 
-              <span
-                className="
-                  shrink-0
-                  text-xs
-                  text-gray-500
-                "
-              >
-                {formatDate(review.created_at)}
-              </span>
-            </div>
+                  <div className="min-w-0">
+                    <span
+                      className="
+                        block
+                        truncate
+                        text-[15px]
+                        font-semibold
+                        text-[#004080]
+                      "
+                    >
+                      {review.user_display_name?.trim() ||
+                        "User"}
+                    </span>
 
-            {/* ---------- Image ---------- */}
-            {review.sparepart?.image_url && (
+                    <span className="text-sm text-gray-600">
+                      {formatDate(
+                        review.created_at
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ---------- Image ---------- */}
+              {review.sparepart?.image_url && (
+                <div
+                  className="
+                    my-3
+                    overflow-hidden
+                    rounded-lg
+                    bg-gray-50
+                  "
+                >
+                  <img
+                    src={
+                      review.sparepart
+                        .image_url
+                    }
+                    alt={`${review.sparepart.brand} spare part`}
+                    className="
+                      max-h-[13%]
+                      max-w-[13%]
+                      object-contain
+                    "
+                  />
+
+                  <p
+                    className="
+                      mt-[10px]
+                      mb-2
+                      text-[rgb(0,64,128)]
+                      text-medium
+                      font-bold
+                      max-[480px]:mt-1
+                      max-[480px]:text-xl
+                    "
+                  >
+                    {
+                      review.sparepart
+                        .brand
+                    }{" "}
+                    {
+                      review.sparepart
+                        .category
+                    }{" "}
+                    for{" "}
+                    {
+                      review.sparepart
+                        .vehicle_type
+                    }
+                  </p>
+
+                  <p className="mb-2 text-lg font-semibold text-red-600">
+                    KES{" "}
+                    {review.sparepart.buying_price.toLocaleString()}
+
+                    {review.sparepart
+                      .discount_percentage >
+                      0 && (
+                      <span className="ml-[5px] text-sm text-[#e41a139b]">
+                        (-
+                        {review.sparepart.discount_percentage.toFixed(
+                          0
+                        )}
+                        %)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {/* ---------- Rating ---------- */}
               <div
                 className="
-                  my-3
-                  overflow-hidden
-                  rounded-lg
-                  bg-gray-50
+                  mb-2
+                  flex
+                  items-center
+                  gap-1
                 "
               >
-                <img
-                  src={review.sparepart.image_url}
-                  alt={`${review.sparepart.brand} spare part`}
+                {Array.from({
+                  length: 5,
+                }).map((_, index) => (
+                  <Star
+                    key={index}
+                    size={18}
+                    className={
+                      index <
+                      review.rating
+                        ? "fill-yellow-400 stroke-yellow-400"
+                        : "fill-none stroke-gray-300"
+                    }
+                  />
+                ))}
+
+                <span
                   className="
-                    max-h-[150px]
-                    max-w-[150px]
-                    object-contain
+                    ml-1
+                    text-sm
+                    text-gray-500
                   "
-                />
+                >
+                  ({review.rating})
+                </span>
+              </div>
+
+              {/* ---------- Comment ---------- */}
+              {review.comment && (
                 <p
                   className="
-                    mt-[10px]
-                    mb-2
-                    text-[rgb(0,64,128)]
-                    text-medium
-                    font-bold
-                    max-[480px]:mt-1
-                    max-[480px]:text-xl
-                "
+                    mb-3
+                    text-[15px]
+                    leading-6
+                    text-gray-700
+                  "
                 >
-                  {review.sparepart.brand}{" "}{review.sparepart.category}{" "}
-                   for{" "} {review.sparepart.vehicle_type}
+                  {review.comment}
                 </p>
-                <p className="mb-2 text-lg font-semibold text-red-600">
-                  KES{" "}
-                 {review.sparepart.buying_price.toLocaleString()}
-                 {review.sparepart.discount_percentage >
-                  0 && (
-                 <span className="ml-[5px] text-sm text-[#e41a139b]">
-                  (-
-                  {review.sparepart.discount_percentage.toFixed(
-                   0
-                )}
-                %)
-               </span>
-               )}
-               </p>
-              </div>
-            )}
+              )}
 
-            {/* ---------- Rating ---------- */}
-            <div
-              className="
-                mb-2
-                flex
-                items-center
-                gap-1
-              "
-            >
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Star
-                  key={index}
-                  size={18}
-                  className={
-                    index < review.rating
-                      ? "fill-yellow-400 stroke-yellow-400"
-                      : "fill-none stroke-gray-300"
-                  }
-                />
-              ))}
-
-              <span
+              {/* ---------- Reactions ---------- */}
+              <div
                 className="
-                  ml-1
+                  flex
+                  gap-6
                   text-sm
                   text-gray-500
                 "
               >
-                ({review.rating})
-              </span>
+                <span
+                  className="
+                    flex
+                    items-center
+                    gap-1
+                  "
+                >
+                  <ThumbsUp size={18} />
+                  {review.total_likes}
+                </span>
+
+                <span
+                  className="
+                    flex
+                    items-center
+                    gap-1
+                  "
+                >
+                  <ThumbsDown size={18} />
+                  {review.total_dislikes}
+                </span>
+              </div>
             </div>
-
-            {/* ---------- Comment ---------- */}
-            {review.comment && (
-              <p
-                className="
-                  mb-3
-                  text-[15px]
-                  leading-6
-                  text-gray-700
-                "
-              >
-                {review.comment}
-              </p>
-            )}
-
-            {/* ---------- Reactions ---------- */}
-            <div
-              className="
-                flex
-                gap-6
-                text-sm
-                text-gray-500
-              "
-            >
-              <span
-                className="
-                  flex
-                  items-center
-                  gap-1
-                "
-              >
-                <ThumbsUp size={18} />
-                {review.total_likes}
-              </span>
-
-              <span
-                className="
-                  flex
-                  items-center
-                  gap-1
-                "
-              >
-                <ThumbsDown size={18} />
-                {review.total_dislikes}
-              </span>
-            </div>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        )
+      )}
     </div>
   );
 };

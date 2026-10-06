@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState, useRef, type MouseEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import { useCart, type SparePart } from "../../../contexts/CartContext";
 import config from "../../../config";
+
 
 interface ApiSparePart extends SparePart {
   name: string;
@@ -20,8 +22,50 @@ const SkeletonCard = () => (
   </div>
 );
 
+const normalizeSearchWord = (word: string): string => {
+  const pluralMap: Record<string, string> = {
+    tyres: "tyre",
+    tires: "tire",
+    rims: "rim",
+    batteries: "battery",
+    filters: "filter",
+    oils: "oil",
+    parts: "part",
+    buses: "bus",
+    trucks: "truck",
+    suvs: "suv",
+    sedans: "sedan",
+  };
+
+  return pluralMap[word] ?? word;
+};
+
+const normalizeSearchText = (text: string): string => {
+  return text
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .map(normalizeSearchWord)
+    .join(" ");
+};
+
 const SearchResults = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const restoreState = location.state as {
+    restoreScrollY?: number;
+  } | null;
+
+  const restoreScrollYRef = useRef<number | null>(
+    typeof restoreState?.restoreScrollY === "number"
+      ? restoreState.restoreScrollY
+      : null
+  );
+
+  const isRestoringRef = useRef<boolean>(
+    typeof restoreState?.restoreScrollY === "number"
+  );
 
   const [items, setItems] = useState<ApiSparePart[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +90,33 @@ const SearchResults = () => {
 
   const handleAddToCart = (
     item: ApiSparePart,
-    e: React.MouseEvent<HTMLButtonElement>
+    e: MouseEvent<HTMLButtonElement>
   ) => {
     e.preventDefault();
     e.stopPropagation();
     addItem(item);
+  };
+
+  const handleItemClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    itemId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${itemId}`, {
+      state: {
+        from: `${location.pathname}${location.search}`,
+        restoreScrollY: window.scrollY,
+      },
+    });
+  };
+
+  const handleBackToSearch = (): void => {
+    navigate("/search", {
+      state: {
+        searchQuery: keyword ?? "",
+      },
+    });
   };
 
   useEffect(() => {
@@ -62,39 +128,209 @@ const SearchResults = () => {
         let results = data.items ?? [];
 
         if (keyword) {
-          const words = keyword.toLowerCase().split(/\s+/);
+          const words = normalizeSearchText(keyword).split(/\s+/);
 
           results = results.filter((item) => {
-            const text =
-              `${item.name} ${item.brand} ${item.category} ${item.vehicle_type}`.toLowerCase();
+            const text = normalizeSearchText(
+              `${item.name} ${item.brand} ${item.category} ${item.vehicle_type}`
+            );
 
-            return words.every((word) => text.includes(word));
+            return words.every((word) =>
+              text.includes(word)
+            );
           });
         }
 
         if (brand && vehicle && category) {
+          const normalizedBrand =
+            normalizeSearchText(brand);
+
+          const normalizedVehicle =
+            normalizeSearchText(vehicle);
+
+          const normalizedCategory =
+            normalizeSearchText(category);
+
           results = results.filter(
             (item) =>
-              item.brand.toLowerCase() === brand.toLowerCase() &&
-              item.vehicle_type.toLowerCase() === vehicle.toLowerCase() &&
-              item.category.toLowerCase() === category.toLowerCase()
+              normalizeSearchText(item.brand) ===
+                normalizedBrand &&
+              normalizeSearchText(item.vehicle_type) ===
+                normalizedVehicle &&
+              normalizeSearchText(item.category) ===
+                normalizedCategory
           );
         }
 
         setItems(results);
         setLoading(false);
+      })
+      .catch(() => {
+        setItems([]);
+        setLoading(false);
       });
   }, [keyword, brand, vehicle, category]);
 
-   return (
+  useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY = restoreScrollYRef.current;
+
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) {
+              return;
+            }
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+          });
+        });
+      });
+    };
+
+    const images = Array.from(document.images);
+
+    const pendingImages = images.filter(
+      (image) => !image.complete
+    );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining = pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer = window.setTimeout(() => {
+        restoreScroll();
+      }, 1500);
+
+      return () => {
+        cancelled = true;
+
+        window.clearTimeout(fallbackTimer);
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading]);
+
+  return (
     <div className="mx-auto mt-[70px] max-w-[1200px] p-8 text-[#222]">
-      <h2 className="mb-6 text-[1.6rem] font-semibold">
-        {keyword && `Results for "${keyword}"`}
-        {brand &&
-          vehicle &&
-          category &&
-          ` Category: ${brand} ${vehicle} ${category}`}
-      </h2>
+      <div className="mb-6 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleBackToSearch}
+          className="
+            flex
+            h-9
+            w-9
+            mr-5
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            text-[rgb(0,64,128)]
+            transition
+            hover:bg-gray-100
+            hover:text-[#004080]
+          "
+          aria-label="Back to search"
+        >
+          <ArrowLeft size={30} />
+        </button>
+
+        <h2 className="min-w-0 text-[1.6rem] font-semibold">
+          {keyword && `Results for "${keyword}"`}
+
+          {brand &&
+            vehicle &&
+            category &&
+            ` Category: ${brand} ${vehicle} ${category}`}
+        </h2>
+      </div>
 
       {loading ? (
         <div
@@ -128,6 +364,12 @@ const SearchResults = () => {
             <Link
               key={item.id}
               to={`/items/${item.id}`}
+              onClick={(event) =>
+                handleItemClick(
+                  event,
+                  item.id
+                )
+              }
               className="text-inherit no-underline"
             >
               <div
@@ -155,25 +397,33 @@ const SearchResults = () => {
                   className="mb-[10px] h-auto w-[70%] rounded-[10px] object-cover"
                   src={item.image || item.image_url}
                   alt={item.brand}
-                  onLoad={() => handleImageLoad(item.id)}
+                  onLoad={() =>
+                    handleImageLoad(item.id)
+                  }
                 />
 
-                <h4 className="my-[5px] text-[0.95rem] font-semibold text-center">
-                  {item.brand} {item.category} for {item.vehicle_type}
+                <h4 className="my-[5px] text-center text-[0.95rem] font-semibold">
+                  {item.brand} {item.category} for{" "}
+                  {item.vehicle_type}
                 </h4>
 
                 <p className="mb-[6px] font-semibold text-[rgb(255,0,0)]">
-                  KES {item.buying_price.toLocaleString()}
+                  KES{" "}
+                  {item.buying_price.toLocaleString()}
 
                   {item.discount_percentage > 0 && (
                     <span className="ml-[5px] text-sm text-[#e41a139b]">
-                      (-{item.discount_percentage.toFixed(0)}%)
+                      (-
+                      {item.discount_percentage.toFixed(0)}
+                      %)
                     </span>
                   )}
                 </p>
 
                 <button
-                  onClick={(e) => handleAddToCart(item, e)}
+                  onClick={(e) =>
+                    handleAddToCart(item, e)
+                  }
                   className="
                     mt-auto
                     cursor-pointer

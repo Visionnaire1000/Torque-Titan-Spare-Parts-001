@@ -1,10 +1,11 @@
 import { useEffect, useState, useRef, type ReactElement } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import config from "../../../config";
 import { ChevronUp, ChevronDown, RefreshCw, PackageOpen } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
 
 /* ---------------- Types ---------------- */
 type OrderStatus =
@@ -18,26 +19,52 @@ interface SparePart {
   brand: string;
   category: string;
   vehicle_type: string;
-  image_url: string;
+  image: string;
 }
 
 interface OrderItem {
   id: string;
   quantity: number;
-  price: number;
+  unit_price: number;
   subtotal: number;
   sparepart?: SparePart | null;
+}
+
+interface CustomerProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  national_id: string;
+}
+
+interface Customer {
+  id: string;
+  email: string;
+  name: string;
+  profile: CustomerProfile | null;
+}
+
+interface AddressDetails {
+  id: string;
+  street: string;
+  city: string;
+  postal_code: string;
+  country: string;
 }
 
 interface Order {
   id: string;
   status: OrderStatus;
-  total_items: number;
+  paid: boolean;
+  total_quantity: number;
   total_price: number;
   payment_method: string | null;
   address: string;
+  address_details: AddressDetails | null;
   created_at: string;
-  order_items?: OrderItem[];
+  customer: Customer;
+  items: OrderItem[];
 }
 
 interface OrdersResponse {
@@ -58,6 +85,17 @@ interface ErrorStateProps {
 interface ErrorResponse {
   message?: string;
   error?: string;
+}
+
+interface AdminOrdersRestoreState {
+  expandedOrderId?: string | null;
+  restoreScrollY?: number;
+}
+
+interface SavedAdminOrdersPosition {
+  from?: string;
+  expandedOrderId?: string | null;
+  restoreScrollY?: number;
 }
 
 const tabs: OrderStatus[] = [
@@ -204,10 +242,14 @@ const ErrorState = ({
 /* ---------------- Admin Orders ---------------- */
 const AdminOrders = (): ReactElement => {
   const { authFetch } = useAuth();
+
   const location = useLocation();
 
+  const navigate = useNavigate();
+
   /* ---------------- State ---------------- */
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] =
+    useState<Order[]>([]);
 
   const [loading, setLoading] =
     useState<boolean>(true);
@@ -220,6 +262,12 @@ const AdminOrders = (): ReactElement => {
 
   const [expandedOrderId, setExpandedOrderId] =
     useState<string | null>(null);
+
+  const [confirmation, setConfirmation] =
+    useState<{
+      orderId: string;
+      newStatus: OrderStatus;
+    } | null>(null);
 
   const [seenOrderIds, setSeenOrderIds] =
     useState<SeenOrderIds>(() => {
@@ -255,6 +303,9 @@ const AdminOrders = (): ReactElement => {
 
   const prevOrdersRef =
     useRef<Order[]>([]);
+
+  const restorationAppliedRef =
+    useRef<boolean>(false);
 
   const timeZone =
     Intl.DateTimeFormat()
@@ -315,7 +366,9 @@ const AdminOrders = (): ReactElement => {
         : new Date(`${dateString}Z`);
 
     if (
-      Number.isNaN(parsedDate.getTime())
+      Number.isNaN(
+        parsedDate.getTime()
+      )
     ) {
       return "";
     }
@@ -357,10 +410,12 @@ const AdminOrders = (): ReactElement => {
           newOrders[i].id ||
         oldOrders[i].status !==
           newOrders[i].status ||
-        oldOrders[i].total_items !==
-          newOrders[i].total_items ||
+        oldOrders[i].total_quantity !==
+          newOrders[i].total_quantity ||
         oldOrders[i].total_price !==
-          newOrders[i].total_price
+          newOrders[i].total_price ||
+        oldOrders[i].payment_method !==
+          newOrders[i].payment_method
       ) {
         return true;
       }
@@ -412,9 +467,7 @@ const AdminOrders = (): ReactElement => {
         const dateA =
           a.created_at
             ? new Date(
-                a.created_at.endsWith(
-                  "Z"
-                )
+                a.created_at.endsWith("Z")
                   ? a.created_at
                   : `${a.created_at}Z`
               ).getTime()
@@ -423,9 +476,7 @@ const AdminOrders = (): ReactElement => {
         const dateB =
           b.created_at
             ? new Date(
-                b.created_at.endsWith(
-                  "Z"
-                )
+                b.created_at.endsWith("Z")
                   ? b.created_at
                   : `${b.created_at}Z`
               ).getTime()
@@ -542,125 +593,72 @@ const AdminOrders = (): ReactElement => {
     }
   };
 
-/* ---------------- Update Status ---------------- */
-const updateOrderStatus = (
-  orderId: string,
-  newStatus: OrderStatus
-): void => {
-  const toastId = toast.info(
-    <div className="w-full font-sans text-[#1f2937]">
-      <p className="mt-1 text-sm leading-5 text-[#4b5563]">
-        Mark order{" "}
-        <span className="font-bold text-[#004080]">
-          #{orderId}
-        </span>{" "}
-        as{" "}
-        <span className="font-bold capitalize text-[#111827]">
-          {newStatus}
-        </span>
-        ?
-      </p>
+  /* ---------------- Update Status ---------------- */
+  const updateOrderStatus = (
+    orderId: string,
+    newStatus: OrderStatus
+  ): void => {
+    setConfirmation({
+      orderId,
+      newStatus,
+    });
+  };
 
-      <div className="mt-4 flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => toast.dismiss(toastId)}
-          className="
-            cursor-pointer
-            rounded-lg
-            border
-            border-[#d1d5db]
-            bg-white
-            px-4
-            py-2
-            text-sm
-            font-semibold
-            text-[#374151]
-            shadow-sm
-            transition-all
-            duration-200
-            hover:border-[#9ca3af]
-            hover:bg-[#f3f4f6]
-            active:scale-[0.98]
-          "
-        >
-          Cancel
-        </button>
+  /* ---------------- Confirm Status Update ---------------- */
+  const confirmUpdateOrderStatus =
+    async (): Promise<void> => {
+      if (!confirmation) {
+        return;
+      }
 
-        <button
-          type="button"
-          onClick={async () => {
-            toast.dismiss(toastId);
+      const {
+        orderId,
+        newStatus,
+      } = confirmation;
 
-            try {
-              const res = await authFetch(
-                `${config.API_BASE_URL}/admin/orders/${orderId}/`,
-                {
-                  method: "PATCH",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    status: newStatus,
-                  }),
-                }
-              );
+      setConfirmation(null);
 
-              const data =
-                (await res.json()) as ErrorResponse;
-
-              if (!res.ok) {
-                throw new Error(
-                  data.message ||
-                    data.error ||
-                    "Failed to update order"
-                );
-              }
-
-              toast.success(
-                `Order #${orderId} marked as ${newStatus}`
-              );
-
-              await fetchOrders(true);
-            } catch (err: unknown) {
-              const message =
-                err instanceof Error
-                  ? err.message
-                  : "Failed to update order";
-
-              toast.error(message);
+      try {
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/admin/orders/${orderId}/`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                status: newStatus,
+              }),
             }
-          }}
-          className="
-            cursor-pointer
-            rounded-lg
-            border-0
-            bg-[#004080]
-            px-4
-            py-2
-            text-sm
-            font-semibold
-            text-white
-            shadow-sm
-            transition-all
-            duration-200
-            hover:bg-[#003366]
-            active:scale-[0.98]
-          "
-        >
-          Confirm
-        </button>
-      </div>
-    </div>,
-    {
-      autoClose: false,
-      closeOnClick: false,
-      closeButton: false,
-      className:
-        "!rounded-xl !border !border-[#fde68a] !bg-[#fffbeb] !px-4 !py-4 !shadow-lg",
-    }
-  );
-};
+          );
+
+        const data =
+          (await res.json()) as ErrorResponse;
+
+        if (!res.ok) {
+          throw new Error(
+            data.message ||
+              data.error ||
+              "Failed to update order"
+          );
+        }
+
+        toast.success(
+          `Order #${orderId} marked as ${newStatus}`
+        );
+
+        await fetchOrders(true);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Failed to update order";
+
+        toast.error(message);
+      }
+    };
 
   /* ---------------- Polling ---------------- */
   useEffect(() => {
@@ -678,6 +676,54 @@ const updateOrderStatus = (
     };
   }, []);
 
+  /* ---------------- Restore Expanded Order / Scroll ---------------- */
+  useEffect(() => {
+    if (
+      loading ||
+      restorationAppliedRef.current
+    ) {
+      return;
+    }
+
+    const state =
+      location.state as
+        | AdminOrdersRestoreState
+        | null;
+
+    if (!state) {
+      return;
+    }
+
+    restorationAppliedRef.current =
+      true;
+
+    if (state.expandedOrderId) {
+      setExpandedOrderId(
+        state.expandedOrderId
+      );
+    }
+
+    if (
+      typeof state.restoreScrollY ===
+      "number"
+    ) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({
+              top: state.restoreScrollY!,
+              left: 0,
+              behavior: "auto",
+            });
+          });
+        });
+      });
+    }
+  }, [
+    loading,
+    location.state,
+  ]);
+
   /* ---------------- Tab Click ---------------- */
   const handleTabClick = (
     tab: OrderStatus
@@ -693,6 +739,20 @@ const updateOrderStatus = (
         (order) => order.id
       ),
     }));
+
+    const params =
+      new URLSearchParams(
+        location.search
+      );
+
+    params.set("tab", tab);
+
+    navigate(
+      `${location.pathname}?${params.toString()}`,
+      {
+        replace: true,
+      }
+    );
   };
 
   /* ---------------- Loading ---------------- */
@@ -837,13 +897,127 @@ const updateOrderStatus = (
         max-[640px]:px-3
       "
     >
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        theme="colored"
-      />
 
-      {/* -------------------- TABS ------------------ */}
+      {/* ---------------- STATUS CONFIRMATION DIALOG ---------------- */}
+      {confirmation && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[9999]
+            flex
+            items-center
+            justify-center
+            bg-black/50
+            px-4
+          "
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="order-status-confirmation"
+        >
+          <div
+            className="
+              w-full
+              max-w-[330px]
+              rounded-xl
+              bg-white
+              p-6
+              font-sans
+              shadow-2xl
+              sm:p-7
+            "
+          >
+            <h2
+              id="order-status-confirmation"
+              className="
+                text-lg
+                font-semibold
+                text-[#111827]
+                sm:text-xl
+              "
+            >
+              {confirmation.newStatus ===
+              "shipped"
+                ? "Mark order as shipped?"
+                : "Mark order as delivered?"}
+            </h2>
+
+            <p
+              className="
+                mt-2
+                text-sm
+                leading-6
+                text-[#6b7280]
+              "
+            >
+              Are you sure you want to mark order{" "}
+              <span className="font-semibold text-[#004080]">
+                #{confirmation.orderId}
+              </span>{" "}
+              as{" "}
+              <span className="font-semibold capitalize text-[#111827]">
+                {confirmation.newStatus}
+              </span>
+              ?
+            </p>
+
+            <div
+              className="
+                mt-6
+                flex
+                justify-end
+                gap-3
+              "
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmation(null)
+                }
+                className="
+                  rounded-md
+                  bg-gray-200
+                  px-4
+                  py-2
+                  text-sm
+                  font-semibold
+                  text-gray-800
+                  shadow-sm
+                  transition
+                  hover:bg-gray-300
+                "
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={
+                  confirmUpdateOrderStatus
+                }
+                className="
+                  rounded-md
+                  bg-[#004080]
+                  px-4
+                  py-2
+                  text-sm
+                  font-semibold
+                  text-white
+                  shadow-sm
+                  transition-all
+                  duration-200
+                  hover:bg-[#003366]
+                  hover:shadow-md
+                "
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- TABS ---------------- */}
       <div
         className="
           mb-5
@@ -934,7 +1108,7 @@ const updateOrderStatus = (
         })}
       </div>
 
-      {/* ------------------ ORDERS ---------------*/}
+      {/* ---------------- ORDERS ---------------- */}
       <div>
         {groupedOrders[
           activeTab
@@ -956,7 +1130,6 @@ const updateOrderStatus = (
                 hover:shadow-[0_2px_8px_rgba(0,0,0,0.1)]
               "
             >
-
               {/* ORDER HEADER */}
               <div
                 onClick={() =>
@@ -1008,8 +1181,42 @@ const updateOrderStatus = (
               {/* ORDER DETAILS */}
               <div className="space-y-1 text-sm sm:text-base">
                 <div>
+                  <span className="font-semibold">
+                    Customer:
+                  </span>{" "}
+                  {order.customer?.name ||
+                    "N/A"}
+                </div>
+
+                <div>
+                  <span className="font-semibold">
+                    Email:
+                  </span>{" "}
+                  {order.customer?.email ||
+                    "N/A"}
+                </div>
+
+                <div>
+                  <span className="font-semibold">
+                    Phone:
+                  </span>{" "}
+                  {order.customer?.profile
+                    ?.phone_number ||
+                    "N/A"}
+                </div>
+
+                <div>
+                  <span className="font-semibold">
+                    National ID:
+                  </span>{" "}
+                  {order.customer?.profile
+                    ?.national_id ||
+                    "N/A"}
+                </div>
+
+                <div>
                   Total Items:{" "}
-                  {order.total_items}
+                  {order.total_quantity}
                 </div>
 
                 <div>
@@ -1018,19 +1225,26 @@ const updateOrderStatus = (
                 </div>
 
                 <div>
-                 <span className="font-semibold">
-                   Payment Method:
-                 </span>{" "}
-                   <span className="font-medium uppercase text-[#004080]">
-                     {order.payment_method === "stripe"
-                       ? "Card"
-                       : order.payment_method === "mpesa"
-                       ? "M-PESA"
-                       : order.payment_method === "airtel"
-                       ? "Airtel Money"
-                       : order.payment_method || "N/A"}
-                    </span>
-                   </div>
+                  <span className="font-semibold">
+                    Payment Method:
+                  </span>{" "}
+                  <span className="font-medium uppercase text-[#004080]">
+                    {order.payment_method ===
+                    "stripe"
+                      ? "Card"
+                      : order.payment_method ===
+                        "mpesa"
+                      ? "M-PESA"
+                      : order.payment_method ===
+                        "airtel"
+                      ? "Airtel Money"
+                      : order.payment_method ===
+                        "paypal"
+                      ? "PayPal"
+                      : order.payment_method ||
+                        "N/A"}
+                  </span>
+                </div>
 
                 <div className="break-words">
                   Shipping Address:{" "}
@@ -1136,13 +1350,13 @@ const updateOrderStatus = (
                 </div>
               )}
 
-              {/* --------------- ORDER ITEMS ------------*/}
+              {/* ORDER ITEMS */}
               {expandedOrderId ===
                 order.id &&
                 Array.isArray(
-                  order.order_items
+                  order.items
                 ) &&
-                order.order_items.length >
+                order.items.length >
                   0 && (
                   <div
                     className="
@@ -1152,7 +1366,7 @@ const updateOrderStatus = (
                       pt-[10px]
                     "
                   >
-                    {order.order_items.map(
+                    {order.items.map(
                       (item) => (
                         <div
                           key={item.id}
@@ -1172,16 +1386,41 @@ const updateOrderStatus = (
                           {item.sparepart ? (
                             <Link
                               to={`/items/${item.sparepart.id}`}
+                              state={{
+                                from: `${location.pathname}${location.search}`,
+                                restoreScrollY:
+                                  window.scrollY,
+                                expandedOrderId:
+                                  order.id,
+                              }}
+                              onClick={() => {
+                                const restoreState: SavedAdminOrdersPosition =
+                                  {
+                                    from: `${location.pathname}${location.search}`,
+                                    restoreScrollY:
+                                      window.scrollY,
+                                    expandedOrderId:
+                                      order.id,
+                                  };
+
+                                sessionStorage.setItem(
+                                  `titan_item_restore_${item.sparepart!.id}`,
+                                  JSON.stringify(
+                                    restoreState
+                                  )
+                                );
+                              }}
                               className="shrink-0"
                             >
                               <img
                                 src={
-                                  item.sparepart
-                                    .image_url ||
-                                  "/placeholder.png"
+                                  item
+                                    .sparepart
+                                    .image
                                 }
                                 alt={
-                                  item.sparepart
+                                  item
+                                    .sparepart
                                     .brand ||
                                   "Spare part"
                                 }
@@ -1254,16 +1493,12 @@ const updateOrderStatus = (
                             </p>
 
                             <p>
-                              Unit Price:
-                              {" "}
-                              KES{" "}
-                              {item.price?.toLocaleString()}
+                              Unit Price: KES{" "}
+                              {item.unit_price?.toLocaleString()}
                             </p>
 
                             <p>
-                              Subtotal:
-                              {" "}
-                              KES{" "}
+                              Subtotal: KES{" "}
                               {item.subtotal?.toLocaleString()}
                             </p>
                           </div>
@@ -1275,8 +1510,7 @@ const updateOrderStatus = (
             </div>
           ))
         ) : (
-
-          /* ================= EMPTY TAB ================= */
+          /* ---------------- EMPTY TAB ---------------- */
           <div
             className="
               animate-[fadeIn_0.3s_ease-in-out]
@@ -1331,6 +1565,12 @@ const updateOrderStatus = (
           </div>
         )}
       </div>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        theme="colored"
+      />
     </div>
   );
 };

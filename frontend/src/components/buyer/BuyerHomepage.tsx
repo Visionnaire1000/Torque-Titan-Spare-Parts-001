@@ -1,5 +1,5 @@
-import { useEffect, useState, type MouseEvent } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, Flame, RefreshCw } from "lucide-react";
 
 import { useCart } from "../../contexts/CartContext";
@@ -21,6 +21,10 @@ interface SparePartsResponse {
   items?: SparePart[];
 }
 
+interface RestoreState {
+  restoreScrollY?: number;
+}
+
 // ------------------ Skeleton ------------------
 const SkeletonCard = () => (
   <div className="relative flex h-full flex-col gap-[10px] overflow-hidden rounded-xl bg-[#f3f3f3] p-3">
@@ -29,42 +33,70 @@ const SkeletonCard = () => (
     </div>
 
     <div className="relative z-10 h-44 rounded-lg bg-gray-300" />
-
     <div className="relative z-10 h-4 w-2/3 rounded bg-gray-300" />
-
     <div className="relative z-10 h-4 w-full rounded bg-gray-300" />
-
     <div className="relative z-10 h-10 rounded-md bg-gray-300" />
   </div>
 );
 
 const BuyerHomepage = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const restoreState =
+    location.state as RestoreState | null;
+
+  const hasRestoreState =
+    typeof restoreState?.restoreScrollY === "number";
 
   // ------------------ State ------------------
-  const [spareParts, setSpareParts] = useState<SparePart[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [spareParts, setSpareParts] = useState<
+    SparePart[]
+  >([]);
 
-  const [loadedImages, setLoadedImages] = useState<
-    Record<string, boolean>
-  >({});
+  const [loading, setLoading] =
+    useState<boolean>(true);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [carouselIndex, setCarouselIndex] =
+    useState<number>(0);
+
+  const [loadedImages, setLoadedImages] =
+    useState<Record<string, boolean>>({});
 
   const { addItem } = useCart();
 
-  // ------------------ Derived Data ------------------
-  const carouselItems = spareParts.slice(0, 8);
+  const isRestoringRef =
+    useRef<boolean>(hasRestoreState);
 
-  const gridItems = spareParts.slice(8, 16);
+  const restoreScrollYRef =
+    useRef<number | null>(
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : null
+    );
+
+  // ------------------ Derived Data ------------------
+  const carouselItems =
+    spareParts.slice(0, 8);
+
+  const gridItems =
+    spareParts.slice(8, 16);
 
   const visibleCarouselItems: SparePart[] =
     carouselItems.length > 0
       ? Array.from({
-          length: Math.min(4, carouselItems.length),
+          length: Math.min(
+            4,
+            carouselItems.length
+          ),
         }).map(
           (_, i) =>
             carouselItems[
-              (carouselIndex + i) % carouselItems.length
+              (carouselIndex + i) %
+                carouselItems.length
             ]
         )
       : [];
@@ -96,11 +128,11 @@ const BuyerHomepage = () => {
           return;
         }
 
-        const carouselItemsFromBackend = items.slice(0, 8);
+        const carouselItemsFromBackend =
+          items.slice(0, 8);
 
-        const gridItemsFromBackend = items
-          .slice(8, 16)
-          .sort(() => Math.random() - 0.5);
+        const gridItemsFromBackend =
+          items.slice(8, 16);
 
         setSpareParts([
           ...carouselItemsFromBackend,
@@ -126,9 +158,152 @@ const BuyerHomepage = () => {
     fetchSpareParts();
   }, []);
 
+  // ------------------ Restore Scroll Position ------------------
+  useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY =
+      restoreScrollYRef.current;
+
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) {
+              return;
+            }
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+
+            window.history.replaceState(
+              {},
+              document.title,
+              window.location.href
+            );
+          });
+        });
+      });
+    };
+
+    const images = Array.from(
+      document.images
+    );
+
+    const pendingImages =
+      images.filter(
+        (image) => !image.complete
+      );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining =
+        pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer =
+        window.setTimeout(() => {
+          restoreScroll();
+        }, 1500);
+
+      return () => {
+        cancelled = true;
+
+        window.clearTimeout(
+          fallbackTimer
+        );
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading]);
+
   // ------------------ Carousel ------------------
   useEffect(() => {
-    if (spareParts.length < 8) return;
+    if (spareParts.length < 8) {
+      return;
+    }
 
     const interval = setInterval(() => {
       setCarouselIndex(
@@ -136,12 +311,15 @@ const BuyerHomepage = () => {
       );
     }, 4000);
 
-    return () => clearInterval(interval);
+    return () =>
+      clearInterval(interval);
   }, [spareParts]);
 
   // ------------------ Handlers ------------------
   const handlePreviousCarousel = (): void => {
-    if (carouselItems.length === 0) return;
+    if (carouselItems.length === 0) {
+      return;
+    }
 
     setCarouselIndex(
       (prev) =>
@@ -160,11 +338,27 @@ const BuyerHomepage = () => {
     addItem(item);
   };
 
-  const handleImageLoad = (id: string): void => {
+  const handleImageLoad = (
+    id: string
+  ): void => {
     setLoadedImages((prev) => ({
       ...prev,
       [id]: true,
     }));
+  };
+
+  const handleItemClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    itemId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${itemId}`, {
+      state: {
+        from: location.pathname,
+        restoreScrollY: window.scrollY,
+      },
+    });
   };
 
   // ------------------ Error State ------------------
@@ -180,9 +374,9 @@ const BuyerHomepage = () => {
         </p>
 
         <button
+          type="button"
           onClick={fetchSpareParts}
-          className="mt-3 flex items-center gap-[6px] rounded-lg bg-[#ff4d4f] px-4 py-[10px]
-                     text-white transition-colors duration-200 hover:bg-[#d9363e]"
+          className="mt-3 flex items-center gap-[6px] rounded-lg bg-[#ff4d4f] px-4 py-[10px] text-white transition-colors duration-200 hover:bg-[#d9363e]"
         >
           <RefreshCw size={16} />
           Retry
@@ -194,14 +388,28 @@ const BuyerHomepage = () => {
   // ------------------ Render ------------------
   return (
     <div
-      className="pt-24 px-[10px] pb-[70px]
-                 font-['Segoe_UI',Tahoma,Geneva,Verdana,sans-serif]
-                 sm:px-[15px] lg:px-5"
+      className="
+        px-[10px]
+        pb-[70px]
+        pt-24
+        font-['Segoe_UI',Tahoma,Geneva,Verdana,sans-serif]
+        sm:px-[15px]
+        lg:px-5
+      "
     >
       {/* ------------------ Hot Deals ------------------ */}
       <h2
-        className="mb-2 mt-2 flex items-center text-[1.2rem]
-                   font-semibold text-red-600 sm:text-[1.5rem] lg:text-[1.8rem]"
+        className="
+          mb-2
+          mt-2
+          flex
+          items-center
+          text-[1.2rem]
+          font-semibold
+          text-red-600
+          sm:text-[1.5rem]
+          lg:text-[1.8rem]
+        "
       >
         <span className="mr-[6px] inline-block animate-fire align-middle">
           <Flame size={24} color="red" />
@@ -211,30 +419,52 @@ const BuyerHomepage = () => {
       </h2>
 
       <div className="relative mb-12">
-        {/* Previous Carousel Button */}
-        {!loading && carouselItems.length > 4 && (
-          <button
-            type="button"
-            onClick={handlePreviousCarousel}
-            aria-label="Previous deals"
-            className="absolute left-0 top-1/2 z-20
-                       flex h-9 w-9 -translate-y-1/2
-                       items-center justify-center
-                       rounded-full bg-white shadow-md
-                       transition-all duration-200
-                       hover:scale-105 hover:bg-gray-100
-                       md:h-10 md:w-10 ml-[-10px]"
-          >
-            <ArrowLeft
-              size={19}
-              strokeWidth={2}
-            />
-          </button>
-        )}
+        {!loading &&
+          carouselItems.length > 4 && (
+            <button
+              type="button"
+              onClick={handlePreviousCarousel}
+              aria-label="Previous deals"
+              className="
+                absolute
+                left-0
+                top-1/2
+                z-20
+                ml-[-10px]
+                flex
+                h-9
+                w-9
+                -translate-y-1/2
+                items-center
+                justify-center
+                rounded-full
+                bg-white
+                shadow-md
+                transition-all
+                duration-200
+                hover:scale-105
+                hover:bg-gray-100
+                md:h-10
+                md:w-10
+              "
+            >
+              <ArrowLeft
+                size={19}
+                strokeWidth={2}
+              />
+            </button>
+          )}
 
         <div
-          className="flex gap-1 overflow-x-auto scroll-smooth
-                     px-10 md:gap-[15px] md:overflow-hidden"
+          className="
+            flex
+            gap-1
+            overflow-x-auto
+            scroll-smooth
+            px-10
+            md:gap-[15px]
+            md:overflow-hidden
+          "
         >
           {loading ? (
             Array.from({ length: 4 }).map(
@@ -247,43 +477,83 @@ const BuyerHomepage = () => {
                 </div>
               )
             )
-          ) : visibleCarouselItems.length > 0 ? (
+          ) : visibleCarouselItems.length >
+            0 ? (
             visibleCarouselItems.map(
               (item) => (
                 <Link
                   key={item.id}
                   to={`/items/${item.id}`}
-                  className="basis-[50%] flex-none text-inherit
-                             no-underline md:basis-[45%] lg:flex-1"
+                  onClick={(event) =>
+                    handleItemClick(
+                      event,
+                      item.id
+                    )
+                  }
+                  className="
+                    basis-[50%]
+                    flex-none
+                    text-inherit
+                    no-underline
+                    md:basis-[45%]
+                    lg:flex-1
+                  "
                 >
                   <div
-                    className={`flex h-full cursor-pointer flex-col
-                                items-center rounded-xl bg-white p-[10px]
-                                shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                                transition-all duration-200
-                                hover:-translate-y-1
-                                hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
-                                sm:p-3 ${
-                                  loadedImages[item.id]
-                                    ? ""
-                                    : "animate-pulse"
-                                }`}
+                    className={`
+                      flex
+                      h-full
+                      cursor-pointer
+                      flex-col
+                      items-center
+                      rounded-xl
+                      bg-white
+                      p-[10px]
+                      shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+                      transition-all
+                      duration-200
+                      hover:-translate-y-1
+                      hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                      sm:p-3
+                      ${
+                        loadedImages[item.id]
+                          ? ""
+                          : "animate-pulse"
+                      }
+                    `}
                   >
                     <img
                       src={item.image}
                       alt={item.brand}
                       onLoad={() =>
-                        handleImageLoad(item.id)
+                        handleImageLoad(
+                          item.id
+                        )
                       }
-                      className="mb-[10px] mt-10 w-[80%] rounded-lg
-                                 object-cover sm:mt-0 sm:w-1/2
-                                 sm:object-contain"
+                      className="
+                        mb-[10px]
+                        mt-10
+                        w-[80%]
+                        rounded-lg
+                        object-cover
+                        sm:mt-0
+                        sm:w-1/2
+                        sm:object-contain
+                      "
                     />
 
                     <h4
-                      className="my-[5px] mb-[10px] self-start
-                                 text-left text-[0.9rem] text-[#333]
-                                 sm:self-auto sm:text-center sm:text-base"
+                      className="
+                        my-[5px]
+                        mb-[10px]
+                        self-start
+                        text-left
+                        text-[0.9rem]
+                        text-[#333]
+                        sm:self-auto
+                        sm:text-center
+                        sm:text-base
+                      "
                     >
                       {item.brand}{" "}
                       {item.category} for{" "}
@@ -291,16 +561,25 @@ const BuyerHomepage = () => {
                     </h4>
 
                     <p
-                      className="mb-[10px] text-base font-bold
-                                 text-[rgb(255,0,0)] sm:text-lg"
+                      className="
+                        mb-[10px]
+                        text-base
+                        font-bold
+                        text-[rgb(255,0,0)]
+                        sm:text-lg
+                      "
                     >
                       KES{" "}
                       {item.buying_price.toLocaleString()}
 
-                      {item.discount_percentage > 0 && (
+                      {item.discount_percentage >
+                        0 && (
                         <span
-                          className="ml-[5px] text-xs
-                                     text-[rgba(228,26,19,0.67)]"
+                          className="
+                            ml-[5px]
+                            text-xs
+                            text-[rgba(228,26,19,0.67)]
+                          "
                         >
                           (-
                           {item.discount_percentage.toFixed(
@@ -312,13 +591,25 @@ const BuyerHomepage = () => {
                     </p>
 
                     <button
+                      type="button"
                       onClick={(e) =>
-                        handleAddToCart(item, e)
+                        handleAddToCart(
+                          item,
+                          e
+                        )
                       }
-                      className="rounded-md bg-[rgb(0,64,128)] px-4 py-2
-                                 text-sm font-bold text-white
-                                 transition-colors duration-200
-                                 hover:bg-[rgb(4,37,71)]"
+                      className="
+                        rounded-md
+                        bg-[rgb(0,64,128)]
+                        px-4
+                        py-2
+                        text-sm
+                        font-bold
+                        text-white
+                        transition-colors
+                        duration-200
+                        hover:bg-[rgb(4,37,71)]
+                      "
                     >
                       Add To Cart
                     </button>
@@ -336,8 +627,15 @@ const BuyerHomepage = () => {
 
       {/* ------------------ More Deals ------------------ */}
       <h2
-        className="mb-5 mt-5 text-[1.2rem] font-semibold text-red-600
-                   sm:text-[1.5rem] lg:text-[1.8rem]"
+        className="
+          mb-5
+          mt-5
+          text-[1.2rem]
+          font-semibold
+          text-red-600
+          sm:text-[1.5rem]
+          lg:text-[1.8rem]
+        "
       >
         More Deals
       </h2>
@@ -348,15 +646,11 @@ const BuyerHomepage = () => {
           grid
           grid-cols-3
           gap-3
-
           md:mb-[50px]
           md:grid-cols-2
           md:gap-5
-
           lg:grid-cols-3
-
           xl:grid-cols-[repeat(auto-fit,minmax(220px,1fr))]
-
           2xl:grid-cols-5
         "
       >
@@ -371,36 +665,69 @@ const BuyerHomepage = () => {
             <Link
               key={item.id}
               to={`/items/${item.id}`}
+              onClick={(event) =>
+                handleItemClick(
+                  event,
+                  item.id
+                )
+              }
               className="text-inherit no-underline"
             >
               <div
-                className={`flex h-full cursor-pointer flex-col
-                            items-center rounded-xl bg-white p-[10px]
-                            shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                            transition-all duration-200
-                            hover:-translate-y-1
-                            hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
-                            sm:p-3 ${
-                              loadedImages[item.id]
-                                ? ""
-                                : "animate-pulse"
-                            }`}
+                className={`
+                  flex
+                  h-full
+                  cursor-pointer
+                  flex-col
+                  items-center
+                  rounded-xl
+                  bg-white
+                  p-[10px]
+                  shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+                  transition-all
+                  duration-200
+                  hover:-translate-y-1
+                  hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
+                  sm:p-3
+                  ${
+                    loadedImages[item.id]
+                      ? ""
+                      : "animate-pulse"
+                  }
+                `}
               >
                 <img
                   src={item.image}
                   alt={item.brand}
                   onLoad={() =>
-                    handleImageLoad(item.id)
+                    handleImageLoad(
+                      item.id
+                    )
                   }
-                  className="mb-[10px] mt-10 w-[80%] rounded-lg
-                             object-cover sm:mt-0 sm:w-1/2
-                             sm:object-contain"
+                  className="
+                    mb-[10px]
+                    mt-10
+                    w-[80%]
+                    rounded-lg
+                    object-cover
+                    sm:mt-0
+                    sm:w-1/2
+                    sm:object-contain
+                  "
                 />
 
                 <h4
-                  className="my-[5px] mb-[10px] self-start
-                             text-left text-[0.9rem] text-[#333]
-                             sm:self-auto sm:text-center sm:text-base"
+                  className="
+                    my-[5px]
+                    mb-[10px]
+                    self-start
+                    text-left
+                    text-[0.9rem]
+                    text-[#333]
+                    sm:self-auto
+                    sm:text-center
+                    sm:text-base
+                  "
                 >
                   {item.brand}{" "}
                   {item.category} for{" "}
@@ -411,7 +738,8 @@ const BuyerHomepage = () => {
                   KES{" "}
                   {item.buying_price.toLocaleString()}
 
-                  {item.discount_percentage > 0 && (
+                  {item.discount_percentage >
+                    0 && (
                     <span className="ml-[5px] text-sm text-[#e41a139b]">
                       (-
                       {item.discount_percentage.toFixed(
@@ -423,13 +751,25 @@ const BuyerHomepage = () => {
                 </p>
 
                 <button
+                  type="button"
                   onClick={(e) =>
-                    handleAddToCart(item, e)
+                    handleAddToCart(
+                      item,
+                      e
+                    )
                   }
-                  className="rounded-md bg-[rgb(0,64,128)] px-4 py-2
-                             text-sm font-bold text-white
-                             transition-colors duration-200
-                             hover:bg-[rgb(4,37,71)]"
+                  className="
+                    rounded-md
+                    bg-[rgb(0,64,128)]
+                    px-4
+                    py-2
+                    text-sm
+                    font-bold
+                    text-white
+                    transition-colors
+                    duration-200
+                    hover:bg-[rgb(4,37,71)]
+                  "
                 >
                   Add To Cart
                 </button>
@@ -449,4 +789,3 @@ const BuyerHomepage = () => {
 };
 
 export default BuyerHomepage;
-

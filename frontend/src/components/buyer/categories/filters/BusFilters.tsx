@@ -24,6 +24,36 @@ interface ErrorStateProps {
   onRetry: () => Promise<void>;
 }
 
+interface BusFiltersNavigationState {
+  brand: string;
+  colour: string;
+  price: string;
+  currentPage: number;
+  scrollY: number;
+}
+
+const BUS_FILTERS_NAVIGATION_KEY =
+  "busFiltersNavigationState";
+
+const getSavedNavigationState =
+  (): BusFiltersNavigationState | null => {
+    try {
+      const saved = sessionStorage.getItem(
+        BUS_FILTERS_NAVIGATION_KEY
+      );
+
+      if (!saved) {
+        return null;
+      }
+
+      return JSON.parse(
+        saved
+      ) as BusFiltersNavigationState;
+    } catch {
+      return null;
+    }
+  };
+
 /* ---------------- Skeleton ---------------- */
 const SkeletonCard = (): ReactElement => (
   <div
@@ -105,26 +135,71 @@ const ErrorState = ({
 
 /* ---------------- Component ---------------- */
 const BusFilters = (): ReactElement => {
+  const [savedNavigationState] =
+    useState<BusFiltersNavigationState | null>(
+      () => getSavedNavigationState()
+    );
+
   const [items, setItems] = useState<SparePart[]>([]);
-  const [brand, setBrand] = useState<string>("");
-  const [colour, setColour] = useState<string>("");
-  const [price, setPrice] = useState<string>("");
+
+  const [brand, setBrand] = useState<string>(
+    savedNavigationState?.brand ?? ""
+  );
+
+  const [colour, setColour] = useState<string>(
+    savedNavigationState?.colour ?? ""
+  );
+
+  const [price, setPrice] = useState<string>(
+    savedNavigationState?.price ?? ""
+  );
 
   /* ---------------- Dropdown State ---------------- */
-  const [brandOpen, setBrandOpen] = useState<boolean>(false);
-  const [colourOpen, setColourOpen] = useState<boolean>(false);
-  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+  const [brandOpen, setBrandOpen] =
+    useState<boolean>(false);
+
+  const [colourOpen, setColourOpen] =
+    useState<boolean>(false);
+
+  const [priceOpen, setPriceOpen] =
+    useState<boolean>(false);
 
   /* ---------------- Dropdown Refs ---------------- */
-  const brandDropdownRef = useRef<HTMLDivElement>(null);
-  const colourDropdownRef = useRef<HTMLDivElement>(null);
-  const priceDropdownRef = useRef<HTMLDivElement>(null);
+  const brandDropdownRef =
+    useRef<HTMLDivElement>(null);
 
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
+  const colourDropdownRef =
+    useRef<HTMLDivElement>(null);
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
+  const priceDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const [currentPage, setCurrentPage] =
+    useState<number>(
+      savedNavigationState?.currentPage ?? 1
+    );
+
+  const [totalPages, setTotalPages] =
+    useState<number>(1);
+
+  const [loading, setLoading] =
+    useState<boolean>(false);
+
+  const [error, setError] =
+    useState<boolean>(false);
+
+  const restoreScrollRef =
+    useRef<boolean>(
+      savedNavigationState !== null
+    );
+
+  const restoreScrollYRef =
+    useRef<number>(
+      savedNavigationState?.scrollY ?? 0
+    );
+
+  const skipInitialFilterResetRef =
+    useRef<boolean>(true);
 
   const { addItem } = useCart();
 
@@ -144,6 +219,59 @@ const BusFilters = (): ReactElement => {
     "silver",
     "gold",
   ];
+
+  /* ---------------- Navigation State ---------------- */
+  const saveNavigationState = (): void => {
+    try {
+      const navigationState: BusFiltersNavigationState =
+        {
+          brand,
+          colour,
+          price,
+          currentPage,
+          scrollY: window.scrollY,
+        };
+
+      sessionStorage.setItem(
+        BUS_FILTERS_NAVIGATION_KEY,
+        JSON.stringify(navigationState)
+      );
+    } catch {
+      // Ignore sessionStorage errors.
+    }
+  };
+
+  const clearNavigationState = (): void => {
+    try {
+      sessionStorage.removeItem(
+        BUS_FILTERS_NAVIGATION_KEY
+      );
+    } catch {
+      // Ignore sessionStorage errors.
+    }
+  };
+
+  const restoreScrollPosition = (): void => {
+    if (!restoreScrollRef.current) {
+      return;
+    }
+
+    const scrollY = restoreScrollYRef.current;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        restoreScrollRef.current = false;
+
+        clearNavigationState();
+      });
+    });
+  };
 
   /* ---------------- Fetch ---------------- */
   const fetchFilters = async (): Promise<void> => {
@@ -166,10 +294,13 @@ const BusFilters = (): ReactElement => {
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch Bus filters");
+        throw new Error(
+          "Failed to fetch Bus filters"
+        );
       }
 
-      const data: SparePartsResponse = await response.json();
+      const data: SparePartsResponse =
+        await response.json();
 
       setItems(data.items ?? []);
       setTotalPages(data.pages ?? 1);
@@ -180,6 +311,10 @@ const BusFilters = (): ReactElement => {
       setError(true);
     } finally {
       setLoading(false);
+
+      if (restoreScrollRef.current) {
+        restoreScrollPosition();
+      }
     }
   };
 
@@ -194,9 +329,19 @@ const BusFilters = (): ReactElement => {
 
   useEffect(() => {
     void fetchFilters();
-  }, [brand, colour, price, currentPage]);
+  }, [
+    brand,
+    colour,
+    price,
+    currentPage,
+  ]);
 
   useEffect(() => {
+    if (skipInitialFilterResetRef.current) {
+      skipInitialFilterResetRef.current = false;
+      return;
+    }
+
     setCurrentPage(1);
   }, [brand, colour, price]);
 
@@ -206,9 +351,17 @@ const BusFilters = (): ReactElement => {
     setColour("");
     setPrice("");
     setCurrentPage(1);
+
     setBrandOpen(false);
     setColourOpen(false);
     setPriceOpen(false);
+
+    clearNavigationState();
+  };
+
+  /* ---------------- Item Navigation ---------------- */
+  const handleItemNavigation = (): void => {
+    saveNavigationState();
   };
 
   /* ---------------- Cart ---------------- */
@@ -329,7 +482,9 @@ const BusFilters = (): ReactElement => {
           >
             <button
               type="button"
-              onClick={handleBackToAvailableParts}
+              onClick={
+                handleBackToAvailableParts
+              }
               aria-label="Back to available parts"
               className="
                 inline-flex
@@ -382,7 +537,9 @@ const BusFilters = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setBrandOpen((open) => !open);
+                  setBrandOpen(
+                    (open) => !open
+                  );
                   setColourOpen(false);
                   setPriceOpen(false);
                 }}
@@ -481,36 +638,38 @@ const BusFilters = (): ReactElement => {
                     All Brands
                   </button>
 
-                  {availableBrands.map((itemBrand) => (
-                    <button
-                      key={itemBrand}
-                      type="button"
-                      onClick={() => {
-                        setBrand(itemBrand);
-                        setBrandOpen(false);
-                      }}
-                      className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        hover:bg-[#f0f6ff]
-                        max-[480px]:px-2
-                        max-[480px]:py-2
-                        max-[480px]:text-xs
-                        ${
-                          brand === itemBrand
-                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                            : "text-[#333]"
-                        }
-                      `}
-                    >
-                      {itemBrand}
-                    </button>
-                  ))}
+                  {availableBrands.map(
+                    (itemBrand) => (
+                      <button
+                        key={itemBrand}
+                        type="button"
+                        onClick={() => {
+                          setBrand(itemBrand);
+                          setBrandOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:px-2
+                          max-[480px]:py-2
+                          max-[480px]:text-xs
+                          ${
+                            brand === itemBrand
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemBrand}
+                      </button>
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -527,7 +686,9 @@ const BusFilters = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setColourOpen((open) => !open);
+                  setColourOpen(
+                    (open) => !open
+                  );
                   setBrandOpen(false);
                   setPriceOpen(false);
                 }}
@@ -556,7 +717,9 @@ const BusFilters = (): ReactElement => {
                 <span className="truncate">
                   {colour === ""
                     ? "All Colours"
-                    : colour.charAt(0).toUpperCase() +
+                    : colour
+                        .charAt(0)
+                        .toUpperCase() +
                       colour.slice(1)}
                 </span>
 
@@ -629,37 +792,42 @@ const BusFilters = (): ReactElement => {
                     All Colours
                   </button>
 
-                  {availableColours.map((itemColour) => (
-                    <button
-                      key={itemColour}
-                      type="button"
-                      onClick={() => {
-                        setColour(itemColour);
-                        setColourOpen(false);
-                      }}
-                      className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        hover:bg-[#f0f6ff]
-                        max-[480px]:px-2
-                        max-[480px]:py-2
-                        max-[480px]:text-xs
-                        ${
-                          colour === itemColour
-                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                            : "text-[#333]"
-                        }
-                      `}
-                    >
-                      {itemColour.charAt(0).toUpperCase() +
-                        itemColour.slice(1)}
-                    </button>
-                  ))}
+                  {availableColours.map(
+                    (itemColour) => (
+                      <button
+                        key={itemColour}
+                        type="button"
+                        onClick={() => {
+                          setColour(itemColour);
+                          setColourOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:px-2
+                          max-[480px]:py-2
+                          max-[480px]:text-xs
+                          ${
+                            colour ===
+                            itemColour
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemColour
+                          .charAt(0)
+                          .toUpperCase() +
+                          itemColour.slice(1)}
+                      </button>
+                    )
+                  )}
                 </div>
               )}
             </div>
@@ -676,7 +844,9 @@ const BusFilters = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setPriceOpen((open) => !open);
+                  setPriceOpen(
+                    (open) => !open
+                  );
                   setBrandOpen(false);
                   setColourOpen(false);
                 }}
@@ -884,9 +1054,11 @@ const BusFilters = (): ReactElement => {
             "
           >
             {loading ? (
-              Array.from({ length: 8 }).map((_, index) => (
-                <SkeletonCard key={index} />
-              ))
+              Array.from({ length: 8 }).map(
+                (_, index) => (
+                  <SkeletonCard key={index} />
+                )
+              )
             ) : items.length ? (
               items.map((item) => (
                 <div
@@ -908,6 +1080,9 @@ const BusFilters = (): ReactElement => {
                 >
                   <Link
                     to={`/items/${item.id}`}
+                    onClick={
+                      handleItemNavigation
+                    }
                     className="
                       flex
                       h-full
@@ -940,23 +1115,35 @@ const BusFilters = (): ReactElement => {
                         text-[#333]
                       "
                     >
-                      {item.brand} {item.category} for{" "}
+                      {item.brand}{" "}
+                      {item.category} for{" "}
                       {item.vehicle_type}
                     </h4>
 
                     <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
-                      KES {item.buying_price.toLocaleString()}
+                      KES{" "}
+                      {item.buying_price.toLocaleString()}
 
-                      {item.discount_percentage > 0 && (
-                        <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
-                          (-{item.discount_percentage.toFixed(0)}%)
+                      {item.discount_percentage >
+                        0 && (
+                        <span className="ml-[5px] text-xs text-[rgba(228,26,19,0.67)]">
+                          (-
+                          {item.discount_percentage.toFixed(
+                            0
+                          )}
+                          %)
                         </span>
                       )}
                     </p>
 
                     <button
                       type="button"
-                      onClick={(e) => handleAddToCart(item, e)}
+                      onClick={(e) =>
+                        handleAddToCart(
+                          item,
+                          e
+                        )
+                      }
                       className="
                         rounded-md
                         bg-[rgb(0,64,128)]
@@ -1029,8 +1216,12 @@ const BusFilters = (): ReactElement => {
                   type="button"
                   disabled={currentPage === 1}
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.max(page - 1, 1)
+                    setCurrentPage(
+                      (page) =>
+                        Math.max(
+                          page - 1,
+                          1
+                        )
                     )
                   }
                   className="
@@ -1063,40 +1254,44 @@ const BusFilters = (): ReactElement => {
                   </span>
                 )}
 
-                {visiblePages.map((page) => (
-                  <button
-                    type="button"
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={
-                      page === currentPage
-                        ? `
-                          rounded
-                          border
-                          border-[#004080]
-                          bg-[#004080]
-                          px-3
-                          py-1.5
-                          text-sm
-                          font-semibold
-                          text-white
-                        `
-                        : `
-                          rounded
-                          border
-                          border-gray-300
-                          bg-white
-                          px-3
-                          py-1.5
-                          text-sm
-                          transition-colors
-                          hover:bg-gray-100
-                        `
-                    }
-                  >
-                    {page}
-                  </button>
-                ))}
+                {visiblePages.map(
+                  (page) => (
+                    <button
+                      type="button"
+                      key={page}
+                      onClick={() =>
+                        setCurrentPage(page)
+                      }
+                      className={
+                        page === currentPage
+                          ? `
+                            rounded
+                            border
+                            border-[#004080]
+                            bg-[#004080]
+                            px-3
+                            py-1.5
+                            text-sm
+                            font-semibold
+                            text-white
+                          `
+                          : `
+                            rounded
+                            border
+                            border-gray-300
+                            bg-white
+                            px-3
+                            py-1.5
+                            text-sm
+                            transition-colors
+                            hover:bg-gray-100
+                          `
+                      }
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
 
                 {visiblePages[
                   visiblePages.length - 1
@@ -1114,10 +1309,17 @@ const BusFilters = (): ReactElement => {
 
                 <button
                   type="button"
-                  disabled={currentPage === totalPages}
+                  disabled={
+                    currentPage ===
+                    totalPages
+                  }
                   onClick={() =>
-                    setCurrentPage((page) =>
-                      Math.min(page + 1, totalPages)
+                    setCurrentPage(
+                      (page) =>
+                        Math.min(
+                          page + 1,
+                          totalPages
+                        )
                     )
                   }
                   className="

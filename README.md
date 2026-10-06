@@ -155,47 +155,6 @@ The backend utilizes the following core models:
 
 ---
 
-## Environment Variables
-
-- FRONTEND_ENDPOINT_URL=[frontend-url]
-- CORS_ALLOWED_ORIGINS=[allowed-frontend-origins]
-- CSRF_TRUSTED_ORIGINS=[trusted-frontend-origins]
-- SECRET_KEY=[django-secret-key]
-- DEBUG=[true-or-false]
-- ALLOWED_HOSTS=[allowed-hosts]
-- JWT_SECRET_KEY=[jwt-secret-key]
-- REFRESH_COOKIE_NAME=[refresh-cookie-name]
-- REFRESH_COOKIE_MAX_AGE=[refresh-cookie-max-age]
-- REFRESH_COOKIE_SECURE=[true-or-false]
-- REFRESH_COOKIE_SAMESITE=[samesite-policy]
-- GOOGLE_CLIENT_ID=[google-client-id]
-- GOOGLE_CLIENT_SECRET=[google-client-secret]
-- STRIPE_SECRET_KEY=[stripe-secret-key]
-- STRIPE_WEBHOOK_SECRET=[stripe-webhook-secret]
-- STRIPE_SUCCESS_URL=[stripe-success-url]
-- STRIPE_CANCEL_URL=[stripe-cancel-url]
-- PAYSTACK_SECRET_KEY=[paystack-secret-key]
-- PAYPAL_CLIENT_ID=[paypal-client-id]
-- PAYPAL_CLIENT_SECRET=[paypal-client-secret]
-- PAYPAL_ENVIRONMENT=[paypal-environment]
-- PAYPAL_CURRENCY=[paypal-currency]
-- PAYPAL_WEBHOOK_ID=[paypal-webhook-id]
-- SUPER_ADMIN_EMAIL=[super-admin-email]
-- SUPER_ADMIN_PASSWORD=[super-admin-password]
-- USER_EMAIL=[default-buyer-email]
-- USER_PASSWORD=[default-buyer-password]
-- DATABASE_URL=[database-url]
-- R2_ACCESS_KEY_ID=[r2-access-key-id]
-- R2_SECRET_ACCESS_KEY=[r2-secret-access-key]
-- R2_BUCKET_NAME=[r2-bucket-name]
-- R2_ENDPOINT_URL=[r2-endpoint-url]
-- R2_PUBLIC_URL=[r2-public-url]
-- CELERY_BROKER_URL=[redis-broker-url]
-- CELERY_RESULT_BACKEND=[redis-result-backend-url]
-- BREVO_API_KEY=[brevo-api-key]
-
----
-
 ## Getting Started
 
 ### Prerequisites

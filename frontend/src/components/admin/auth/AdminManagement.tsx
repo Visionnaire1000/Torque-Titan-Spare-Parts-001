@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -7,9 +7,15 @@ import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
 
 /* ---------------- Types ---------------- */
+type AdminRole = "admin" | "super_admin";
+
 interface Admin {
-  id: number;
+  id: string;
   email: string;
+  display_name?: string | null;
+  role: AdminRole;
+  is_active: boolean;
+  initial_password_expired: boolean;
 }
 
 interface AdminsResponse {
@@ -23,29 +29,36 @@ interface ApiResponse {
 }
 
 /* ---------------- Component ---------------- */
-const AdminManagement = () => {
+const AdminManagement = (): React.JSX.Element => {
   const { user, authFetch } = useAuth();
 
   const [admins, setAdmins] = useState<Admin[]>([]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<AdminRole | "">("");
+
   const [emailError, setEmailError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   const [selectedId, setSelectedId] = useState("");
 
-  const [deleteDropdownOpen, setDeleteDropdownOpen] =
-    useState(false);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const [deleteDropdownOpen, setDeleteDropdownOpen] = useState(false);
+  const [unlockDropdownOpen, setUnlockDropdownOpen] = useState(false);
 
-  const deleteDropdownRef =
-    useRef<HTMLDivElement>(null);
+  const roleDropdownRef = useRef<HTMLDivElement>(null);
+  const deleteDropdownRef = useRef<HTMLDivElement>(null);
+  const unlockDropdownRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(false);
-  const [deleteLoading, setDeleteLoading] =
-    useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [unlockLoading, setUnlockLoading] = useState(false);
 
-  const emailPattern =
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const [currentSection, setCurrentSection] =
+    useState<"main" | "unlock">("main");
+
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   /* ---------------- Fetch Admins ---------------- */
   const fetchAdmins = useCallback(async () => {
@@ -54,13 +67,11 @@ const AdminManagement = () => {
         `${config.API_BASE_URL}/admin/admins/`
       );
 
-      const data: AdminsResponse =
-        await res.json();
+      const data: AdminsResponse = await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ||
-            "Failed to fetch admins"
+          data.error || "Failed to fetch admins"
         );
       }
 
@@ -81,18 +92,40 @@ const AdminManagement = () => {
     }
   }, [user, fetchAdmins]);
 
-  /* ---------------- Close Dropdown ---------------- */
+  /* ---------------- Scroll to Top ---------------- */
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "auto",
+    });
+  }, []);
+
+  /* ---------------- Close Dropdowns ---------------- */
   useEffect(() => {
     const handleClickOutside = (
       event: globalThis.MouseEvent
     ): void => {
+      const target = event.target as Node;
+
+      if (
+        roleDropdownRef.current &&
+        !roleDropdownRef.current.contains(target)
+      ) {
+        setRoleDropdownOpen(false);
+      }
+
       if (
         deleteDropdownRef.current &&
-        !deleteDropdownRef.current.contains(
-          event.target as Node
-        )
+        !deleteDropdownRef.current.contains(target)
       ) {
         setDeleteDropdownOpen(false);
+      }
+
+      if (
+        unlockDropdownRef.current &&
+        !unlockDropdownRef.current.contains(target)
+      ) {
+        setUnlockDropdownOpen(false);
       }
     };
 
@@ -133,11 +166,16 @@ const AdminManagement = () => {
 
   /* ---------------- Create Admin ---------------- */
   const createAdmin = async (
-    e: SubmitEvent
+    e: React.SyntheticEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
 
     if (emailError) {
+      return;
+    }
+
+    if (!role) {
+      toast.warn("Please select an account role");
       return;
     }
 
@@ -154,26 +192,27 @@ const AdminManagement = () => {
           body: JSON.stringify({
             email,
             password,
+            role,
           }),
         }
       );
 
-      const data: ApiResponse =
-        await res.json();
+      const data: ApiResponse = await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ||
-            "Failed to create admin"
+          data.error || "Failed to create account"
         );
       }
 
       setEmail("");
       setPassword("");
+      setRole("");
       setEmailError("");
+      setShowPassword(false);
 
       toast.success(
-        "Admin created successfully!"
+        "Admin account created successfully"
       );
 
       await fetchAdmins();
@@ -190,7 +229,7 @@ const AdminManagement = () => {
 
   /* ---------------- Delete Admin ---------------- */
   const deleteAdmin = async (
-    e: SubmitEvent
+    e: React.SyntheticEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
 
@@ -209,22 +248,18 @@ const AdminManagement = () => {
         }
       );
 
-      const data: ApiResponse =
-        await res.json();
+      const data: ApiResponse = await res.json();
 
       if (!res.ok) {
         throw new Error(
-          data.error ||
-            "Failed to delete admin"
+          data.error || "Failed to delete admin"
         );
       }
 
       setSelectedId("");
       setDeleteDropdownOpen(false);
 
-      toast.success(
-        "Admin deleted successfully!"
-      );
+      toast.success("Admin deleted successfully");
 
       await fetchAdmins();
     } catch (error) {
@@ -238,10 +273,56 @@ const AdminManagement = () => {
     }
   };
 
+  /* ---------------- Unlock Admin ---------------- */
+  const unlockAdmin = async (): Promise<void> => {
+    if (!selectedId) {
+      toast.warn("Please select a locked account");
+      return;
+    }
+
+    setUnlockLoading(true);
+
+    try {
+      const res = await authFetch(
+        `${config.API_BASE_URL}/admin/unlock-admin/${selectedId}/`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data: ApiResponse = await res.json();
+
+      if (!res.ok) {
+        throw new Error(
+          data.error || "Failed to unlock account"
+        );
+      }
+
+      setSelectedId("");
+      setUnlockDropdownOpen(false);
+
+      toast.success("Account unlocked successfully");
+
+      await fetchAdmins();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
+      );
+    } finally {
+      setUnlockLoading(false);
+    }
+  };
+
   /* ---------------- Selected Admin ---------------- */
   const selectedAdmin = admins.find(
-    (admin) =>
-      String(admin.id) === selectedId
+    (admin) => admin.id === selectedId
+  );
+
+  /* ---------------- Locked Admins ---------------- */
+  const lockedAdmins = admins.filter(
+    (admin) => !admin.is_active
   );
 
   /* ---------------- Access Control ---------------- */
@@ -253,7 +334,257 @@ const AdminManagement = () => {
     );
   }
 
-  /* ---------------- Render ---------------- */
+  /* ---------------- Unlock Section ---------------- */
+  if (currentSection === "unlock") {
+    return (
+      <div
+        className="
+          mx-auto
+          mt-[90px]
+          mb-[80px]
+          max-w-[520px]
+          rounded-2xl
+          bg-white
+          p-6
+          shadow-[0_10px_30px_rgba(0,0,0,0.08)]
+        "
+      >
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+        />
+
+        <div className="relative mb-5 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentSection("main");
+              setSelectedId("");
+              setUnlockDropdownOpen(false);
+            }}
+            className="
+              absolute
+              left-0
+              rounded-lg
+              p-2
+              text-gray-600
+              transition
+              hover:bg-gray-100
+              hover:text-gray-900
+            "
+            aria-label="Back"
+          >
+            <ArrowLeft size={20} />
+          </button>
+
+          <h2 className="text-[22px] font-bold">
+            Unlock Account
+          </h2>
+        </div>
+
+        <section className="rounded-xl bg-gray-50 p-4">
+          <h3 className="mb-3 text-base font-semibold text-gray-800">
+            Locked Accounts
+          </h3>
+
+          {lockedAdmins.length === 0 ? (
+            <div
+              className="
+                rounded-lg
+                border
+                border-gray-200
+                bg-white
+                px-3
+                py-4
+                text-center
+                text-sm
+                text-gray-500
+              "
+            >
+              No locked accounts
+            </div>
+          ) : (
+            <>
+              <div
+                ref={unlockDropdownRef}
+                className="relative mb-3 w-full"
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setUnlockDropdownOpen(
+                      (open) => !open
+                    )
+                  }
+                  className="
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    rounded-lg
+                    border
+                    border-gray-300
+                    bg-white
+                    px-3
+                    py-2.5
+                    text-left
+                    text-sm
+                    transition-colors
+                    hover:border-[#0077ff]
+                    focus:border-[rgb(0,64,128)]
+                    focus:outline-none
+                    focus:ring-2
+                    focus:ring-blue-100
+                  "
+                >
+                  <span
+                    className={
+                      selectedAdmin
+                        ? "truncate text-gray-800"
+                        : "truncate text-gray-500"
+                    }
+                  >
+                    {selectedAdmin
+                      ? `${selectedAdmin.email} (${
+                          selectedAdmin.role ===
+                          "super_admin"
+                            ? "Super Admin"
+                            : "Admin"
+                        })`
+                      : "Select locked account"}
+                  </span>
+
+                  {unlockDropdownOpen ? (
+                    <ChevronUp
+                      size={18}
+                      className="ml-2 shrink-0 text-gray-600"
+                    />
+                  ) : (
+                    <ChevronDown
+                      size={18}
+                      className="ml-2 shrink-0 text-gray-600"
+                    />
+                  )}
+                </button>
+
+                {unlockDropdownOpen && (
+                  <div
+                    className="
+                      absolute
+                      left-0
+                      top-full
+                      z-50
+                      mt-1
+                      max-h-60
+                      w-full
+                      overflow-y-auto
+                      rounded-lg
+                      border
+                      border-gray-300
+                      bg-white
+                      shadow-lg
+                    "
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedId("");
+                        setUnlockDropdownOpen(false);
+                      }}
+                      className="
+                        block
+                        w-full
+                        px-3
+                        py-2.5
+                        text-left
+                        text-sm
+                        text-gray-500
+                        transition-colors
+                        hover:bg-[#f0f6ff]
+                      "
+                    >
+                      Select locked account
+                    </button>
+
+                    {lockedAdmins.map((admin) => {
+                      const isSelected =
+                        selectedId === admin.id;
+
+                      return (
+                        <button
+                          key={admin.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedId(admin.id);
+                            setUnlockDropdownOpen(false);
+                          }}
+                          className={`
+                            block
+                            w-full
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            transition-colors
+                            hover:bg-[#f0f6ff]
+                            ${
+                              isSelected
+                                ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                                : "text-[#333]"
+                            }
+                          `}
+                        >
+                          <span className="block truncate">
+                            {admin.email}
+                          </span>
+
+                          <span className="block text-xs text-gray-500">
+                            {admin.role === "super_admin"
+                              ? "Super Admin"
+                              : "Admin"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void unlockAdmin();
+                }}
+                disabled={
+                  unlockLoading || !selectedId
+                }
+                className="
+                  w-full
+                  rounded-lg
+                  bg-[rgb(0,64,128)]
+                  px-4
+                  py-2.5
+                  text-sm
+                  font-medium
+                  text-white
+                  transition
+                  hover:opacity-90
+                  disabled:cursor-not-allowed
+                  disabled:opacity-60
+                "
+              >
+                {unlockLoading
+                  ? "Unlocking..."
+                  : "Unlock"}
+              </button>
+            </>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  /* ---------------- Main Section ---------------- */
   return (
     <div
       className="
@@ -267,51 +598,176 @@ const AdminManagement = () => {
         shadow-[0_10px_30px_rgba(0,0,0,0.08)]
       "
     >
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-      />
-
-      <h2
-        className="
-          mb-5
-          text-center
-          text-[22px]
-          font-bold
-        "
-      >
+      <h2 className="mb-5 text-center text-[22px] font-bold">
         Admin Management
       </h2>
 
-      {/*CREATE ADMIN*/}
-      <section
-        className="
-          mb-6
-          rounded-xl
-          bg-gray-50
-          p-4
-        "
-      >
-        <h3
-          className="
-            mb-3
-            text-base
-            font-semibold
-            text-gray-800
-          "
-        >
-          Create Admin
+      {/* CREATE ACCOUNT */}
+      <section className="mb-6 rounded-xl bg-gray-50 p-4">
+        <h3 className="mb-3 text-base font-semibold text-gray-800">
+          Create Account
         </h3>
 
         <form
           onSubmit={(e) => {
-            void createAdmin(
-              e.nativeEvent
-            );
+            void createAdmin(e);
           }}
           className="relative"
         >
-          {/* Email */}
+          <div
+            ref={roleDropdownRef}
+            className="relative mb-3 w-full"
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setRoleDropdownOpen(
+                  (open) => !open
+                )
+              }
+              className="
+                flex
+                w-full
+                items-center
+                justify-between
+                rounded-lg
+                border
+                border-gray-300
+                bg-white
+                px-3
+                py-2.5
+                text-left
+                text-sm
+                transition-colors
+                hover:border-[#0077ff]
+                focus:border-[rgb(0,64,128)]
+                focus:outline-none
+                focus:ring-2
+                focus:ring-blue-100
+              "
+            >
+              <span
+                className={
+                  role
+                    ? "text-gray-800"
+                    : "text-gray-500"
+                }
+              >
+                {role === "admin"
+                  ? "Admin"
+                  : role === "super_admin"
+                  ? "Super Admin"
+                  : "Select account role"}
+              </span>
+
+              {roleDropdownOpen ? (
+                <ChevronUp
+                  size={18}
+                  className="ml-2 shrink-0 text-gray-600"
+                />
+              ) : (
+                <ChevronDown
+                  size={18}
+                  className="ml-2 shrink-0 text-gray-600"
+                />
+              )}
+            </button>
+
+            {roleDropdownOpen && (
+              <div
+                className="
+                  absolute
+                  left-0
+                  top-full
+                  z-50
+                  mt-1
+                  w-full
+                  overflow-hidden
+                  rounded-lg
+                  border
+                  border-gray-300
+                  bg-white
+                  shadow-lg
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole("");
+                    setRoleDropdownOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2.5
+                    text-left
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    ${
+                      role === ""
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-gray-500"
+                    }
+                  `}
+                >
+                  Select account role
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole("admin");
+                    setRoleDropdownOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2.5
+                    text-left
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    ${
+                      role === "admin"
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  Admin
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRole("super_admin");
+                    setRoleDropdownOpen(false);
+                  }}
+                  className={`
+                    block
+                    w-full
+                    px-3
+                    py-2.5
+                    text-left
+                    text-sm
+                    transition-colors
+                    hover:bg-[#f0f6ff]
+                    ${
+                      role === "super_admin"
+                        ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                        : "text-[#333]"
+                    }
+                  `}
+                >
+                  Super Admin
+                </button>
+              </div>
+            )}
+          </div>
+
           <input
             type="email"
             placeholder="Email"
@@ -336,19 +792,11 @@ const AdminManagement = () => {
           />
 
           {emailError && (
-            <p
-              className="
-                mb-2
-                text-sm
-                font-medium
-                text-red-600
-              "
-            >
+            <p className="mb-2 text-sm font-medium text-red-600">
               {emailError}
             </p>
           )}
 
-          {/* Password */}
           <div className="relative mb-3">
             <input
               type={
@@ -358,9 +806,7 @@ const AdminManagement = () => {
               }
               placeholder="Password"
               value={password}
-              onChange={
-                handlePasswordChange
-              }
+              onChange={handlePasswordChange}
               required
               className="
                 w-full
@@ -406,12 +852,10 @@ const AdminManagement = () => {
             </button>
           </div>
 
-          {/* Create Button */}
           <button
             type="submit"
             disabled={
-              loading ||
-              Boolean(emailError)
+              loading || Boolean(emailError)
             }
             className="
               w-full
@@ -435,45 +879,53 @@ const AdminManagement = () => {
         </form>
       </section>
 
-      {/*DELETE ADMIN*/}
-      <section
-        className="
-          rounded-xl
-          bg-gray-50
-          p-4
-        "
-      >
-        <h3
+      {/* UNLOCK ACCOUNT */}
+      <section className="mb-6 rounded-xl bg-gray-50 p-4">
+        <h3 className="mb-3 text-base font-semibold text-gray-800">
+          Unlock Account
+        </h3>
+
+        <button
+          type="button"
+          onClick={() => {
+            setCurrentSection("unlock");
+            setSelectedId("");
+            setUnlockDropdownOpen(false);
+            void fetchAdmins();
+          }}
           className="
-            mb-3
-            text-base
-            font-semibold
-            text-gray-800
+            w-full
+            rounded-lg
+            bg-[rgb(0,64,128)]
+            px-4
+            py-2.5
+            text-sm
+            font-medium
+            text-white
+            transition
+            hover:opacity-90
           "
         >
-          Delete Admin
+          Manage Locked Accounts
+        </button>
+      </section>
+
+      {/* DELETE ACCOUNT */}
+      <section className="rounded-xl bg-gray-50 p-4">
+        <h3 className="mb-3 text-base font-semibold text-gray-800">
+          Delete Account
         </h3>
 
         <form
           onSubmit={(e) => {
-            void deleteAdmin(
-              e.nativeEvent
-            );
+            void deleteAdmin(e);
           }}
           className="relative"
         >
-          {/* ---------------- Custom Dropdown ---------------- */}
-
           <div
             ref={deleteDropdownRef}
-            className="
-              relative
-              mb-3
-              w-full
-            "
+            className="relative mb-3 w-full"
           >
-            {/* Dropdown Trigger */}
-
             <button
               type="button"
               onClick={() =>
@@ -510,32 +962,27 @@ const AdminManagement = () => {
                 }
               >
                 {selectedAdmin
-                  ? selectedAdmin.email
-                  : "Select admin"}
+                  ? `${selectedAdmin.email} (${
+                      selectedAdmin.role ===
+                      "super_admin"
+                        ? "Super Admin"
+                        : "Admin"
+                    })`
+                  : "Select account"}
               </span>
 
               {deleteDropdownOpen ? (
                 <ChevronUp
                   size={18}
-                  className="
-                    ml-2
-                    shrink-0
-                    text-gray-600
-                  "
+                  className="ml-2 shrink-0 text-gray-600"
                 />
               ) : (
                 <ChevronDown
                   size={18}
-                  className="
-                    ml-2
-                    shrink-0
-                    text-gray-600
-                  "
+                  className="ml-2 shrink-0 text-gray-600"
                 />
               )}
             </button>
-
-            {/* Dropdown Options */}
 
             {deleteDropdownOpen && (
               <div
@@ -564,19 +1011,15 @@ const AdminManagement = () => {
                       text-gray-500
                     "
                   >
-                    No admins available
+                    No accounts available
                   </div>
                 ) : (
                   <>
-                    {/* Select Admin */}
-
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedId("");
-                        setDeleteDropdownOpen(
-                          false
-                        );
+                        setDeleteDropdownOpen(false);
                       }}
                       className={`
                         block
@@ -594,31 +1037,20 @@ const AdminManagement = () => {
                         }
                       `}
                     >
-                      Select admin
+                      Select account
                     </button>
 
-                    {/* Admin List */}
-
                     {admins.map((admin) => {
-                      const adminId =
-                        String(admin.id);
-
                       const isSelected =
-                        selectedId ===
-                        adminId;
+                        selectedId === admin.id;
 
                       return (
                         <button
                           key={admin.id}
                           type="button"
                           onClick={() => {
-                            setSelectedId(
-                              adminId
-                            );
-
-                            setDeleteDropdownOpen(
-                              false
-                            );
+                            setSelectedId(admin.id);
+                            setDeleteDropdownOpen(false);
                           }}
                           className={`
                             block
@@ -636,7 +1068,15 @@ const AdminManagement = () => {
                             }
                           `}
                         >
-                          {admin.email}
+                          <span className="block truncate">
+                            {admin.email}
+                          </span>
+
+                          <span className="block text-xs text-gray-500">
+                            {admin.role === "super_admin"
+                              ? "Super Admin"
+                              : "Admin"}
+                          </span>
                         </button>
                       );
                     })}
@@ -646,10 +1086,11 @@ const AdminManagement = () => {
             )}
           </div>
 
-          {/* Delete Button */}
           <button
             type="submit"
-            disabled={deleteLoading}
+            disabled={
+              deleteLoading || !selectedId
+            }
             className="
               w-full
               rounded-lg
@@ -671,6 +1112,12 @@ const AdminManagement = () => {
           </button>
         </form>
       </section>
+
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        theme="colored"
+      />
     </div>
   );
 };

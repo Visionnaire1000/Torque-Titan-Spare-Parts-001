@@ -8,7 +8,6 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import transaction
-from django.shortcuts import get_object_or_404
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,10 +18,17 @@ from app.models import (
     Orders,
     OrderItems,
     SpareParts,
+    Address,
+    Profile,
+    CartItems,
+)
+
+from utils.tasks import (
+    send_order_confirmation_email_task,
 )
 
 
-# --------------- PAYPAL HELPERS ------------------
+# --------------------------- PAYPAL HELPERS ---------------------------
 KES_QUANTIZER = Decimal("0.01")
 PAYPAL_QUANTIZER = Decimal("0.01")
 
@@ -41,6 +47,85 @@ def calculate_order_total(order):
     )
 
 
+def clear_user_cart(user):
+    CartItems.objects.filter(
+        user=user
+    ).delete()
+
+
+def mark_order_as_paid(order_id):
+    with transaction.atomic():
+
+        order = (
+            Orders.objects
+            .select_for_update()
+            .select_related(
+                "user"
+            )
+            .prefetch_related(
+                "order_items"
+            )
+            .get(
+                pk=order_id
+            )
+        )
+
+        if order.paid:
+
+            print(
+                f"PAYPAL PAYMENT: "
+                f"Order {order_id} is already marked as paid"
+            )
+
+            return order
+
+        total_price = (
+            calculate_order_total(
+                order
+            )
+        )
+
+        if total_price <= Decimal("0.00"):
+
+            raise ValueError(
+                "Order total must be greater than zero"
+            )
+
+        order.total_price = total_price
+        order.paid = True
+
+        order.save(
+            update_fields=[
+                "total_price",
+                "paid",
+            ]
+        )
+
+        clear_user_cart(
+            order.user
+        )
+
+        customer_email = order.user.email
+        order_id_value = str(order.id)
+        payment_method = order.payment_method
+
+        print(
+            f"ORDER {order_id_value} "
+            "MARKED AS PAID BY PAYPAL"
+        )
+
+        transaction.on_commit(
+            lambda: send_order_confirmation_email_task.delay(
+                customer_email,
+                order_id_value,
+                total_price,
+                payment_method,
+            )
+        )
+
+        return order
+
+
 def calculate_paypal_items(
     order,
     exchange_rate,
@@ -56,11 +141,9 @@ def calculate_paypal_items(
 
         sparepart = order_item.sparepart
 
-        paypal_unit_price = (
-            convert_kes_to_paypal_currency(
-                order_item.unit_price,
-                exchange_rate,
-            )
+        paypal_unit_price = convert_kes_to_paypal_currency(
+            order_item.unit_price,
+            exchange_rate,
         )
 
         quantity = int(
@@ -86,18 +169,15 @@ def calculate_paypal_items(
                 "description": (
                     f"{sparepart.brand} "
                     f"{sparepart.category} "
-                    f"for "
-                    f"{sparepart.vehicle_type}"
+                    f"for {sparepart.vehicle_type}"
                 ),
                 "quantity": str(
                     quantity
                 ),
                 "unit_amount": {
                     "currency_code": currency,
-                    "value": (
-                        decimal_to_paypal_value(
-                            paypal_unit_price
-                        )
+                    "value": decimal_to_paypal_value(
+                        paypal_unit_price
                     ),
                 },
             }
@@ -108,10 +188,7 @@ def calculate_paypal_items(
         rounding=ROUND_HALF_UP,
     )
 
-    return (
-        paypal_items,
-        paypal_item_total,
-    )
+    return paypal_items, paypal_item_total
 
 
 def get_paypal_base_url():
@@ -183,6 +260,7 @@ def get_paypal_access_token():
     )
 
     try:
+
         with urllib.request.urlopen(
             request,
             timeout=30,
@@ -255,9 +333,7 @@ def paypal_request(
     }
 
     if request_id:
-        headers["PayPal-Request-Id"] = (
-            request_id
-        )
+        headers["PayPal-Request-Id"] = request_id
 
     body = None
 
@@ -274,6 +350,7 @@ def paypal_request(
     )
 
     try:
+
         with urllib.request.urlopen(
             request,
             timeout=30,
@@ -304,10 +381,13 @@ def paypal_request(
         )
 
         try:
+
             error_data = json.loads(
                 error_body
             )
+
         except json.JSONDecodeError:
+
             error_data = {}
 
         message = (
@@ -316,7 +396,9 @@ def paypal_request(
             or "PayPal API request failed"
         )
 
-        raise ValueError(message)
+        raise ValueError(
+            message
+        )
 
     except urllib.error.URLError as exc:
 
@@ -401,6 +483,7 @@ def get_paypal_kes_to_usd_rate():
     )
 
     try:
+
         with urllib.request.urlopen(
             request,
             timeout=15,
@@ -447,6 +530,7 @@ def get_paypal_kes_to_usd_rate():
         )
 
     try:
+
         rate = Decimal(
             str(raw_rate)
         )
@@ -461,6 +545,7 @@ def get_paypal_kes_to_usd_rate():
         )
 
     if rate <= Decimal("0"):
+
         raise ValueError(
             "USD/KES exchange rate must be greater than zero"
         )
@@ -504,6 +589,7 @@ def get_paypal_approval_url(paypal_order):
         "links",
         [],
     ):
+
         if link.get("rel") == "approve":
             return link.get("href")
 
@@ -546,9 +632,7 @@ def validate_paypal_amount(
         "currency_code"
     )
 
-    expected_currency = (
-        get_paypal_currency()
-    )
+    expected_currency = get_paypal_currency()
 
     if (
         not paypal_currency
@@ -565,19 +649,19 @@ def validate_paypal_amount(
         return False
 
     try:
-        paypal_total_decimal = (
-            Decimal(
-                str(paypal_total)
-            ).quantize(
-                PAYPAL_QUANTIZER,
-                rounding=ROUND_HALF_UP,
-            )
+
+        paypal_total_decimal = Decimal(
+            str(paypal_total)
+        ).quantize(
+            PAYPAL_QUANTIZER,
+            rounding=ROUND_HALF_UP,
         )
 
     except (
         ValueError,
         TypeError,
     ):
+
         return False
 
     return (
@@ -586,13 +670,14 @@ def validate_paypal_amount(
     )
 
 
-# ---------------- CREATE PAYPAL CHECKOUT SESSION ----------------
+# --------------------------- CREATE PAYPAL CHECKOUT SESSION ---------------------------
 class CreatePayPalSessionView(APIView):
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        data = request.data or {}
 
+        data = request.data or {}
         current_user = request.user
 
         items = data.get(
@@ -600,12 +685,8 @@ class CreatePayPalSessionView(APIView):
             [],
         )
 
-        street = data.get("street")
-        city = data.get("city")
-        country = data.get("country")
-        postal_code = data.get("postal_code")
-
         if not items:
+
             return Response(
                 {
                     "error": "Cart is empty"
@@ -613,7 +694,11 @@ class CreatePayPalSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not isinstance(items, list):
+        if not isinstance(
+            items,
+            list,
+        ):
+
             return Response(
                 {
                     "error": "Items must be a list"
@@ -621,57 +706,88 @@ class CreatePayPalSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not all(
-            [
-                street,
-                city,
-                country,
-            ]
-        ):
-            return Response(
-                {
-                    "error": "Missing address fields"
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
+
+            try:
+
+                Profile.objects.get(
+                    user=current_user
+                )
+
+            except Profile.DoesNotExist:
+
+                return Response(
+                    {
+                        "error": (
+                            "Customer profile not found"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+
+                address = Address.objects.get(
+                    user=current_user
+                )
+
+            except Address.DoesNotExist:
+
+                return Response(
+                    {
+                        "error": (
+                            "Customer address not found"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             with transaction.atomic():
 
                 order = Orders.objects.create(
-                    user_id=current_user.id,
+                    user=current_user,
+                    address=address,
                     paid=False,
                     payment_method="paypal",
-                    street=street.strip(),
-                    city=city.strip(),
-                    postal_code=(
-                        postal_code.strip()
-                        if isinstance(
-                            postal_code,
-                            str,
-                        )
-                        else postal_code
-                    ),
-                    country=country.strip(),
                     status="pending",
                     total_price=Decimal("0.00"),
                 )
 
                 for item in items:
 
+                    if not isinstance(
+                        item,
+                        dict,
+                    ):
+
+                        raise ValueError(
+                            "Each item must be an object"
+                        )
+
                     sparepart_id = item.get(
                         "sparepart_id"
                     )
 
                     if not sparepart_id:
+
                         raise ValueError(
                             "Missing sparepart_id"
                         )
 
-                    sparepart = get_object_or_404(
-                        SpareParts,
-                        pk=sparepart_id,
-                    )
+                    try:
+
+                        sparepart = (
+                            SpareParts.objects
+                            .get(
+                                pk=sparepart_id
+                            )
+                        )
+
+                    except SpareParts.DoesNotExist:
+
+                        raise ValueError(
+                            "Spare part not found"
+                        )
 
                     quantity = item.get(
                         "quantity",
@@ -679,6 +795,7 @@ class CreatePayPalSessionView(APIView):
                     )
 
                     try:
+
                         quantity = int(
                             quantity
                         )
@@ -687,11 +804,13 @@ class CreatePayPalSessionView(APIView):
                         ValueError,
                         TypeError,
                     ):
+
                         raise ValueError(
                             "Quantity must be an integer"
                         )
 
                     if quantity <= 0:
+
                         raise ValueError(
                             "Quantity must be positive"
                         )
@@ -707,8 +826,7 @@ class CreatePayPalSessionView(APIView):
                     )
 
                     subtotal = (
-                        unit_price
-                        * quantity
+                        unit_price * quantity
                     ).quantize(
                         KES_QUANTIZER,
                         rounding=ROUND_HALF_UP,
@@ -730,16 +848,29 @@ class CreatePayPalSessionView(APIView):
                     )
                 )
 
+                if total_price_kes <= Decimal("0.00"):
+
+                    raise ValueError(
+                        "Order total must be greater than zero"
+                    )
+
                 paypal_exchange_rate = (
                     get_paypal_kes_to_usd_rate()
                 )
 
-                paypal_items, paypal_item_total = (
-                    calculate_paypal_items(
-                        order,
-                        paypal_exchange_rate,
-                    )
+                (
+                    paypal_items,
+                    paypal_item_total,
+                ) = calculate_paypal_items(
+                    order,
+                    paypal_exchange_rate,
                 )
+
+                if paypal_item_total <= Decimal("0.00"):
+
+                    raise ValueError(
+                        "PayPal total must be greater than zero"
+                    )
 
                 order.total_price = (
                     total_price_kes
@@ -765,9 +896,7 @@ class CreatePayPalSessionView(APIView):
                     get_paypal_access_token()
                 )
 
-                currency = (
-                    get_paypal_currency()
-                )
+                currency = get_paypal_currency()
 
                 paypal_payload = {
                     "intent": "CAPTURE",
@@ -808,22 +937,16 @@ class CreatePayPalSessionView(APIView):
                         "shipping_preference": (
                             "NO_SHIPPING"
                         ),
-                        "user_action": (
-                            "PAY_NOW"
+                        "user_action": "PAY_NOW",
+                        "return_url": getattr(
+                            settings,
+                            "PAYPAL_SUCCESS_URL",
+                            "http://localhost:5173/payment-success",
                         ),
-                        "return_url": (
-                            getattr(
-                                settings,
-                                "PAYPAL_SUCCESS_URL",
-                                "http://localhost:5173/payment-success",
-                            )
-                        ),
-                        "cancel_url": (
-                            getattr(
-                                settings,
-                                "PAYPAL_CANCEL_URL",
-                                "http://localhost:5173/payment-cancel",
-                            )
+                        "cancel_url": getattr(
+                            settings,
+                            "PAYPAL_CANCEL_URL",
+                            "http://localhost:5173/payment-cancel",
                         ),
                     },
                 }
@@ -838,11 +961,12 @@ class CreatePayPalSessionView(APIView):
                     ),
                 )
 
-                paypal_order_id = (
-                    paypal_order.get("id")
+                paypal_order_id = paypal_order.get(
+                    "id"
                 )
 
                 if not paypal_order_id:
+
                     raise ValueError(
                         "PayPal did not return an order ID"
                     )
@@ -854,6 +978,7 @@ class CreatePayPalSessionView(APIView):
                 )
 
                 if not approval_url:
+
                     raise ValueError(
                         "PayPal did not return an approval URL"
                     )
@@ -913,30 +1038,30 @@ class CreatePayPalSessionView(APIView):
         )
 
 
-# ---------------- CAPTURE PAYPAL ORDER ----------------
+# --------------------------- CAPTURE PAYPAL ORDER ---------------------------
 class CapturePayPalSessionView(APIView):
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+
         data = request.data or {}
 
-        paypal_order_id = (
-            extract_paypal_order_id(
-                data
-            )
+        paypal_order_id = extract_paypal_order_id(
+            data
         )
 
         if not paypal_order_id:
+
             return Response(
                 {
-                    "error": (
-                        "Missing PayPal order ID"
-                    )
+                    "error": "Missing PayPal order ID"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
+
             access_token = (
                 get_paypal_access_token()
             )
@@ -950,23 +1075,22 @@ class CapturePayPalSessionView(APIView):
                 access_token=access_token,
             )
 
-            paypal_status = (
-                paypal_order.get("status")
+            paypal_status = paypal_order.get(
+                "status"
             )
 
             if paypal_status not in [
                 "APPROVED",
                 "COMPLETED",
             ]:
+
                 return Response(
                     {
                         "error": (
                             "PayPal order has "
                             "not been approved"
                         ),
-                        "paypal_status": (
-                            paypal_status
-                        ),
+                        "paypal_status": paypal_status,
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -978,6 +1102,7 @@ class CapturePayPalSessionView(APIView):
             )
 
             if not purchase_unit:
+
                 return Response(
                     {
                         "error": (
@@ -989,15 +1114,12 @@ class CapturePayPalSessionView(APIView):
                 )
 
             order_id = (
-                purchase_unit.get(
-                    "custom_id"
-                )
-                or purchase_unit.get(
-                    "reference_id"
-                )
+                purchase_unit.get("custom_id")
+                or purchase_unit.get("reference_id")
             )
 
             if not order_id:
+
                 return Response(
                     {
                         "error": (
@@ -1008,236 +1130,236 @@ class CapturePayPalSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            with transaction.atomic():
+            try:
 
                 order = (
                     Orders.objects
-                    .select_for_update()
                     .prefetch_related(
                         "order_items"
                     )
                     .get(
-                        pk=order_id
+                        pk=order_id,
+                        user_id=request.user.id,
                     )
                 )
 
-                if str(
-                    order.user_id
-                ) != str(
-                    request.user.id
-                ):
-                    return Response(
-                        {
-                            "error": (
-                                "You do not own "
-                                "this order"
-                            )
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
+            except Orders.DoesNotExist:
 
-                if order.paid:
-                    return Response(
-                        {
-                            "success": True,
-                            "already_paid": True,
-                            "order_id": str(
-                                order.id
-                            ),
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                expected_total_usd = (
-                    get_expected_paypal_total(
-                        order
-                    )
+                return Response(
+                    {
+                        "error": "Order not found"
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
-                paypal_amount = (
-                    purchase_unit.get(
-                        "amount",
-                        {},
-                    )
+            if order.paid:
+
+                return Response(
+                    {
+                        "success": True,
+                        "already_paid": True,
+                        "order_id": str(
+                            order.id
+                        ),
+                        "paypal_order_id": (
+                            paypal_order_id
+                        ),
+                    },
+                    status=status.HTTP_200_OK,
                 )
 
-                if not validate_paypal_amount(
-                    paypal_amount,
+            if order.payment_method != "paypal":
+
+                return Response(
+                    {
+                        "error": (
+                            "Order payment method "
+                            "is not PayPal"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            expected_total_usd = (
+                get_expected_paypal_total(
+                    order
+                )
+            )
+
+            paypal_amount = (
+                purchase_unit.get(
+                    "amount",
+                    {},
+                )
+            )
+
+            if not validate_paypal_amount(
+                paypal_amount,
+                expected_total_usd,
+            ):
+
+                print(
+                    "PAYPAL AMOUNT MISMATCH:",
+                    "order=",
+                    order.id,
+                    "expected_usd=",
                     expected_total_usd,
-                ):
-                    print(
-                        "PAYPAL AMOUNT MISMATCH:",
-                        "order=",
-                        order.id,
-                        "expected_usd=",
-                        expected_total_usd,
-                        "received=",
-                        paypal_amount.get(
-                            "value"
+                    "received=",
+                    paypal_amount.get(
+                        "value"
+                    ),
+                )
+
+                return Response(
+                    {
+                        "error": (
+                            "Payment amount "
+                            "does not match "
+                            "order total"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if paypal_status == "APPROVED":
+
+                capture_response = paypal_request(
+                    method="POST",
+                    path=(
+                        "/v2/checkout/orders/"
+                        f"{paypal_order_id}"
+                        "/capture"
+                    ),
+                    access_token=access_token,
+                    payload={},
+                    request_id=(
+                        f"capture-{order.id}"
+                    ),
+                )
+
+            else:
+
+                capture_response = paypal_order
+
+            capture_status = (
+                capture_response.get(
+                    "status"
+                )
+            )
+
+            if capture_status != "COMPLETED":
+
+                return Response(
+                    {
+                        "error": (
+                            "PayPal payment "
+                            "was not completed"
                         ),
-                    )
-
-                    return Response(
-                        {
-                            "error": (
-                                "Payment amount "
-                                "does not match "
-                                "order total"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                capture_response = (
-                    paypal_request(
-                        method="POST",
-                        path=(
-                            "/v2/checkout/orders/"
-                            f"{paypal_order_id}"
-                            "/capture"
-                        ),
-                        access_token=access_token,
-                        payload={},
-                        request_id=(
-                            f"capture-{order.id}"
-                        ),
-                    )
+                        "paypal_status": capture_status,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-                capture_status = (
-                    capture_response.get(
-                        "status"
-                    )
+            captured_units = (
+                capture_response.get(
+                    "purchase_units",
+                    [],
+                )
+            )
+
+            if not captured_units:
+
+                return Response(
+                    {
+                        "error": (
+                            "PayPal capture "
+                            "contains no "
+                            "purchase units"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-                if capture_status != "COMPLETED":
-                    return Response(
-                        {
-                            "error": (
-                                "PayPal payment "
-                                "was not completed"
-                            ),
-                            "paypal_status": (
-                                capture_status
-                            ),
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            captured_purchase_unit = (
+                captured_units[0]
+            )
 
-                captured_units = (
-                    capture_response.get(
-                        "purchase_units",
-                        [],
-                    )
+            captured_payments = (
+                captured_purchase_unit.get(
+                    "payments",
+                    {},
+                )
+            )
+
+            captures = captured_payments.get(
+                "captures",
+                [],
+            )
+
+            if not captures:
+
+                return Response(
+                    {
+                        "error": (
+                            "PayPal capture "
+                            "contains no "
+                            "capture record"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-                if not captured_units:
-                    return Response(
-                        {
-                            "error": (
-                                "PayPal capture "
-                                "contains no "
-                                "purchase units"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            capture = captures[0]
 
-                captured_payments = (
-                    captured_units[0]
-                    .get("payments", {})
+            if capture.get(
+                "status"
+            ) != "COMPLETED":
+
+                return Response(
+                    {
+                        "error": (
+                            "PayPal capture "
+                            "was not completed"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-                captures = (
-                    captured_payments
-                    .get("captures", [])
-                )
+            captured_amount = capture.get(
+                "amount",
+                {},
+            )
 
-                if not captures:
-                    return Response(
-                        {
-                            "error": (
-                                "PayPal capture "
-                                "contains no "
-                                "capture record"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            if not validate_paypal_amount(
+                captured_amount,
+                expected_total_usd,
+            ):
 
-                capture = captures[0]
-
-                if capture.get("status") != "COMPLETED":
-                    return Response(
-                        {
-                            "error": (
-                                "PayPal capture "
-                                "was not completed"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                captured_amount = (
-                    capture.get(
-                        "amount",
-                        {},
-                    )
-                )
-
-                if not validate_paypal_amount(
-                    captured_amount,
+                print(
+                    "PAYPAL CAPTURE AMOUNT MISMATCH:",
+                    "order=",
+                    order.id,
+                    "expected_usd=",
                     expected_total_usd,
-                ):
-                    print(
-                        "PAYPAL CAPTURE AMOUNT MISMATCH:",
-                        "order=",
-                        order.id,
-                        "expected_usd=",
-                        expected_total_usd,
-                        "captured=",
-                        captured_amount.get(
-                            "value"
-                        ),
-                    )
-
-                    return Response(
-                        {
-                            "error": (
-                                "Captured payment "
-                                "does not match "
-                                "order total"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                expected_total_kes = (
-                    calculate_order_total(
-                        order
-                    )
+                    "captured=",
+                    captured_amount.get(
+                        "value"
+                    ),
                 )
 
-                order.total_price = (
-                    expected_total_kes
+                return Response(
+                    {
+                        "error": (
+                            "Captured payment "
+                            "does not match "
+                            "order total"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-                order.paid = True
-
-                order.save(
-                    update_fields=[
-                        "total_price",
-                        "paid",
-                    ]
-                )
-
-        except Orders.DoesNotExist:
-
-            return Response(
-                {
-                    "error": "Order not found"
-                },
-                status=status.HTTP_404_NOT_FOUND,
+            order = mark_order_as_paid(
+                order.id
             )
 
         except ValueError as exc:
@@ -1275,35 +1397,36 @@ class CapturePayPalSessionView(APIView):
                 "paypal_order_id": (
                     paypal_order_id
                 ),
+                "paid": True,
             },
             status=status.HTTP_200_OK,
         )
 
 
-# ---------------- PAYPAL CANCEL ----------------
+# --------------------------- PAYPAL CANCEL ---------------------------
 class CancelPaypalSessionView(APIView):
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+
         data = request.data or {}
 
-        paypal_order_id = (
-            extract_paypal_order_id(
-                data
-            )
+        paypal_order_id = extract_paypal_order_id(
+            data
         )
 
         if not paypal_order_id:
+
             return Response(
                 {
-                    "error": (
-                        "Missing PayPal order ID"
-                    )
+                    "error": "Missing PayPal order ID"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
+
             access_token = (
                 get_paypal_access_token()
             )
@@ -1324,6 +1447,7 @@ class CancelPaypalSessionView(APIView):
             )
 
             if not purchase_unit:
+
                 return Response(
                     {
                         "error": (
@@ -1335,53 +1459,46 @@ class CancelPaypalSessionView(APIView):
                 )
 
             order_id = (
-                purchase_unit.get(
-                    "custom_id"
-                )
-                or purchase_unit.get(
-                    "reference_id"
-                )
+                purchase_unit.get("custom_id")
+                or purchase_unit.get("reference_id")
             )
 
             if not order_id:
+
                 return Response(
                     {
-                        "error": (
-                            "Missing local order ID"
-                        )
+                        "error": "Missing local order ID"
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             with transaction.atomic():
 
-                order = (
-                    Orders.objects
-                    .select_for_update()
-                    .get(
-                        pk=order_id
-                    )
-                )
+                try:
 
-                if str(
-                    order.user_id
-                ) != str(
-                    request.user.id
-                ):
+                    order = (
+                        Orders.objects
+                        .select_for_update()
+                        .get(
+                            pk=order_id,
+                            user_id=request.user.id,
+                        )
+                    )
+
+                except Orders.DoesNotExist:
+
                     return Response(
                         {
-                            "error": (
-                                "You do not own "
-                                "this order"
-                            )
+                            "error": "Order not found"
                         },
-                        status=status.HTTP_403_FORBIDDEN,
+                        status=status.HTTP_404_NOT_FOUND,
                     )
 
                 if (
                     not order.paid
                     and order.status == "pending"
                 ):
+
                     order.status = "expired"
 
                     order.save(
@@ -1389,15 +1506,6 @@ class CancelPaypalSessionView(APIView):
                             "status",
                         ]
                     )
-
-        except Orders.DoesNotExist:
-
-            return Response(
-                {
-                    "error": "Order not found"
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
 
         except ValueError as exc:
 
@@ -1433,15 +1541,18 @@ class CancelPaypalSessionView(APIView):
         )
 
 
-# ---------------- PAYPAL WEBHOOK ----------------
+# --------------------------- PAYPAL WEBHOOK ---------------------------
 class PayPalWebhookView(APIView):
+
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request):
+
         payload = request.body
 
         try:
+
             webhook_event = json.loads(
                 payload.decode("utf-8")
             )
@@ -1492,6 +1603,7 @@ class PayPalWebhookView(APIView):
                 transmission_sig,
             ]
         ):
+
             return Response(
                 {
                     "error": (
@@ -1503,15 +1615,14 @@ class PayPalWebhookView(APIView):
             )
 
         try:
-            verification = (
-                verify_paypal_webhook(
-                    transmission_id=transmission_id,
-                    transmission_time=transmission_time,
-                    cert_url=cert_url,
-                    auth_algo=auth_algo,
-                    transmission_sig=transmission_sig,
-                    webhook_event=webhook_event,
-                )
+
+            verification = verify_paypal_webhook(
+                transmission_id=transmission_id,
+                transmission_time=transmission_time,
+                cert_url=cert_url,
+                auth_algo=auth_algo,
+                transmission_sig=transmission_sig,
+                webhook_event=webhook_event,
             )
 
         except ValueError as exc:
@@ -1572,13 +1683,12 @@ class PayPalWebhookView(APIView):
             event_type,
         )
 
-        if event_type == (
-            "PAYMENT.CAPTURE.COMPLETED"
-        ):
+        if event_type == "PAYMENT.CAPTURE.COMPLETED":
 
             order_id = None
 
             try:
+
                 related_ids = (
                     resource
                     .get(
@@ -1598,6 +1708,7 @@ class PayPalWebhookView(APIView):
                 )
 
                 if not paypal_order_id:
+
                     return Response(
                         {
                             "error": (
@@ -1628,6 +1739,7 @@ class PayPalWebhookView(APIView):
                 )
 
                 if not purchase_unit:
+
                     return Response(
                         {
                             "error": (
@@ -1639,15 +1751,12 @@ class PayPalWebhookView(APIView):
                     )
 
                 order_id = (
-                    purchase_unit.get(
-                        "custom_id"
-                    )
-                    or purchase_unit.get(
-                        "reference_id"
-                    )
+                    purchase_unit.get("custom_id")
+                    or purchase_unit.get("reference_id")
                 )
 
                 if not order_id:
+
                     return Response(
                         {
                             "error": (
@@ -1663,6 +1772,9 @@ class PayPalWebhookView(APIView):
                     order = (
                         Orders.objects
                         .select_for_update()
+                        .select_related(
+                            "user"
+                        )
                         .prefetch_related(
                             "order_items"
                         )
@@ -1672,11 +1784,25 @@ class PayPalWebhookView(APIView):
                     )
 
                     if order.paid:
+
                         return Response(
                             {
-                                "success": True
+                                "success": True,
+                                "already_paid": True,
                             },
                             status=status.HTTP_200_OK,
+                        )
+
+                    if order.payment_method != "paypal":
+
+                        return Response(
+                            {
+                                "error": (
+                                    "Order payment "
+                                    "method is not PayPal"
+                                )
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
                         )
 
                     expected_total_usd = (
@@ -1721,16 +1847,12 @@ class PayPalWebhookView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    capture_status = (
-                        resource.get(
-                            "status"
-                        )
+                    capture_status = resource.get(
+                        "status"
                     )
 
-                    if (
-                        capture_status
-                        != "COMPLETED"
-                    ):
+                    if capture_status != "COMPLETED":
+
                         return Response(
                             {
                                 "error": (
@@ -1741,29 +1863,42 @@ class PayPalWebhookView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    expected_total_kes = (
-                        calculate_order_total(
-                            order
+                    captured_amount = resource.get(
+                        "amount",
+                        {},
+                    )
+
+                    if not validate_paypal_amount(
+                        captured_amount,
+                        expected_total_usd,
+                    ):
+
+                        print(
+                            "PAYPAL WEBHOOK "
+                            "CAPTURE AMOUNT MISMATCH:",
+                            "order=",
+                            order.id,
+                            "expected_usd=",
+                            expected_total_usd,
+                            "captured=",
+                            captured_amount.get(
+                                "value"
+                            ),
                         )
-                    )
 
-                    order.total_price = (
-                        expected_total_kes
-                    )
+                        return Response(
+                            {
+                                "error": (
+                                    "Captured payment "
+                                    "does not match "
+                                    "order total"
+                                )
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
-                    order.paid = True
-
-                    order.save(
-                        update_fields=[
-                            "total_price",
-                            "paid",
-                        ]
-                    )
-
-                    print(
-                        f"ORDER {order.id} "
-                        "MARKED AS PAID BY "
-                        "PAYPAL WEBHOOK"
+                    mark_order_as_paid(
+                        order.id
                     )
 
             except Orders.DoesNotExist:
@@ -1813,27 +1948,21 @@ class PayPalWebhookView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        elif event_type == (
-            "PAYMENT.CAPTURE.DENIED"
-        ):
+        elif event_type == "PAYMENT.CAPTURE.DENIED":
 
             print(
                 "PAYPAL PAYMENT CAPTURE DENIED:",
                 resource.get("id"),
             )
 
-        elif event_type == (
-            "PAYMENT.CAPTURE.REFUNDED"
-        ):
+        elif event_type == "PAYMENT.CAPTURE.REFUNDED":
 
             print(
                 "PAYPAL PAYMENT CAPTURE REFUNDED:",
                 resource.get("id"),
             )
 
-        elif event_type == (
-            "PAYMENT.CAPTURE.REVERSED"
-        ):
+        elif event_type == "PAYMENT.CAPTURE.REVERSED":
 
             print(
                 "PAYPAL PAYMENT CAPTURE REVERSED:",

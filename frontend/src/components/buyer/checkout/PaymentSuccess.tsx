@@ -1,21 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useCart } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import config from "../../../config";
 
+
 const PaymentSuccess = () => {
-  const { clearCart } = useCart();
   const { authFetch } = useAuth();
   const [searchParams] = useSearchParams();
+
   const hasRun = useRef(false);
+
   const [processing, setProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
-    if (hasRun.current) return;
+    if (hasRun.current) {
+      return;
+    }
 
     hasRun.current = true;
 
@@ -43,18 +46,21 @@ const PaymentSuccess = () => {
 
           if (!response.ok || !data.success) {
             throw new Error(
-              data.error || "PayPal payment could not be completed."
+              data.error ||
+                "PayPal payment could not be completed."
             );
           }
 
-          clearCart(false);
           setPaymentSuccess(true);
 
           toast.success("Payment Successful.", {
             autoClose: 3000,
           });
         } catch (error) {
-          console.error("PayPal capture error:", error);
+          console.error(
+            "PayPal capture error:",
+            error
+          );
 
           toast.error(
             error instanceof Error
@@ -69,21 +75,25 @@ const PaymentSuccess = () => {
       }
 
       try {
-        clearCart(false);
         setPaymentSuccess(true);
 
         toast.success("Payment Successful.", {
           autoClose: 3000,
         });
       } catch (error) {
-        console.error("PaymentSuccess error:", error);
+        console.error(
+          "PaymentSuccess error:",
+          error
+        );
 
-        toast.error("There was a problem clearing your cart.");
+        toast.error(
+          "There was a problem completing your payment."
+        );
       }
     };
 
-    handlePayment();
-  }, [authFetch, clearCart, searchParams]);
+    void handlePayment();
+  }, [authFetch, searchParams]);
 
   if (processing) {
     return (

@@ -374,26 +374,16 @@ const AdminNavbar = () => {
             >
               <ChartNoAxesCombined size={18} /> Revenue Analytics
             </NavLink>
-            {user?.role === "super_admin" ? (
-              <NavLink
-                to="/super-admin-account"
-                className={`tab ${getActiveTabClass(
-                  "/super-admin-account"
-                )}`}
-              >
-                <User size={18} /> Account
-              </NavLink>
-            ) : user?.role === "admin" ? (
-              <NavLink
-                to="/account-management"
-                className={`tab ${getActiveTabClass(
-                  "/account-management"
-                )}`}
-              >
-                <User size={18} /> Account
-              </NavLink>
-            ) : null}
-            
+    
+            <NavLink
+              to="/account-management"
+              className={`tab ${getActiveTabClass(
+               "/account-management"
+              )}`}
+            >
+              <User size={18} /> Account
+            </NavLink>
+    
             <button
               onClick={() => {
                 logout();

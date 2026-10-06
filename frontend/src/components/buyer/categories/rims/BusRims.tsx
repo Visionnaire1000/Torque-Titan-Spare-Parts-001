@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
+
 
 /* ---------------- Types ---------------- */
 interface SparePart {
@@ -22,6 +23,17 @@ interface SparePartsResponse {
 
 interface ErrorStateProps {
   onRetry: () => Promise<void>;
+}
+
+interface RestoreState {
+  from?: string;
+  restoreFilters?: {
+    brand?: string;
+    colour?: string;
+    price?: string;
+    currentPage?: number;
+  };
+  restoreScrollY?: number;
 }
 
 /* ---------------- Skeleton Card ---------------- */
@@ -161,29 +173,79 @@ const ErrorState = ({
 
 /* ---------------- Component ---------------- */
 const BusRims = (): ReactElement => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const restoreState =
+    location.state as RestoreState | null;
+
+  const hasRestoreState = Boolean(
+    restoreState?.restoreFilters
+  );
+
   const [items, setItems] = useState<SparePart[]>([]);
 
-  const [brand, setBrand] = useState<string>("");
-  const [colour, setColour] = useState<string>("");
-  const [price, setPrice] = useState<string>("");
+  const [brand, setBrand] = useState<string>(
+    restoreState?.restoreFilters?.brand ?? ""
+  );
+
+  const [colour, setColour] = useState<string>(
+    restoreState?.restoreFilters?.colour ?? ""
+  );
+
+  const [price, setPrice] = useState<string>(
+    restoreState?.restoreFilters?.price ?? ""
+  );
 
   /* ---------------- Dropdown State ---------------- */
-  const [brandOpen, setBrandOpen] = useState<boolean>(false);
-  const [colourOpen, setColourOpen] = useState<boolean>(false);
-  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+  const [brandOpen, setBrandOpen] =
+    useState<boolean>(false);
+
+  const [colourOpen, setColourOpen] =
+    useState<boolean>(false);
+
+  const [priceOpen, setPriceOpen] =
+    useState<boolean>(false);
 
   /* ---------------- Dropdown Refs ---------------- */
-  const brandDropdownRef = useRef<HTMLDivElement>(null);
-  const colourDropdownRef = useRef<HTMLDivElement>(null);
-  const priceDropdownRef = useRef<HTMLDivElement>(null);
+  const brandDropdownRef =
+    useRef<HTMLDivElement>(null);
 
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
+  const colourDropdownRef =
+    useRef<HTMLDivElement>(null);
 
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
+  const priceDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const [currentPage, setCurrentPage] =
+    useState<number>(
+      restoreState?.restoreFilters?.currentPage ?? 1
+    );
+
+  const [totalPages, setTotalPages] =
+    useState<number>(1);
+
+  const [loading, setLoading] =
+    useState<boolean>(false);
+
+  const [error, setError] =
+    useState<boolean>(false);
 
   const { addItem } = useCart();
+
+  const isRestoringRef =
+    useRef<boolean>(hasRestoreState);
+
+  const restoreScrollYRef =
+    useRef<number | null>(
+      typeof restoreState?.restoreScrollY ===
+        "number"
+        ? restoreState.restoreScrollY
+        : null
+    );
+
+  const initialRestoreRef =
+    useRef<boolean>(hasRestoreState);
 
   const availableBrands: string[] = [
     "Enkei",
@@ -200,6 +262,39 @@ const BusRims = (): ReactElement => {
     "black",
     "gold",
   ];
+
+  /* ---------------- Restore Listing State ---------------- */
+  useEffect(() => {
+    if (!hasRestoreState) {
+      return;
+    }
+
+    setBrand(
+      restoreState?.restoreFilters?.brand ?? ""
+    );
+
+    setColour(
+      restoreState?.restoreFilters?.colour ?? ""
+    );
+
+    setPrice(
+      restoreState?.restoreFilters?.price ?? ""
+    );
+
+    setCurrentPage(
+      restoreState?.restoreFilters?.currentPage ?? 1
+    );
+
+    setBrandOpen(false);
+    setColourOpen(false);
+    setPriceOpen(false);
+
+    restoreScrollYRef.current =
+      typeof restoreState?.restoreScrollY ===
+        "number"
+        ? restoreState.restoreScrollY
+        : 0;
+  }, []);
 
   /* ---------------- Fetch Rims ---------------- */
   const fetchRims = async (): Promise<void> => {
@@ -225,7 +320,8 @@ const BusRims = (): ReactElement => {
         throw new Error("Failed");
       }
 
-      const data: SparePartsResponse = await response.json();
+      const data: SparePartsResponse =
+        await response.json();
 
       setItems(data.items ?? []);
       setTotalPages(data.pages ?? 1);
@@ -239,15 +335,7 @@ const BusRims = (): ReactElement => {
     }
   };
 
-  /* ---------------- Effects ---------------- */
-  useEffect(() => {
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: "auto",
-    });
-  }, [currentPage]);
-
+  /* ---------------- Fetch Effect ---------------- */
   useEffect(() => {
     void fetchRims();
   }, [
@@ -257,7 +345,154 @@ const BusRims = (): ReactElement => {
     currentPage,
   ]);
 
+  /* ---------------- Restore Scroll Position ---------------- */
   useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY = restoreScrollYRef.current;
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) {
+              return;
+            }
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+          });
+        });
+      });
+    };
+
+    const images = Array.from(document.images);
+
+    const pendingImages = images.filter(
+      (image) => !image.complete
+    );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining = pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer = window.setTimeout(() => {
+        restoreScroll();
+      }, 1500);
+
+      return () => {
+        cancelled = true;
+        window.clearTimeout(fallbackTimer);
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, currentPage]);
+
+  /* ---------------- Normal Page Scroll ---------------- */
+  useEffect(() => {
+    if (
+      isRestoringRef.current ||
+      restoreScrollYRef.current !== null
+    ) {
+      return;
+    }
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [currentPage]);
+
+  /* ---------------- Reset Page After Filter Change ---------------- */
+  useEffect(() => {
+    if (initialRestoreRef.current) {
+      initialRestoreRef.current = false;
+      return;
+    }
+
     setCurrentPage(1);
   }, [
     brand,
@@ -274,6 +509,27 @@ const BusRims = (): ReactElement => {
     setBrandOpen(false);
     setColourOpen(false);
     setPriceOpen(false);
+  };
+
+  /* ---------------- Item Navigation ---------------- */
+  const handleItemClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    itemId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${itemId}`, {
+      state: {
+        from: location.pathname,
+        restoreFilters: {
+          brand,
+          colour,
+          price,
+          currentPage,
+        },
+        restoreScrollY: window.scrollY,
+      },
+    });
   };
 
   /* ---------------- Cart ---------------- */
@@ -354,7 +610,7 @@ const BusRims = (): ReactElement => {
       1
     );
 
-    for (let i = start; i <= end; i++) {
+    for (let i = start; i <= end; i += 1) {
       pages.push(i);
     }
 
@@ -945,6 +1201,9 @@ const BusRims = (): ReactElement => {
                 >
                   <Link
                     to={`/items/${item.id}`}
+                    onClick={(event) =>
+                      handleItemClick(event, item.id)
+                    }
                     className="
                       flex
                       h-full
@@ -992,7 +1251,9 @@ const BusRims = (): ReactElement => {
                       "
                     >
                       KES{" "}
-                      {item.buying_price.toLocaleString("en-US")}
+                      {item.buying_price.toLocaleString(
+                        "en-US"
+                      )}
 
                       {item.discount_percentage > 0 && (
                         <span

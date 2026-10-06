@@ -3,13 +3,20 @@ import { jwtDecode } from "jwt-decode";
 import { toast } from "react-toastify";
 import config from "../config";
 
-
 // ------------------------------ OTP Purpose Types -------------------------------------------
 type OtpPurpose =
   | "email"
   | "forgot_password"
   | "change_password"
   | "delete_account";
+
+// ------------------------------ User Profile -------------------------------------------
+type UserProfile = {
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  national_id: string;
+};
 
 // ------------------------------ Authenticated User -------------------------------------------
 type User = {
@@ -18,6 +25,7 @@ type User = {
   role: string;
   display_name: string;
   auth_provider?: string;
+  profile?: UserProfile | null;
 };
 
 // ------------------------------ JWT Token Payload -------------------------------------------
@@ -25,7 +33,6 @@ type JwtPayload = {
   user_id: string;
   email: string;
   role: string;
-  display_name: string;
   auth_provider?: string;
   exp: number;
 };
@@ -46,47 +53,69 @@ type AuthContextType = {
     email: string,
     password: string
   ) => Promise<boolean>;
+
   loginWithGoogle: (
     credential: string
   ) => Promise<boolean>;
+
   logout: () => Promise<void>;
+
   authFetch: (
     input: RequestInfo | URL,
     init?: RequestInit
   ) => Promise<Response>;
+
   sendRegistrationOtp: (
     email: string,
     password: string
   ) => Promise<boolean>;
+
   verifyRegistrationOtp: (
     email: string,
     otp: string
   ) => Promise<boolean>;
+
   sendForgotPasswordOtp: (
     email: string,
     newPassword: string
   ) => Promise<boolean>;
+
   completeForgotPassword: (
     email: string,
     otp: string,
     newPassword: string
   ) => Promise<boolean>;
+
   resendOtp: (
     email: string | null,
     purpose: OtpPurpose
   ) => Promise<boolean>;
+
   sendChangePasswordOtp: (
     currentPassword: string,
     newPassword: string
   ) => Promise<boolean>;
+
   completeChangePassword: (
     otp: string,
     newPassword: string
   ) => Promise<boolean>;
+
   sendDeleteAccountOtp: () => Promise<boolean>;
+
   completeDeleteAccount: (
     otp: string
   ) => Promise<boolean>;
+
+  updateProfile: (
+    profileData: {
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
+      national_id?: string;
+    }
+  ) => Promise<boolean>;
+
   changePasswordLoading: boolean;
   resendLoading: boolean;
   deleteAccountLoading: boolean;
@@ -98,6 +127,27 @@ type AuthContextType = {
 // ------------------------------ Provider Props -------------------------------------------
 type AuthProviderProps = {
   children: React.ReactNode;
+};
+
+// ------------------------------ Device ID -------------------------------------------
+const DEVICE_ID_KEY = "titan_device_id";
+
+const getDeviceId = (): string => {
+  const existingDeviceId =
+    localStorage.getItem(DEVICE_ID_KEY);
+
+  if (existingDeviceId) {
+    return existingDeviceId;
+  }
+
+  const deviceId = crypto.randomUUID();
+
+  localStorage.setItem(
+    DEVICE_ID_KEY,
+    deviceId
+  );
+
+  return deviceId;
 };
 
 // ------------------------------ Auth Context -------------------------------------------
@@ -118,14 +168,20 @@ export const AuthProvider = ({
     useState<boolean>(true);
 
   // ------------------------------ Authentication Loading States -------------------------------------------
-  const [changePasswordLoading, setChangePasswordLoading] =
-    useState<boolean>(false);
+  const [
+    changePasswordLoading,
+    setChangePasswordLoading,
+  ] = useState<boolean>(false);
 
-  const [resendLoading, setResendLoading] =
-    useState<boolean>(false);
+  const [
+    resendLoading,
+    setResendLoading,
+  ] = useState<boolean>(false);
 
-  const [deleteAccountLoading, setDeleteAccountLoading] =
-    useState<boolean>(false);
+  const [
+    deleteAccountLoading,
+    setDeleteAccountLoading,
+  ] = useState<boolean>(false);
 
   // ------------------------------ OTP Verification State -------------------------------------------
   const [otpSent, setOtpSent] =
@@ -148,13 +204,18 @@ export const AuthProvider = ({
     activeOtpPurpose,
     setActiveOtpPurpose,
   ] = useState<OtpPurpose | null>(null);
-  
+
+  const activeOtpPurposeRef =
+  useRef<OtpPurpose | null>(null)
+
   // ------------------------------ Refs -------------------------------------------
   const accessTokenRef =
     useRef<string | null>(null);
 
   const refreshPromiseRef =
-    useRef<Promise<string | null> | null>(null);
+    useRef<Promise<string | null> | null>(
+      null
+    );
 
   const refreshTimerRef =
     useRef<ReturnType<typeof setTimeout> | null>(
@@ -173,7 +234,10 @@ export const AuthProvider = ({
   // ------------------------------ Token Expiry -------------------------------------------
   const clearRefreshTimer = (): void => {
     if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current);
+      clearTimeout(
+        refreshTimerRef.current
+      );
+
       refreshTimerRef.current = null;
     }
   };
@@ -198,45 +262,15 @@ export const AuthProvider = ({
         id: decoded.user_id,
         email: decoded.email,
         role: decoded.role,
-        display_name:
-          decoded.display_name ||
-          decoded.email.split("@")[0],
+        display_name: "",
         auth_provider:
           decoded.auth_provider,
+        profile: null,
       };
     } catch {
       return null;
     }
   };
-
-  // ------------------------------ Schedule Refresh -------------------------------------------
-  const scheduleRefresh = useCallback(
-    (token: string): void => {
-      clearRefreshTimer();
-
-      try {
-        const decoded =
-          jwtDecode<JwtPayload>(token);
-
-        const expiresAt =
-          decoded.exp * 1000;
-
-        const refreshDelay =
-          Math.max(
-            expiresAt - Date.now() - 60_000,
-            5_000
-          );
-
-        refreshTimerRef.current =
-          setTimeout(() => {
-            void refreshAccessToken();
-          }, refreshDelay);
-      } catch {
-        clearRefreshTimer();
-      }
-    },
-    []
-  );
 
   // ------------------------------ Refresh Access Token -------------------------------------------
   const refreshAccessToken =
@@ -260,6 +294,7 @@ export const AuthProvider = ({
               accessTokenRef.current = null;
               setUser(null);
               clearRefreshTimer();
+
               return null;
             }
 
@@ -272,20 +307,12 @@ export const AuthProvider = ({
               accessTokenRef.current = null;
               setUser(null);
               clearRefreshTimer();
+
               return null;
             }
 
             accessTokenRef.current =
               data.access;
-
-            const refreshedUser =
-              buildUserFromToken(
-                data.access
-              );
-
-            if (refreshedUser) {
-              setUser(refreshedUser);
-            }
 
             scheduleRefresh(data.access);
 
@@ -294,6 +321,7 @@ export const AuthProvider = ({
             accessTokenRef.current = null;
             setUser(null);
             clearRefreshTimer();
+
             return null;
           }
         })();
@@ -303,195 +331,38 @@ export const AuthProvider = ({
       } finally {
         refreshPromiseRef.current = null;
       }
-    }, [scheduleRefresh]);
+    }, []);
 
-    
-  // ------------------------------ Login -------------------------------------------
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<boolean> => {
-    try {
-      const response = await fetch(
-        `${config.API_BASE_URL}/login/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-        }
-      );
-
-      const data =
-        (await response.json()) as {
-          access?: string;
-          message?: string;
-          error?: string;
-        };
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ??
-            data.message ??
-            "Login failed"
-        );
-      }
-
-      if (!data.access) {
-        throw new Error(
-          "Login response did not contain an access token"
-        );
-      }
-
-      accessTokenRef.current =
-        data.access;
-
-      const loggedInUser =
-        buildUserFromToken(data.access);
-
-      if (!loggedInUser) {
-        throw new Error(
-          "Invalid access token"
-        );
-      }
-
-      setUser(loggedInUser);
-      scheduleRefresh(data.access);
-
-      toast.success(
-        data.message ?? "Login successful"
-      );
-
-      return true;
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Login failed"
-      );
-
-      return false;
-    }
-  };
-
-  // ------------------------------ Google Login -------------------------------------------
-  const loginWithGoogle = async (
-    credential: string
-  ): Promise<boolean> => {
-    try {
-      const response = await fetch(
-        `${config.API_BASE_URL}/auth/google/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            credential,
-          }),
-        }
-      );
-
-      const data =
-        (await response.json()) as {
-          access?: string;
-          message?: string;
-          error?: string;
-        };
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ??
-            data.message ??
-            "Google login failed"
-        );
-      }
-
-      if (!data.access) {
-        throw new Error(
-          "Google login response did not contain an access token"
-        );
-      }
-
-      accessTokenRef.current =
-        data.access;
-
-      const loggedInUser =
-        buildUserFromToken(data.access);
-
-      if (!loggedInUser) {
-        throw new Error(
-          "Invalid access token"
-        );
-      }
-
-      setUser(loggedInUser);
-      scheduleRefresh(data.access);
-
-      toast.success(
-        data.message ??
-          "Google login successful"
-      );
-
-      return true;
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Google login failed"
-      );
-
-      return false;
-    }
-  };
-
-  // ------------------------------ Logout -------------------------------------------
-  const logout = async (): Promise<void> => {
-    try {
-      await fetch(
-        `${config.API_BASE_URL}/logout/`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
-    } catch {
-    } finally {
-      accessTokenRef.current = null;
-      setUser(null);
+  // ------------------------------ Schedule Refresh -------------------------------------------
+  const scheduleRefresh = useCallback(
+    (token: string): void => {
       clearRefreshTimer();
-    }
-  };
 
-  // ------------------------------ Restore Session -------------------------------------------
-  useEffect(() => {
-    const restoreSession =
-      async (): Promise<void> => {
-        try {
-          const token =
-            await refreshAccessToken();
+      try {
+        const decoded =
+          jwtDecode<JwtPayload>(token);
 
-          if (token) {
-            const restoredUser =
-              buildUserFromToken(token);
+        const expiresAt =
+          decoded.exp * 1000;
 
-            if (restoredUser) {
-              setUser(restoredUser);
-            }
-          }
-        } finally {
-          setIsLoading(false);
-        }
-      };
+        const refreshDelay =
+          Math.max(
+            expiresAt -
+              Date.now() -
+              60_000,
+            5_000
+          );
 
-    void restoreSession();
-  }, [refreshAccessToken]);
+        refreshTimerRef.current =
+          setTimeout(() => {
+            void refreshAccessToken();
+          }, refreshDelay);
+      } catch {
+        clearRefreshTimer();
+      }
+    },
+    [refreshAccessToken]
+  );
 
   // ------------------------------ Protected Fetch -------------------------------------------
   const authFetch = useCallback(
@@ -503,7 +374,8 @@ export const AuthProvider = ({
         accessTokenRef.current;
 
       if (!token) {
-        token = await refreshAccessToken();
+        token =
+          await refreshAccessToken();
       }
 
       const headers = new Headers(
@@ -576,82 +448,462 @@ export const AuthProvider = ({
     [refreshAccessToken]
   );
 
-  // ------------------------------ OTP Countdown -------------------------------------------
-  const startOtpCountdown = (
-    seconds: number,
-    purpose: OtpPurpose
-  ): void => {
-    const duration = Math.max(
-      0,
-      seconds
-    );
+  // ------------------------------ Fetch Current User(Profile) -------------------------------------------
+  const fetchCurrentUser =
+    useCallback(async (): Promise<User | null> => {
+      try {
+        const response =
+          await authFetch(
+            `${config.API_BASE_URL}/profile/`,
+            {
+              method: "GET",
+            }
+          );
 
-    const existingTimer =
-      otpTimersRef.current[purpose];
-
-    if (existingTimer) {
-      clearInterval(existingTimer);
-    }
-
-    setActiveOtpPurpose(purpose);
-    setOtpSent(true);
-
-    setOtpCountdowns((prev) => ({
-      ...prev,
-      [purpose]: duration,
-    }));
-
-    setOtpCountdown(duration);
-
-    if (duration <= 0) {
-      setOtpSent(false);
-      return;
-    }
-
-    const timer = setInterval(() => {
-      setOtpCountdowns((prev) => {
-        const current =
-          prev[purpose];
-
-        if (current <= 1) {
-          clearInterval(timer);
-
-          delete otpTimersRef.current[
-            purpose
-          ];
-
-          if (
-            activeOtpPurpose === purpose
-          ) {
-            setOtpCountdown(0);
-            setOtpSent(false);
-          }
-
-          return {
-            ...prev,
-            [purpose]: 0,
-          };
+        if (!response.ok) {
+          return null;
         }
 
+        const data =
+          (await response.json()) as {
+            id: string;
+            email: string;
+            role: string;
+            display_name: string;
+            auth_provider?: string;
+            first_name: string | null;
+            last_name: string | null;
+            phone_number: string | null;
+            national_id: string | null;
+          };
+
+        const hasProfile =
+          data.first_name !== null ||
+          data.last_name !== null ||
+          data.phone_number !== null ||
+          data.national_id !== null;
+
+        return {
+          id: data.id,
+          email: data.email,
+          role: data.role,
+          display_name:
+            data.display_name,
+          auth_provider:
+            data.auth_provider,
+          profile: hasProfile
+            ? {
+                first_name:
+                  data.first_name ?? "",
+                last_name:
+                  data.last_name ?? "",
+                phone_number:
+                  data.phone_number ?? "",
+                national_id:
+                  data.national_id ?? "",
+              }
+            : null,
+        };
+      } catch {
+        return null;
+      }
+    }, [authFetch]);
+
+
+  // ------------------------------ Update Profile -------------------------------------------
+  const updateProfile = async (
+    profileData: {
+      first_name?: string;
+      last_name?: string;
+      phone_number?: string;
+      national_id?: string;
+    }
+  ): Promise<boolean> => {
+    try {
+      const response =
+        await authFetch(
+          `${config.API_BASE_URL}/profile/`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(
+              profileData
+            ),
+          }
+        );
+
+      const data =
+        (await response.json()) as {
+          id: string;
+          email: string;
+          role: string;
+          display_name: string;
+          auth_provider?: string;
+          first_name: string | null;
+          last_name: string | null;
+          phone_number: string | null;
+          national_id: string | null;
+          error?: string;
+        };
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+            "Failed to update profile."
+        );
+      }
+
+      const hasProfile =
+        data.first_name !== null ||
+        data.last_name !== null ||
+        data.phone_number !== null ||
+        data.national_id !== null;
+
+      const updatedUser: User = {
+        id: data.id,
+        email: data.email,
+        role: data.role,
+        display_name:
+          data.display_name,
+        auth_provider:
+          data.auth_provider,
+        profile: hasProfile
+          ? {
+              first_name:
+                data.first_name ?? "",
+              last_name:
+                data.last_name ?? "",
+              phone_number:
+                data.phone_number ?? "",
+              national_id:
+                data.national_id ?? "",
+            }
+          : null,
+      };
+
+      setUser(updatedUser);
+
+      toast.success(
+        "Profile updated successfully."
+      );
+
+      return true;
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to update profile."
+      );
+
+      return false;
+    }
+  };
+
+
+  // ------------------------------ Login -------------------------------------------
+  const login = async (
+    email: string,
+    password: string
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${config.API_BASE_URL}/login/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email,
+            password,
+            device_id: getDeviceId(),
+          }),
+        }
+      );
+
+      const data =
+        (await response.json()) as {
+          access?: string;
+          message?: string;
+          error?: string;
+        };
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+            data.message ??
+            "Login failed"
+        );
+      }
+
+      if (!data.access) {
+        throw new Error(
+          "Login response did not contain an access token"
+        );
+      }
+
+      accessTokenRef.current =
+        data.access;
+
+      const loggedInUser =
+        buildUserFromToken(
+          data.access
+        );
+
+      if (!loggedInUser) {
+        throw new Error(
+          "Invalid access token"
+        );
+      }
+
+      const currentUser =
+        await fetchCurrentUser();
+
+      if (!currentUser) {
+        throw new Error(
+          "Failed to fetch current user"
+        );
+      }
+
+      setUser(currentUser);
+      scheduleRefresh(data.access);
+
+      toast.success(
+        data.message ??
+          "Login successful"
+      );
+
+      return true;
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Login failed"
+      );
+
+      return false;
+    }
+  };
+
+  // ------------------------------ Google Login -------------------------------------------
+  const loginWithGoogle = async (
+    credential: string
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${config.API_BASE_URL}/auth/google/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            credential,
+            device_id: getDeviceId(),
+          }),
+        }
+      );
+
+      const data =
+        (await response.json()) as {
+          access?: string;
+          message?: string;
+          error?: string;
+        };
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+            data.message ??
+            "Google login failed"
+        );
+      }
+
+      if (!data.access) {
+        throw new Error(
+          "Google login response did not contain an access token"
+        );
+      }
+
+      accessTokenRef.current =
+        data.access;
+
+      const loggedInUser =
+        buildUserFromToken(
+          data.access
+        );
+
+      if (!loggedInUser) {
+        throw new Error(
+          "Invalid access token"
+        );
+      }
+
+      const currentUser =
+        await fetchCurrentUser();
+
+      if (!currentUser) {
+        throw new Error(
+          "Failed to fetch current user"
+        );
+      }
+
+      setUser(currentUser);
+      scheduleRefresh(data.access);
+
+      toast.success(
+        data.message ??
+          "Google login successful"
+      );
+
+      return true;
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Google login failed"
+      );
+
+      return false;
+    }
+  };
+
+  // ------------------------------ Logout -------------------------------------------
+  const logout = async (): Promise<void> => {
+    try {
+      await fetch(
+        `${config.API_BASE_URL}/logout/`,
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+    } catch {
+    } finally {
+      accessTokenRef.current = null;
+      setUser(null);
+      clearRefreshTimer();
+    }
+  };
+
+  // ------------------------------ Restore Session -------------------------------------------
+  useEffect(() => {
+    const restoreSession =
+      async (): Promise<void> => {
+        try {
+          const token =
+            await refreshAccessToken();
+
+          if (token) {
+            const restoredUser =
+              buildUserFromToken(token);
+
+            if (restoredUser) {
+              const currentUser =
+                await fetchCurrentUser();
+
+              if (currentUser) {
+                setUser(currentUser);
+              }
+            }
+          }
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+    void restoreSession();
+  }, [
+    refreshAccessToken,
+    fetchCurrentUser,
+  ]);
+
+
+ // ------------------------------ OTP Countdown -------------------------------------------
+const startOtpCountdown = (
+  seconds: number,
+  purpose: OtpPurpose
+): void => {
+  const duration = Math.max(
+    0,
+    seconds
+  );
+
+  const existingTimer =
+    otpTimersRef.current[purpose];
+
+  if (existingTimer) {
+    clearInterval(existingTimer);
+  }
+
+  activeOtpPurposeRef.current =
+    purpose;
+
+  setActiveOtpPurpose(purpose);
+  setOtpSent(true);
+
+  setOtpCountdowns((prev) => ({
+    ...prev,
+    [purpose]: duration,
+  }));
+
+  setOtpCountdown(duration);
+
+  if (duration <= 0) {
+    setOtpSent(false);
+    return;
+  }
+
+  const timer = setInterval(() => {
+    setOtpCountdowns((prev) => {
+      const current =
+        prev[purpose];
+
+      if (current <= 1) {
+        clearInterval(timer);
+
+        delete otpTimersRef.current[
+          purpose
+        ];
+
         if (
-          activeOtpPurpose === purpose
+          activeOtpPurposeRef.current ===
+          purpose
         ) {
-          setOtpCountdown(
-            current - 1
-          );
+          setOtpCountdown(0);
+          setOtpSent(false);
         }
 
         return {
           ...prev,
-          [purpose]:
-            current - 1,
+          [purpose]: 0,
         };
-      });
-    }, 1000);
+      }
 
-    otpTimersRef.current[purpose] =
-      timer;
-  };
+      if (
+        activeOtpPurposeRef.current ===
+        purpose
+      ) {
+        setOtpCountdown(
+          current - 1
+        );
+      }
+
+      return {
+        ...prev,
+        [purpose]:
+          current - 1,
+      };
+    });
+  }, 1000);
+
+  otpTimersRef.current[purpose] =
+    timer;
+ };
+
 
   // ------------------------------ Registration OTP -------------------------------------------
   const sendRegistrationOtp =
@@ -707,6 +959,8 @@ export const AuthProvider = ({
       }
     };
 
+
+  // ------------------------------ Verify Registration OTP -------------------------------------------
   const verifyRegistrationOtp =
     async (
       email: string,
@@ -753,7 +1007,12 @@ export const AuthProvider = ({
             );
 
           if (verifiedUser) {
-            setUser(verifiedUser);
+            const currentUser =
+              await fetchCurrentUser();
+
+            if (currentUser) {
+              setUser(currentUser);
+            }
           }
 
           scheduleRefresh(data.access);
@@ -799,6 +1058,7 @@ export const AuthProvider = ({
       }
     };
 
+
   // ------------------------------ Forgot Password OTP -------------------------------------------
   const sendForgotPasswordOtp =
     async (
@@ -816,7 +1076,8 @@ export const AuthProvider = ({
             },
             body: JSON.stringify({
               email,
-              new_password: newPassword,
+              new_password:
+                newPassword,
             }),
           }
         );
@@ -872,7 +1133,8 @@ export const AuthProvider = ({
             body: JSON.stringify({
               email,
               otp,
-              new_password: newPassword,
+              new_password:
+                newPassword,
             }),
           }
         );
@@ -934,93 +1196,86 @@ export const AuthProvider = ({
       }
     };
 
-  // ------------------------------ Resend OTP -------------------------------------------
-  const resendOtp = async (
-    email: string | null,
-    purpose: OtpPurpose
-  ): Promise<boolean> => {
-    const currentCountdown =
-      otpCountdowns[purpose];
 
-    if (currentCountdown > 0) {
-      return false;
+// ------------------------------ Resend OTP -------------------------------------------
+const resendOtp = async (
+  email: string | null,
+  purpose: OtpPurpose
+): Promise<boolean> => {
+  const currentCountdown =
+    otpCountdowns[purpose];
+
+  if (currentCountdown > 0) {
+    return false;
+  }
+
+  if (resendLoading) {
+    return false;
+  }
+
+  const resendEmail =
+    email ?? user?.email ?? null;
+
+  if (!resendEmail) {
+    toast.error(
+      "Email is required to resend OTP"
+    );
+
+    return false;
+  }
+
+  setResendLoading(true);
+
+  try {
+    const response = await fetch(
+      `${config.API_BASE_URL}/resend-otp/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email: resendEmail,
+          otp_type: purpose,
+        }),
+      }
+    );
+
+    const data =
+      (await response.json()) as OtpResponse;
+
+    if (!response.ok) {
+      throw new Error(
+        data.error ??
+          "Failed to resend OTP"
+      );
     }
 
-    if (resendLoading) {
-      return false;
-    }
+    startOtpCountdown(
+      data.wait_seconds || 60,
+      purpose
+    );
 
-    setResendLoading(true);
+    toast.success(
+      data.message ??
+        "OTP resent successfully"
+    );
 
-    try {
-      const body: Record<
-        string,
-        string
-      > = {
-        purpose,
-      };
+    return true;
+  } catch (err) {
+    toast.error(
+      err instanceof Error
+        ? err.message
+        : "Failed to resend OTP"
+    );
 
-      if (email) {
-        body.email = email;
-      }
-
-      let response: Response;
-
-      if (email) {
-        response = await fetch(
-          `${config.API_BASE_URL}/resend-otp/`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify(body),
-          }
-        );
-      } else {
-        response = await authFetch(
-          `${config.API_BASE_URL}/resend-otp/`,
-          {
-            method: "POST",
-            body: JSON.stringify(body),
-          }
-        );
-      }
-
-      const data =
-        (await response.json()) as OtpResponse;
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ??
-            "Failed to resend OTP"
-        );
-      }
-
-      startOtpCountdown(
-        data.wait_seconds || 60,
-        purpose
-      );
-
-      toast.success(
-        data.message ??
-          "OTP resent successfully"
-      );
-
-      return true;
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to resend OTP"
-      );
-
-      return false;
-    } finally {
-      setResendLoading(false);
-    }
-  };
+    return false;
+  } finally {
+    setResendLoading(false);
+  }
+ };
 
   // ------------------------------ Password Change OTP -------------------------------------------
   const sendChangePasswordOtp =
@@ -1031,18 +1286,19 @@ export const AuthProvider = ({
       setChangePasswordLoading(true);
 
       try {
-        const response = await authFetch(
-          `${config.API_BASE_URL}/change-password/`,
-          {
-            method: "POST",
-            body: JSON.stringify({
-              current_password:
-                currentPassword,
-              new_password:
-                newPassword,
-            }),
-          }
-        );
+        const response =
+          await authFetch(
+            `${config.API_BASE_URL}/change-password/`,
+            {
+              method: "POST",
+              body: JSON.stringify({
+                current_password:
+                  currentPassword,
+                new_password:
+                  newPassword,
+              }),
+            }
+          );
 
         const data =
           (await response.json()) as OtpResponse;
@@ -1080,16 +1336,18 @@ export const AuthProvider = ({
       }
     };
 
-  // ------------------------------ Complete Password Change -------------------------------------------
-  const completeChangePassword =
-    async (
-      otp: string,
-      newPassword: string
-    ): Promise<boolean> => {
-      setChangePasswordLoading(true);
 
-      try {
-        const response = await authFetch(
+// ------------------------------ Complete Password Change -------------------------------------------
+const completeChangePassword =
+  async (
+    otp: string,
+    newPassword: string
+  ): Promise<boolean> => {
+    setChangePasswordLoading(true);
+
+    try {
+      const response =
+        await authFetch(
           `${config.API_BASE_URL}/change-password/`,
           {
             method: "PUT",
@@ -1101,66 +1359,68 @@ export const AuthProvider = ({
           }
         );
 
-        const data =
-          (await response.json()) as {
-            message?: string;
-            error?: string;
-          };
+      const data =
+        (await response.json()) as {
+          message?: string;
+          error?: string;
+        };
 
-        if (!response.ok) {
-          throw new Error(
-            data.error ??
-              data.message ??
-              "Failed to change password"
-          );
-        }
-
-        setOtpCountdowns((prev) => ({
-          ...prev,
-          change_password: 0,
-        }));
-
-        if (
-          otpTimersRef.current
-            .change_password
-        ) {
-          clearInterval(
-            otpTimersRef.current
-              .change_password
-          );
-
-          delete otpTimersRef.current
-            .change_password;
-        }
-
-        if (
-          activeOtpPurpose ===
-          "change_password"
-        ) {
-          setOtpCountdown(0);
-          setOtpSent(false);
-        }
-
-        toast.success(
-          data.message ??
-            "Password changed successfully"
-        );
-
-        return true;
-      } catch (err) {
-        toast.error(
-          err instanceof Error
-            ? err.message
-            : "Failed to change password"
-        );
-
-        return false;
-      } finally {
-        setChangePasswordLoading(
-          false
+      if (!response.ok) {
+        throw new Error(
+          data.error ??
+            data.message ??
+            "Failed to change password"
         );
       }
-    };
+
+      setOtpCountdowns((prev) => ({
+        ...prev,
+        change_password: 0,
+      }));
+
+      if (
+        otpTimersRef.current
+          .change_password
+      ) {
+        clearInterval(
+          otpTimersRef.current
+            .change_password
+        );
+
+        delete otpTimersRef.current
+          .change_password;
+      }
+
+      if (
+        activeOtpPurpose ===
+        "change_password"
+      ) {
+        setOtpCountdown(0);
+        setOtpSent(false);
+      }
+
+      await logout();
+
+      toast.success(
+        data.message ??
+          "Password changed successfully"
+      );
+
+      return true;
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "Failed to change password"
+      );
+
+      return false;
+    } finally {
+      setChangePasswordLoading(
+        false
+      );
+    }
+  };
 
   // ------------------------------ Delete Account OTP -------------------------------------------
   const sendDeleteAccountOtp =
@@ -1168,13 +1428,14 @@ export const AuthProvider = ({
       setDeleteAccountLoading(true);
 
       try {
-        const response = await authFetch(
-          `${config.API_BASE_URL}/delete-account/`,
-          {
-            method: "POST",
-            body: JSON.stringify({}),
-          }
-        );
+        const response =
+          await authFetch(
+            `${config.API_BASE_URL}/delete-account/`,
+            {
+              method: "POST",
+              body: JSON.stringify({}),
+            }
+          );
 
         const data =
           (await response.json()) as OtpResponse;
@@ -1220,15 +1481,16 @@ export const AuthProvider = ({
       setDeleteAccountLoading(true);
 
       try {
-        const response = await authFetch(
-          `${config.API_BASE_URL}/delete-account/`,
-          {
-            method: "DELETE",
-            body: JSON.stringify({
-              otp,
-            }),
-          }
-        );
+        const response =
+          await authFetch(
+            `${config.API_BASE_URL}/delete-account/`,
+            {
+              method: "DELETE",
+              body: JSON.stringify({
+                otp,
+              }),
+            }
+          );
 
         const data =
           (await response.json()) as {
@@ -1323,6 +1585,7 @@ export const AuthProvider = ({
         loginWithGoogle,
         logout,
         authFetch,
+        updateProfile,
         sendRegistrationOtp,
         verifyRegistrationOtp,
         sendForgotPasswordOtp,

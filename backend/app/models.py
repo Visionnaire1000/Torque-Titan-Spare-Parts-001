@@ -1,17 +1,18 @@
 import hashlib
 import secrets
 import uuid
+import re
 
 from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.base_user import BaseUserManager
-from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Avg
 from django.utils import timezone
+
 
 
 # ------------------------------ USERS MANAGER -----------------------------------------
@@ -120,12 +121,17 @@ class Users(AbstractBaseUser):
         blank=True,
     )
 
-    # ------------------------------ PASSWORD -------------------------------------
-    password_hash = models.CharField(
-        max_length=255,
-        default="",
+    # ------------------------------ INITIAL ADMIN PASSWORD -----------------------
+    initial_password_expires = models.DateTimeField(
+        null=True,
+        blank=True,
     )
 
+    initial_password_changed = models.BooleanField(
+        default=False,
+    )
+
+    # ------------------------------ ROLE -----------------------------------------
     role = models.CharField(
         max_length=30,
         choices=[
@@ -249,6 +255,8 @@ class Users(AbstractBaseUser):
 
     OTP_LOCK_MINUTES = 5
 
+    INITIAL_PASSWORD_EXPIRY_HOURS = 12
+
     # ------------------------------ AUTH CONFIGURATION --------------------------
     USERNAME_FIELD = "email"
 
@@ -276,33 +284,60 @@ class Users(AbstractBaseUser):
             .strip()
         )
 
-    # ------------------------------ PASSWORD ------------------------------------
-    def set_password(
-        self,
-        password: str
-    ):
+    # ------------------------------ INITIAL ADMIN PASSWORD -----------------------
+    def set_initial_admin_password_expiry(self):
 
-        self.password_hash = make_password(
-            password
+        if self.role not in [
+            "admin",
+            "super_admin",
+        ]:
+            return
+
+        self.initial_password_expires = (
+            timezone.now()
+            + timedelta(
+                hours=self.INITIAL_PASSWORD_EXPIRY_HOURS
+            )
         )
 
-    def check_password(
-        self,
-        password: str
-    ) -> bool:
+        self.initial_password_changed = False
 
-        if not self.password_hash:
+        self.save(
+            update_fields=[
+                "initial_password_expires",
+                "initial_password_changed",
+            ]
+        )
+
+    def has_expired_initial_password(self):
+
+        if self.role not in [
+            "admin",
+            "super_admin",
+        ]:
             return False
 
-        return check_password(
-            password,
-            self.password_hash
+        if self.initial_password_changed:
+            return False
+
+        if not self.initial_password_expires:
+            return False
+
+        return timezone.now() >= (
+            self.initial_password_expires
         )
 
-    @property
-    def password(self):
+    def mark_initial_password_changed(self):
 
-        return self.password_hash
+        self.initial_password_changed = True
+        self.initial_password_expires = None
+
+        self.save(
+            update_fields=[
+                "initial_password_changed",
+                "initial_password_expires",
+            ]
+        )
 
     # ------------------------------ OTP HASH ------------------------------------
     def _hash_otp(
@@ -755,13 +790,15 @@ class Users(AbstractBaseUser):
                 .replace("_", " ")
             )
 
-            return " ".join(
-                word.capitalize()
-                for word in name_part.split()
+            first_name = (
+                name_part
+                .split()[0]
             )
 
-        return "User"
+            return first_name.capitalize()
 
+        return "User"
+    
     # ------------------------------ SAVE -----------------------------------------
     def save(
         self,
@@ -789,7 +826,346 @@ class Users(AbstractBaseUser):
 
         return self.email
 
-# ------------------------------ SPAREPARTS MODEL ------------------------------------------
+
+# ------------------------------ PROFILE MODEL ----------------------------------------
+class Profile(models.Model):
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    user = models.OneToOneField(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+
+    first_name = models.CharField(
+        max_length=100
+    )
+
+    last_name = models.CharField(
+        max_length=100
+    )
+
+    phone_number = models.CharField(
+        max_length=20,
+        unique=True,
+    )
+
+    national_id = models.CharField(
+        max_length=50,
+        unique=True,
+    )
+
+    class Meta:
+        db_table = "profiles"
+
+    def clean(self):
+
+        super().clean()
+
+        self.phone_number = (
+            self.phone_number
+            or ""
+        ).strip()
+
+        self.national_id = (
+            self.national_id
+            or ""
+        ).strip()
+
+        phone_pattern = (
+            r"^\+?[1-9]\d{7,14}$"
+        )
+
+        national_id_pattern = (
+            r"^[A-Za-z0-9]"
+            r"[A-Za-z0-9\s\-/]{3,49}$"
+        )
+
+        if not re.fullmatch(
+            phone_pattern,
+            self.phone_number,
+        ):
+            raise ValidationError(
+                {
+                    "phone_number": (
+                        "Phone number must be a valid "
+                        "international phone number with "
+                        "8 to 15 digits."
+                    )
+                }
+            )
+
+        if not re.fullmatch(
+            national_id_pattern,
+            self.national_id,
+        ):
+            raise ValidationError(
+                {
+                    "national_id": (
+                        "National ID must be 4 to 50 "
+                        "characters and contain only "
+                        "letters, numbers, spaces, "
+                        "hyphens, or slashes."
+                    )
+                }
+            )
+
+    def __str__(self):
+
+        return (
+            f"{self.first_name} "
+            f"{self.last_name}"
+        )
+
+
+# ------------------------------ LOGIN DEVICE MODEL ----------------------------------------
+class LoginDevice(models.Model):
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="login_devices",
+    )
+    device_identifier = models.CharField(
+        max_length=128,
+    )
+    user_agent = models.TextField(
+        blank=True,
+    )
+    last_ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+    )
+    first_seen_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    last_seen_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "user",
+                    "device_identifier",
+                ],
+                name="unique_user_device",
+            )
+        ]
+
+
+# ------------------------------ LOGIN DEVICE RECORD MODEL ----------------------------------------
+class LoginRecord(models.Model):
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="login_records",
+    )
+    device = models.ForeignKey(
+        LoginDevice,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="login_records",
+    )
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField(
+        blank=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+
+# ------------------------------ ADDRESS MODEL ----------------------------------------
+class Address(models.Model):
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    user = models.OneToOneField(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="address",
+    )
+
+    street = models.CharField(
+        max_length=255
+    )
+
+    city = models.CharField(
+        max_length=100
+    )
+
+    postal_code = models.CharField(
+        max_length=30,
+        null=True,
+        blank=True
+    )
+
+    country = models.CharField(
+        max_length=100
+    )
+
+    created_at = models.DateTimeField(
+        default=timezone.now
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        db_table = "addresses"
+
+    def clean(self):
+
+        super().clean()
+
+        self.street = (
+            self.street
+            or ""
+        ).strip()
+
+        self.city = (
+            self.city
+            or ""
+        ).strip()
+
+        self.postal_code = (
+            self.postal_code
+            or ""
+        ).strip()
+
+        self.country = (
+            self.country
+            or ""
+        ).strip()
+
+        street_pattern = (
+            r"^(?=.*[A-Za-z0-9])"
+            r"[A-Za-z0-9À-ÖØ-öø-ÿ]"
+            r"[A-Za-z0-9À-ÖØ-öø-ÿ\s.,'#/&\-]{2,254}$"
+        )
+
+        city_pattern = (
+            r"^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])"
+            r"[A-Za-zÀ-ÖØ-öø-ÿ\s.'\-]{2,99}$"
+        )
+
+        postal_code_pattern = (
+            r"^[A-Za-z0-9][A-Za-z0-9\s\-]{1,29}$"
+        )
+
+        country_pattern = (
+            r"^(?=.*[A-Za-zÀ-ÖØ-öø-ÿ])"
+            r"[A-Za-zÀ-ÖØ-öø-ÿ\s.'\-]{2,99}$"
+        )
+
+        if not self.street:
+
+            raise ValidationError(
+                {
+                    "street": (
+                        "Street address is required."
+                    )
+                }
+            )
+
+        if not re.fullmatch(
+            street_pattern,
+            self.street,
+        ):
+
+            raise ValidationError(
+                {
+                    "street": (
+                        "Please enter a valid street "
+                        "address."
+                    )
+                }
+            )
+
+        if not self.city:
+
+            raise ValidationError(
+                {
+                    "city": (
+                        "City is required."
+                    )
+                }
+            )
+
+        if not re.fullmatch(
+            city_pattern,
+            self.city,
+        ):
+
+            raise ValidationError(
+                {
+                    "city": (
+                        "Please enter a valid city."
+                    )
+                }
+            )
+
+        if self.postal_code:
+
+            if not re.fullmatch(
+                postal_code_pattern,
+                self.postal_code,
+            ):
+
+                raise ValidationError(
+                    {
+                        "postal_code": (
+                            "Please enter a valid "
+                            "postal code."
+                        )
+                    }
+                )
+
+        if not self.country:
+
+            raise ValidationError(
+                {
+                    "country": (
+                        "Country is required."
+                    )
+                }
+            )
+
+        if not re.fullmatch(
+            country_pattern,
+            self.country,
+        ):
+
+            raise ValidationError(
+                {
+                    "country": (
+                        "Please enter a valid country."
+                    )
+                }
+            )
+
+    def __str__(self):
+
+        return (
+            f"{self.user.email} - "
+            f"{self.street}, "
+            f"{self.city}"
+        )
+    
+
+# ------------------------------ SPAREPARTS MODEL -------------------------------------
 class SpareParts(models.Model):
 
     id = models.UUIDField(
@@ -963,7 +1339,79 @@ class SpareParts(models.Model):
         )
 
 
-# ------------------------------ REVIEWS MODEL ------------------------------------------
+# ------------------------------ CART ITEMS MODEL -------------------------------------
+class CartItems(models.Model):
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+    )
+
+    user = models.ForeignKey(
+        Users,
+        on_delete=models.CASCADE,
+        related_name="cart_items",
+    )
+
+    sparepart = models.ForeignKey(
+        SpareParts,
+        on_delete=models.CASCADE,
+        related_name="cart_items",
+    )
+
+    quantity = models.PositiveIntegerField(
+        default=1
+    )
+
+    created_at = models.DateTimeField(
+        default=timezone.now
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True
+    )
+
+    class Meta:
+        db_table = "cart_items"
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "user",
+                    "sparepart",
+                ],
+                name="unique_user_cart_sparepart",
+            )
+        ]
+
+    def clean(self):
+
+        if self.quantity < 1:
+
+            raise ValidationError(
+                "Cart quantity must be at least 1"
+            )
+
+    def save(self, *args, **kwargs):
+
+        self.full_clean()
+
+        super().save(
+            *args,
+            **kwargs
+        )
+
+    def __str__(self):
+
+        return (
+            f"{self.user.email} - "
+            f"{self.sparepart.brand} x "
+            f"{self.quantity}"
+        )
+
+
+# ------------------------------ REVIEWS MODEL ----------------------------------------
 class Reviews(models.Model):
 
     id = models.UUIDField(
@@ -1036,11 +1484,29 @@ class Reviews(models.Model):
     @property
     def user_display_name(self):
 
-        return (
-            self.user.display_name
-            if self.user
-            else "User"
-        )
+        if not self.user:
+            return "User"
+
+        if self.user.role in [
+            "admin",
+            "super_admin",
+        ]:
+            return self.user.display_name
+
+        if hasattr(
+            self.user,
+            "profile"
+        ):
+
+            full_name = (
+                f"{self.user.profile.first_name} "
+                f"{self.user.profile.last_name}"
+            ).strip()
+
+            if full_name:
+                return full_name
+
+        return "User"
 
     def save(self, *args, **kwargs):
 
@@ -1074,7 +1540,7 @@ class Reviews(models.Model):
         )
 
 
-# ------------------------------ REVIEW REACTIONS MODEL ------------------------------------------
+# ------------------------------ REVIEW REACTIONS MODEL -------------------------------
 class ReviewReactions(models.Model):
 
     id = models.UUIDField(
@@ -1144,7 +1610,7 @@ class ReviewReactions(models.Model):
         )
 
 
-# ------------------------------ ORDERS MODEL ------------------------------------------
+# ------------------------------ ORDERS MODEL -----------------------------------------
 class Orders(models.Model):
 
     id = models.UUIDField(
@@ -1159,6 +1625,12 @@ class Orders(models.Model):
         related_name="orders"
     )
 
+    address = models.ForeignKey(
+        Address,
+        on_delete=models.PROTECT,
+        related_name="orders",
+    )
+
     status = models.CharField(
         max_length=50,
         default="pending"
@@ -1169,10 +1641,11 @@ class Orders(models.Model):
     )
 
     payment_method = models.CharField(
-    max_length=20,
-    null=True,
-    blank=True,
+        max_length=20,
+        null=True,
+        blank=True,
     )
+
     created_at = models.DateTimeField(
         default=timezone.now
     )
@@ -1197,7 +1670,6 @@ class Orders(models.Model):
         blank=True,
     )
 
-
     shipped_at = models.DateTimeField(
         null=True,
         blank=True
@@ -1206,24 +1678,6 @@ class Orders(models.Model):
     delivered_at = models.DateTimeField(
         null=True,
         blank=True
-    )
-
-    street = models.CharField(
-        max_length=255
-    )
-
-    city = models.CharField(
-        max_length=100
-    )
-
-    postal_code = models.CharField(
-        max_length=30,
-        null=True,
-        blank=True
-    )
-
-    country = models.CharField(
-        max_length=100
     )
 
     class Meta:
@@ -1254,8 +1708,8 @@ class Orders(models.Model):
 
         return f"Order {self.id}"
 
-    
-# ------------------------------ ORDER ITEMS MODEL ------------------------------------------
+
+# ------------------------------ ORDER ITEMS MODEL ------------------------------------
 class OrderItems(models.Model):
 
     id = models.UUIDField(
@@ -1276,7 +1730,7 @@ class OrderItems(models.Model):
         related_name="order_items"
     )
 
-    quantity = models.IntegerField(
+    quantity = models.PositiveIntegerField(
         default=1
     )
 
@@ -1292,6 +1746,14 @@ class OrderItems(models.Model):
 
     class Meta:
         db_table = "order_items"
+
+    def clean(self):
+
+        if self.quantity < 1:
+
+            raise ValidationError(
+                "Order quantity must be at least 1"
+            )
 
     def calculate_subtotal(
         self,
@@ -1324,6 +1786,8 @@ class OrderItems(models.Model):
         return self.subtotal
 
     def save(self, *args, **kwargs):
+
+        self.full_clean()
 
         self.calculate_subtotal(
             use_sparepart_price_if_empty=True

@@ -1,8 +1,9 @@
-import { useEffect, useState, useRef, type FC } from "react";
+import { useEffect, useState, useRef, type FC, type MouseEvent } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import config from "../../../config";
-import { RefreshCw, Star, ThumbsUp, ThumbsDown, BarChart3,ArrowLeft } from "lucide-react";
+import { RefreshCw, Star, ThumbsUp, ThumbsDown, BarChart3, ArrowLeft } from "lucide-react";
+
 
 /* ---------------- Interfaces ---------------- */
 interface Review {
@@ -10,6 +11,7 @@ interface Review {
   sparepart_id: string;
   sparepart_image?: string;
   user_display_name: string;
+  user_email: string;
   rating: number;
   comment: string;
   total_likes: number;
@@ -127,12 +129,32 @@ const EmptyState: FC = () => (
 const AdminReviews: FC = () => {
   const { authFetch, user } = useAuth();
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const restoreState = location.state as {
+    restoreScrollY?: number;
+  } | null;
+
+  const restoreScrollYRef =
+    useRef<number | null>(
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : null
+    );
+
+  const isRestoringRef =
+    useRef<boolean>(
+      typeof restoreState?.restoreScrollY === "number"
+    );
+
   const [reviews, setReviews] = useState<Review[]>([]);
 
   const [loading, setLoading] =
     useState<boolean>(true);
 
-  const [error, setError] = useState<string>("");
+  const [error, setError] =
+    useState<string>("");
 
   const [showAnalytics, setShowAnalytics] =
     useState<boolean>(false);
@@ -146,11 +168,15 @@ const AdminReviews: FC = () => {
   const [analyticsError, setAnalyticsError] =
     useState<string>("");
 
-  const [selectedVehicleType, setSelectedVehicleType] =
-    useState<string | null>(null);
+  const [
+    selectedVehicleType,
+    setSelectedVehicleType,
+  ] = useState<string | null>(null);
 
-  const [selectedCategory, setSelectedCategory] =
-    useState<string | null>(null);
+  const [
+    selectedCategory,
+    setSelectedCategory,
+  ] = useState<string | null>(null);
 
   const reviewsRef = useRef<Review[]>([]);
 
@@ -180,6 +206,114 @@ const AdminReviews: FC = () => {
         character.toUpperCase()
       );
   };
+   
+  
+/* ----------------------------- PROFILE CIRCLE ------------------------- */
+const getProfileInitials = (
+  displayName: string
+): string => {
+  const name = displayName.trim();
+
+  if (!name) {
+    return "U";
+  }
+
+  const parts = name
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .charAt(0)
+      .toUpperCase();
+  }
+
+  const firstInitial =
+    parts[0].charAt(0).toUpperCase();
+
+  const lastInitial =
+    parts[parts.length - 1]
+      .charAt(0)
+      .toUpperCase();
+
+  return `${firstInitial}${lastInitial}`;
+};
+
+const getProfileColor = (
+  displayName: string
+): string => {
+  const initials =
+    getProfileInitials(displayName);
+
+  const initial = initials.charAt(0);
+
+  const colors: Record<string, string> = {
+    A: "bg-red-500",
+    B: "bg-orange-500",
+    C: "bg-amber-500",
+    D: "bg-yellow-500",
+    E: "bg-lime-500",
+    F: "bg-green-500",
+    G: "bg-emerald-500",
+    H: "bg-teal-500",
+    I: "bg-cyan-500",
+    J: "bg-sky-500",
+    K: "bg-blue-500",
+    L: "bg-indigo-500",
+    M: "bg-violet-500",
+    N: "bg-purple-500",
+    O: "bg-fuchsia-500",
+    P: "bg-pink-500",
+    Q: "bg-rose-500",
+    R: "bg-red-600",
+    S: "bg-orange-600",
+    T: "bg-yellow-600",
+    U: "bg-green-600",
+    V: "bg-teal-600",
+    W: "bg-cyan-600",
+    X: "bg-blue-600",
+    Y: "bg-indigo-600",
+    Z: "bg-purple-600",
+  };
+
+  return (
+    colors[initial] ??
+    "bg-gray-500"
+  );
+};
+
+const ProfileCircle = ({
+  displayName,
+}: {
+  displayName: string;
+}) => {
+  const initials =
+    getProfileInitials(displayName);
+
+  const color =
+    getProfileColor(displayName);
+
+  return (
+    <div
+      className={`
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
+        text-sm
+        font-bold
+        text-white
+        ${color}
+      `}
+      aria-label={`${displayName} profile`}
+    >
+      {initials}
+    </div>
+  );
+ };
 
   const hasReviewsChanged = (
     newData: Review[]
@@ -370,6 +504,164 @@ const AdminReviews: FC = () => {
     }
   }, [showAnalytics]);
 
+  /* ---------------- Restore Scroll Position ---------------- */
+  useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY =
+      restoreScrollYRef.current;
+
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) {
+              return;
+            }
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+          });
+        });
+      });
+    };
+
+    const images = Array.from(
+      document.images
+    );
+
+    const pendingImages = images.filter(
+      (image) => !image.complete
+    );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining =
+        pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer =
+        window.setTimeout(() => {
+          restoreScroll();
+        }, 1500);
+
+      return () => {
+        cancelled = true;
+
+        window.clearTimeout(
+          fallbackTimer
+        );
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading]);
+
+  /* ---------------- Review Navigation ---------------- */
+  const handleReviewClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    sparepartId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${sparepartId}`, {
+      state: {
+        from: location.pathname,
+        restoreScrollY: window.scrollY,
+      },
+    });
+  };
+
+  /* ---------------- Newest To Oldest ---------------- */
+  const orderedReviews = [
+    ...reviews,
+  ].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime()
+  );
+
   /* ---------------- Rating Width ---------------- */
   const getRatingWidth = (
     rating: number
@@ -380,7 +672,6 @@ const AdminReviews: FC = () => {
     );
   };
 
-
   const vehicleTypes = Array.from(
     new Set(
       analytics.map(
@@ -389,13 +680,14 @@ const AdminReviews: FC = () => {
     )
   );
 
-  const vehicleCategories = selectedVehicleType
-    ? analytics.filter(
-        (group) =>
-          group.vehicle_type ===
-          selectedVehicleType
-      )
-    : [];
+  const vehicleCategories =
+    selectedVehicleType
+      ? analytics.filter(
+          (group) =>
+            group.vehicle_type ===
+            selectedVehicleType
+        )
+      : [];
 
   const selectedAnalyticsGroup =
     selectedVehicleType &&
@@ -583,7 +875,7 @@ const AdminReviews: FC = () => {
         </button>
       </div>
 
-      {/*Analytics View*/}
+      {/* Analytics View */}
       {showAnalytics ? (
         <>
           {analyticsLoading ? (
@@ -733,7 +1025,7 @@ const AdminReviews: FC = () => {
                 </>
               )}
 
-              {/*CATEGORIES*/}
+              {/* CATEGORIES */}
               {selectedVehicleType &&
                 !selectedCategory && (
                   <>
@@ -820,7 +1112,7 @@ const AdminReviews: FC = () => {
                   </>
                 )}
 
-              {/*BRAND COMPARISON*/}
+              {/* BRAND COMPARISON */}
               {selectedVehicleType &&
                 selectedCategory &&
                 selectedAnalyticsGroup && (
@@ -910,7 +1202,6 @@ const AdminReviews: FC = () => {
                                 gap-2
                               "
                             >
-                              {/* Brand Header */}
                               <div
                                 className="
                                   flex
@@ -962,11 +1253,7 @@ const AdminReviews: FC = () => {
                                     ).toFixed(1)}
                                   </span>
 
-                                  <span
-                                    className="
-                                      text-gray-500
-                                    "
-                                  >
+                                  <span className="text-gray-500">
                                     (
                                     {
                                       brand.total_reviews
@@ -980,7 +1267,6 @@ const AdminReviews: FC = () => {
                                 </div>
                               </div>
 
-                              {/* Rating Bar */}
                               <div
                                 className="
                                   h-3
@@ -1015,7 +1301,7 @@ const AdminReviews: FC = () => {
                   </>
                 )}
 
-              {/*SAFETY FALLBACK*/}
+              {/* SAFETY FALLBACK */}
               {selectedVehicleType &&
                 selectedCategory &&
                 !selectedAnalyticsGroup && (
@@ -1048,12 +1334,17 @@ const AdminReviews: FC = () => {
           {reviews.length === 0 ? (
             <EmptyState />
           ) : (
-
             /* ---------- Reviews ---------- */
-            reviews.map((review) => (
+            orderedReviews.map((review) => (
               <Link
                 key={review.id}
                 to={`/items/${review.sparepart_id}`}
+                onClick={(event) =>
+                  handleReviewClick(
+                    event,
+                    review.sparepart_id
+                  )
+                }
                 className="text-inherit no-underline"
               >
                 <div
@@ -1069,27 +1360,47 @@ const AdminReviews: FC = () => {
                     hover:shadow-md
                   "
                 >
-
                   {/* ---------- Header ---------- */}
                   <div
                     className="
                       mb-2
                       flex
-                      items-center
+                      items-start
                       justify-between
                       gap-3
                     "
                   >
-                    <strong
+                    <div
                       className="
-                        break-words
-                        text-[15px]
-                        font-semibold
-                        text-[#004080]
+                        flex
+                        min-w-0
+                        items-center
+                        gap-3
                       "
                     >
-                      {review.user_display_name}
-                    </strong>
+                      <ProfileCircle
+                        displayName={
+                        review.user_display_name?.trim() ||
+                         "User"
+                        }
+                      />
+                      <div className="min-w-0">
+                        <strong
+                          className="
+                            block
+                            break-words
+                            text-[15px]
+                            font-semibold
+                            text-[#004080]
+                          "
+                        >
+                          {review.user_display_name}{" "}
+                          <span className="font-normal text-gray-500">
+                            ({review.user_email})
+                          </span>
+                        </strong>
+                      </div>
+                    </div>
 
                     <span
                       className="
@@ -1120,8 +1431,8 @@ const AdminReviews: FC = () => {
                         }
                         alt="review"
                         className="
-                          max-h-[150px]
-                          max-w-[150px]
+                          max-h-[13%]
+                          max-w-[13%]
                           object-contain
                         "
                       />
@@ -1145,8 +1456,7 @@ const AdminReviews: FC = () => {
                           key={index}
                           size={18}
                           className={
-                            index <
-                            review.rating
+                            index < review.rating
                               ? "fill-yellow-400 stroke-yellow-400"
                               : "fill-none stroke-gray-300"
                           }

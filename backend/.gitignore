@@ -1,6 +1,6 @@
 venv/
 .env
-torque.db
+project.db
 instance/
 __pycache__/
 .pytest_cache/

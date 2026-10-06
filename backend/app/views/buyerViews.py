@@ -1,6 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 
 from rest_framework.views import APIView
@@ -10,6 +11,8 @@ from rest_framework import serializers, status
 
 from app.models import (
     SpareParts,
+    Address,
+    CartItems,
     Orders,
     Reviews,
     ReviewReactions,
@@ -25,11 +28,7 @@ def money_to_decimal(value):
         return Decimal(str(value)).quantize(
             Decimal("0.01")
         )
-    except (
-        TypeError,
-        ValueError,
-        InvalidOperation,
-    ):
+    except (InvalidOperation, ValueError, TypeError):
         raise ValueError("Invalid monetary value")
 
 
@@ -39,7 +38,34 @@ def money_to_float(value):
     )
 
 
-# --------------------------- SERIALIZATION ----------------------------------------------
+def get_user_display_name(user):
+    if not user:
+        return "User"
+
+    if user.role in [
+        "admin",
+        "super_admin",
+    ]:
+        return user.display_name
+
+    profile = getattr(
+        user,
+        "profile",
+        None
+    )
+
+    if profile:
+        full_name = (
+            f"{profile.first_name} "
+            f"{profile.last_name}"
+        ).strip()
+
+        if full_name:
+            return full_name
+
+    return "User"
+
+
 class SparePartsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SpareParts
@@ -52,71 +78,368 @@ class ReviewsSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+# ------------------------------REVIEW SERIALIZATION---------------------------------------
 def serialize_review(
     review,
     include_likes=False,
-    current_user=None,
+    current_user=None
 ):
-    data = ReviewsSerializer(review).data
+    current_reaction = None
 
-    # --------------------------- IDs ---------------------------
-    data["id"] = str(review.id)
-    data["user_id"] = str(review.user_id)
+    if (
+        current_user
+        and current_user.is_authenticated
+    ):
+        reaction = ReviewReactions.objects.filter(
+            review=review,
+            user=current_user
+        ).first()
 
-    # --------------------------- USER ---------------------------
-    data["user_display_name"] = review.user_display_name
+        if reaction:
+            current_reaction = reaction.is_like
 
-    # --------------------------- COUNTS ---------------------------
-    data["total_likes"] = review.total_likes
-    data["total_dislikes"] = review.total_dislikes
+    data = {
+        "id": str(review.id),
+        "user_id": str(review.user.id),
+        "sparepart": str(review.sparepart.id),
+        "rating": review.rating,
+        "comment": review.comment,
+        "created_at": review.created_at,
+        "user_display_name": get_user_display_name(
+            review.user
+        ),
+        "total_likes": review.total_likes,
+        "total_dislikes": review.total_dislikes,
+        "user_reaction": current_reaction,
+    }
 
-    # --------------------------- CURRENT USER REACTION ---------------------------
-    data["user_reaction"] = None
-
-    if current_user is not None:
-        reaction = (
-            review.likes
-            .filter(
-                user=current_user
-            )
-            .first()
-        )
-
-        if reaction is not None:
-            data["user_reaction"] = reaction.is_like
-
-    # --------------------------- ALL REACTIONS ---------------------------
     if include_likes:
         data["likes"] = [
             {
-                "user_id": str(
-                    reaction.user_id
+                "user_id": str(reaction.user.id),
+                "user_display_name": get_user_display_name(
+                    reaction.user
                 ),
-                "is_like": reaction.is_like,
             }
-            for reaction in review.likes.all()
+            for reaction in ReviewReactions.objects.filter(
+                review=review,
+                is_like=True
+            ).select_related(
+                "user",
+                "user__profile"
+            )
+        ]
+
+        data["dislikes"] = [
+            {
+                "user_id": str(reaction.user.id),
+                "user_display_name": get_user_display_name(
+                    reaction.user
+                ),
+            }
+            for reaction in ReviewReactions.objects.filter(
+                review=review,
+                is_like=False
+            ).select_related(
+                "user",
+                "user__profile"
+            )
         ]
 
     return data
 
-
+# ------------------------------SPARE PART SERIALIZATION---------------------------------------
 def serialize_sparepart(
     part,
     include_reviews=False,
-    current_user=None,
+    current_user=None
 ):
-    data = SparePartsSerializer(part).data
+    data = {
+        "id": str(part.id),
+        "category": part.category,
+        "vehicle_type": part.vehicle_type,
+        "brand": part.brand,
+        "colour": part.colour,
+        "buying_price": money_to_float(
+            part.buying_price
+        ),
+        "marked_price": money_to_float(
+            part.marked_price
+        ),
+        "discount_amount": money_to_float(
+            part.discount_amount
+        ),
+        "discount_percentage": money_to_float(
+            part.discount_percentage
+        ),
+        "image": part.image,
+        "description": part.description,
+        "average_rating": money_to_float(
+            part.average_rating
+        ),
+        "total_reviews": part.total_reviews,
+    }
 
     if include_reviews:
+        reviews = Reviews.objects.filter(
+            sparepart=part,
+            user__role="buyer",
+            comment__isnull=False
+        ).exclude(
+            comment=""
+        ).select_related(
+            "user",
+            "user__profile"
+        ).prefetch_related(
+            "likes"
+        )
+
         data["reviews"] = [
             serialize_review(
                 review,
-                current_user=current_user,
+                current_user=current_user
             )
-            for review in part.reviews.all()
+            for review in reviews
         ]
 
     return data
+
+
+# ------------------------------SPARE PARTS---------------------------------------
+class SparePartsListView(APIView):
+    permission_classes = [AllowAny]
+
+    PRICE_RANGES = {
+        "tyre": {
+            "sedan": (15000, 30000),
+            "suv": (25000, 40000),
+            "truck": (35000, 45000),
+            "bus": (25000, 30000),
+        },
+        "rim": {
+            "sedan": (20000, 30000),
+            "suv": (25000, 35000),
+            "truck": (30000, 35000),
+            "bus": (25000, 35000),
+        },
+        "battery": {
+            "sedan": (20000, 30000),
+            "suv": (26000, 35000),
+            "truck": (26000, 35000),
+            "bus": (35000, 40000),
+        },
+        "oil_filter": {
+            "sedan": (7500, 8500),
+            "suv": (7500, 8500),
+            "truck": (7500, 8500),
+            "bus": (7500, 8500),
+        },
+    }
+
+    def get(self, request, part_id=None):
+        # ------------------------------SINGLE SPARE PART---------------------------------------
+        if part_id:
+            part = get_object_or_404(
+                SpareParts,
+                id=part_id
+            )
+
+            return Response(
+                serialize_sparepart(
+                    part,
+                    include_reviews=True,
+                    current_user=request.user
+                ),
+                status=status.HTTP_200_OK
+            )
+
+        # ------------------------------FILTERS---------------------------------------
+        queryset = SpareParts.objects.all()
+
+        category = request.query_params.get(
+            "category"
+        )
+        vehicle_type = request.query_params.get(
+            "vehicle_type"
+        )
+        brand = request.query_params.get(
+            "brand"
+        )
+        colour = request.query_params.get(
+            "colour"
+        )
+        min_price = request.query_params.get(
+            "min_price"
+        )
+        max_price = request.query_params.get(
+            "max_price"
+        )
+        top_discounts = request.query_params.get(
+            "top_discounts"
+        )
+
+        if category:
+            queryset = queryset.filter(
+                category__iexact=category
+            )
+
+        if vehicle_type:
+            queryset = queryset.filter(
+                vehicle_type__iexact=vehicle_type
+            )
+
+        if brand:
+            queryset = queryset.filter(
+                brand__iexact=brand
+            )
+
+        if colour:
+            queryset = queryset.filter(
+                colour__iexact=colour
+            )
+
+        # ------------------------------PRICE FILTER---------------------------------------
+        if min_price:
+            try:
+                queryset = queryset.filter(
+                    marked_price__gte=money_to_decimal(
+                        min_price
+                    )
+                )
+            except ValueError:
+                return Response(
+                    {
+                        "error": "Invalid minimum price."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if max_price:
+            try:
+                queryset = queryset.filter(
+                    marked_price__lte=money_to_decimal(
+                        max_price
+                    )
+                )
+            except ValueError:
+                return Response(
+                    {
+                        "error": "Invalid maximum price."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # ------------------------------PAGINATION---------------------------------------
+        try:
+            page = max(
+                int(
+                    request.query_params.get(
+                        "page",
+                        1
+                    )
+                ),
+                1
+            )
+        except ValueError:
+            page = 1
+
+        page_size_param = request.query_params.get(
+            "per_page"
+        )
+
+        if page_size_param is None:
+            page_size_param = request.query_params.get(
+                "page_size",
+                12
+            )
+
+        try:
+            page_size = max(
+                int(page_size_param),
+                1
+            )
+        except ValueError:
+            page_size = 12
+
+        # ------------------------------TOP DISCOUNTS---------------------------------------
+        if top_discounts:
+            top_discounts_value = top_discounts.strip().lower()
+
+            if top_discounts_value in {
+                "true",
+                "1",
+                "yes",
+            }:
+                queryset = queryset.filter(
+                    discount_percentage__gt=0
+                ).order_by(
+                    "-discount_percentage",
+                    "-discount_amount",
+                    "-id",
+                )
+
+            else:
+                try:
+                    limit = int(
+                        top_discounts
+                    )
+
+                    if limit <= 0:
+                        raise ValueError
+
+                    queryset = queryset.filter(
+                        discount_percentage__gt=0
+                    ).order_by(
+                        "-discount_percentage",
+                        "-discount_amount",
+                        "-id",
+                    )[:limit]
+
+                except ValueError:
+                    return Response(
+                        {
+                            "error": (
+                                "Invalid top_discounts value."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        # ------------------------------PAGINATION---------------------------------------
+        total_items = queryset.count()
+
+        start = (
+            page - 1
+        ) * page_size
+
+        end = start + page_size
+
+        parts = queryset[start:end]
+
+        return Response(
+            {
+                "results": [
+                    serialize_sparepart(
+                        part,
+                        current_user=request.user
+                    )
+                    for part in parts
+                ],
+                "count": total_items,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (
+                    (
+                        total_items
+                        + page_size
+                        - 1
+                    ) // page_size
+                    if total_items
+                    else 0
+                ),
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 # --------------------------- SPAREPARTS ----------------------------------------------
@@ -473,884 +796,1586 @@ class SparePartsListView(APIView):
         )
 
 
-# --------------------------- REVIEWS ----------------------------------------------
+# ------------------------------REVIEWS---------------------------------------
 class ReviewsView(APIView):
     permission_classes = [AllowAny]
 
     def get(
         self,
         request,
-        part_id,
+        part_id
     ):
-        """Get all reviews for a spare part."""
-
+        # ------------------------------GET REVIEWS---------------------------------------
         part = get_object_or_404(
             SpareParts,
-            pk=part_id,
+            id=part_id
         )
 
-        current_user = (
-            request.user
-            if request.user.is_authenticated
-            else None
+        reviews = Reviews.objects.filter(
+            sparepart=part,
+            user__role="buyer"
+        ).select_related(
+            "user",
+            "user__profile"
+        ).prefetch_related(
+            "likes"
         )
-
-        reviews = (
-            Reviews.objects
-            .filter(
-                sparepart_id=part.id
-            )
-            .select_related("user")
-            .prefetch_related("likes")
-            .order_by("-created_at")
-        )
-
-        result = []
-
-        for review in reviews:
-
-            review_dict = serialize_review(
-                review,
-                include_likes=True,
-                current_user=current_user,
-            )
-
-            result.append(
-                review_dict
-            )
 
         return Response(
-            result,
-            status=status.HTTP_200_OK,
+            [
+                serialize_review(
+                    review,
+                    current_user=request.user
+                )
+                for review in reviews
+            ],
+            status=status.HTTP_200_OK
         )
 
     def post(
         self,
         request,
-        part_id,
+        part_id
     ):
-        """Create a review."""
-
+        # ------------------------------CREATE REVIEW---------------------------------------
         if not request.user.is_authenticated:
-
             return Response(
                 {
-                    "detail": (
-                        "Authentication credentials "
-                        "were not provided."
+                    "error": (
+                        "Authentication required."
                     )
                 },
-                status=status.HTTP_401_UNAUTHORIZED,
+                status=status.HTTP_401_UNAUTHORIZED
             )
 
-        user = request.user
+        if request.user.role != "buyer":
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts can "
+                        "create reviews."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         part = get_object_or_404(
             SpareParts,
-            pk=part_id,
+            id=part_id
         )
 
-        data = request.data or {}
-
-        # --------------------------- RATING ---------------------------
-        parsed_rating = None
-
-        rating = data.get(
+        rating = request.data.get(
             "rating"
         )
 
-        if rating is not None:
-
-            try:
-
-                parsed_rating = int(
-                    rating
-                )
-
-                if not 1 <= parsed_rating <= 5:
-
-                    return Response(
-                        {
-                            "error": (
-                                "Rating must be between 1 and 5"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-            except (
-                ValueError,
-                TypeError,
-            ):
-
-                return Response(
-                    {
-                        "error": (
-                            "Rating must be an integer"
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # --------------------------- COMMENT ---------------------------
-        parsed_comment = None
-
-        comment = data.get(
+        comment = request.data.get(
             "comment"
         )
 
-        if (
-            isinstance(
-                comment,
-                str,
-            )
-            and comment.strip()
-        ):
-
-            parsed_comment = comment.strip()
-
-        # --------------------------- EMPTY REVIEW ---------------------------
-        if (
-            parsed_rating is None
-            and not parsed_comment
-        ):
-
-            return Response(
-                {
-                    "error": (
-                        "Add a rating or comment"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # --------------------------- DUPLICATE REVIEW ---------------------------
-        existing = (
-            Reviews.objects
-            .filter(
-                user_id=user.id,
-                sparepart_id=part.id,
-            )
-            .first()
-        )
-
-        if existing:
-
-            return Response(
-                {
-                    "error": (
-                        "You have already reviewed this item"
-                    )
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        # --------------------------- CREATE REVIEW ---------------------------
-        try:
-
-            with transaction.atomic():
-
-                review = Reviews.objects.create(
-                    user_id=user.id,
-                    sparepart_id=part.id,
-                    rating=parsed_rating,
-                    comment=parsed_comment,
+        # ------------------------------VALIDATE RATING---------------------------------------
+        if rating is not None:
+            try:
+                rating = int(rating)
+            except (
+                TypeError,
+                ValueError
+            ):
+                return Response(
+                    {
+                        "error": (
+                            "Rating must be an integer "
+                            "from 1 to 5."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
-        except Exception:
+            if rating < 1 or rating > 5:
+                return Response(
+                    {
+                        "error": (
+                            "Rating must be between "
+                            "1 and 5."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
+        # ------------------------------VALIDATE COMMENT---------------------------------------
+        if comment is not None:
+            comment = str(
+                comment
+            ).strip()
+
+        if not comment:
+            comment = None
+
+        # ------------------------------REQUIRE RATING OR COMMENT---------------------------------------
+        if rating is None and comment is None:
             return Response(
                 {
-                    "error": "Failed to save review"
+                    "error": (
+                        "A rating or comment is "
+                        "required to submit a review."
+                    )
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --------------------------- RESPONSE ---------------------------
-        review_dict = serialize_review(
-            review,
-            include_likes=True,
-            current_user=user,
-        )
+        # ------------------------------CHECK EXISTING REVIEW---------------------------------------
+        if Reviews.objects.filter(
+            user=request.user,
+            sparepart=part
+        ).exists():
+            return Response(
+                {
+                    "error": (
+                        "You have already reviewed "
+                        "this spare part."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        review_dict["total_likes"] = 0
-        review_dict["total_dislikes"] = 0
-        review_dict["likes"] = []
-        review_dict["user_reaction"] = None
+        # ------------------------------CREATE REVIEW---------------------------------------
+        with transaction.atomic():
+            review = Reviews.objects.create(
+                user=request.user,
+                sparepart=part,
+                rating=rating,
+                comment=comment
+            )
 
         return Response(
-            review_dict,
-            status=status.HTTP_201_CREATED,
+            {
+                "message": (
+                    "Rating submitted successfully."
+                    if rating is not None and comment is None
+                    else
+                    "Comment submitted successfully."
+                    if rating is None and comment is not None
+                    else
+                    "Review submitted successfully."
+                ),
+                "review_id": str(
+                    review.id
+                ),
+            },
+            status=status.HTTP_201_CREATED
         )
 
 
-# --------------------------- REVIEW EDIT ----------------------------------------------
+# ------------------------------EDIT REVIEW---------------------------------------
 class ReviewEditView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(
         self,
         request,
-        review_id,
+        review_id
     ):
-        """Edit a review. Owner only."""
-
-        review = get_object_or_404(
-            Reviews,
-            pk=review_id,
-        )
-
-        # --------------------------- OWNERSHIP ---------------------------
-        if review.user_id != request.user.id:
-
-            return Response(
-                {
-                    "error": "Cannot edit others' reviews"
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        data = request.data or {}
-
-        # --------------------------- RATING ---------------------------
-        if "rating" in data:
-
-            rating = data.get(
-                "rating"
-            )
-
-            if rating is None:
-
-                review.rating = None
-
-            else:
-
-                try:
-
-                    rating = int(
-                        rating
-                    )
-
-                except (
-                    ValueError,
-                    TypeError,
-                ):
-
-                    return Response(
-                        {
-                            "error": (
-                                "Rating must be an integer"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                if not 1 <= rating <= 5:
-
-                    return Response(
-                        {
-                            "error": (
-                                "Rating must be between 1 and 5"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                review.rating = rating
-
-        # --------------------------- COMMENT ---------------------------
-        if "comment" in data:
-
-            comment = data.get(
-                "comment"
-            )
-
-            if (
-                comment is None
-                or not isinstance(
-                    comment,
-                    str,
-                )
-                or not comment.strip()
-            ):
-
-                review.comment = None
-
-            else:
-
-                review.comment = comment.strip()
-
-        # --------------------------- VALIDATE ---------------------------
-        if (
-            review.rating is None
-            and not review.comment
-        ):
-
+        # ------------------------------UPDATE REVIEW---------------------------------------
+        if request.user.role != "buyer":
             return Response(
                 {
                     "error": (
-                        "Review must have a rating "
-                        "or comment"
+                        "Only buyer accounts can "
+                        "edit reviews."
                     )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_403_FORBIDDEN
             )
 
-        # --------------------------- UPDATE ---------------------------
-        try:
+        review = get_object_or_404(
+            Reviews,
+            id=review_id
+        )
 
-            with transaction.atomic():
-
-                review.save()
-
-        except Exception:
-
+        if review.user_id != request.user.id:
             return Response(
                 {
-                    "error": "Failed to update review"
+                    "error": (
+                        "You can only edit your "
+                        "own review."
+                    )
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                status=status.HTTP_403_FORBIDDEN
             )
 
-        # --------------------------- RESPONSE ---------------------------
+        rating = request.data.get(
+            "rating",
+            review.rating
+        )
+
+        comment = request.data.get(
+            "comment",
+            review.comment
+        )
+
+        # ------------------------------VALIDATE RATING---------------------------------------
+        if rating is not None:
+            try:
+                rating = int(rating)
+            except (
+                TypeError,
+                ValueError
+            ):
+                return Response(
+                    {
+                        "error": (
+                            "Rating must be an integer "
+                            "from 1 to 5."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if rating < 1 or rating > 5:
+                return Response(
+                    {
+                        "error": (
+                            "Rating must be between "
+                            "1 and 5."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # ------------------------------VALIDATE COMMENT---------------------------------------
+        if comment is not None:
+            comment = str(
+                comment
+            ).strip()
+
+        if not comment:
+            comment = None
+
+        # ------------------------------REQUIRE RATING OR COMMENT---------------------------------------
+        if rating is None and comment is None:
+            return Response(
+                {
+                    "error": (
+                        "A rating or comment is "
+                        "required for a review."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ------------------------------UPDATE REVIEW---------------------------------------
+        with transaction.atomic():
+            review.rating = rating
+            review.comment = comment
+            review.save(
+                update_fields=[
+                    "rating",
+                    "comment"
+                ]
+            )
+
         return Response(
-            serialize_review(
-                review,
-                include_likes=True,
-                current_user=request.user,
-            ),
-            status=status.HTTP_200_OK,
+            {
+                "message": (
+                    "Rating updated successfully."
+                    if rating is not None and comment is None
+                    else
+                    "Comment updated successfully."
+                    if rating is None and comment is not None
+                    else
+                    "Review updated successfully."
+                ),
+                "review_id": str(
+                    review.id
+                ),
+            },
+            status=status.HTTP_200_OK
         )
 
     def delete(
         self,
         request,
-        review_id,
+        review_id
     ):
-        """Delete a review. Owner only."""
+        # ------------------------------DELETE REVIEW---------------------------------------
+        if request.user.role != "buyer":
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts can "
+                        "delete reviews."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         review = get_object_or_404(
             Reviews,
-            pk=review_id,
+            id=review_id
         )
 
-        # --------------------------- OWNERSHIP ---------------------------
         if review.user_id != request.user.id:
-
             return Response(
                 {
-                    "error": "Cannot delete others' reviews"
+                    "error": (
+                        "You can only delete your "
+                        "own review."
+                    )
                 },
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_403_FORBIDDEN
             )
 
-        # --------------------------- DELETE ---------------------------
-        try:
-
-            with transaction.atomic():
-
-                review.delete()
-
-        except Exception:
-
-            return Response(
-                {
-                    "error": "Failed to delete review"
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        with transaction.atomic():
+            review.delete()
 
         return Response(
             {
-                "message": "Review deleted"
+                "message": (
+                    "Review deleted successfully."
+                )
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_200_OK
         )
 
-# --------------------------- REVIEW COMMENT REACTIONS ----------------------------------------------
+
+# ------------------------------REVIEW REACTIONS---------------------------------------
 class ReviewReactionsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(
         self,
         request,
-        review_id,
+        review_id
     ):
+        # ------------------------------REACT TO COMMENT---------------------------------------
+        if request.user.role != "buyer":
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts can "
+                        "react to comments."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         review = get_object_or_404(
             Reviews,
-            pk=review_id,
+            id=review_id
         )
 
-        current_user = request.user
-
-        # --------------------------- OWN COMMENT ---------------------------
-        if review.user_id == current_user.id:
+        if not review.comment:
             return Response(
                 {
-                    "error": "Cannot react to your own comment"
+                    "error": (
+                        "Only comments can receive "
+                        "reactions."
+                    )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --------------------------- DATA ---------------------------
-        data = request.data or {}
-
-        if "is_like" not in data:
+        if review.user_id == request.user.id:
             return Response(
                 {
-                    "error": "is_like is required"
+                    "error": (
+                        "You cannot react to your "
+                        "own comment."
+                    )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        is_like = data.get("is_like")
+        is_like = request.data.get(
+            "is_like"
+        )
 
-        if not isinstance(is_like, bool):
+        if not isinstance(
+            is_like,
+            bool
+        ):
             return Response(
                 {
-                    "error": "is_like must be a boolean"
+                    "error": (
+                        "is_like must be a boolean."
+                    )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --------------------------- EXISTING REACTION ---------------------------
-        existing = (
-            ReviewReactions.objects
-            .filter(
-                user=current_user,
+        # ------------------------------CREATE OR UPDATE REACTION---------------------------------------
+        with transaction.atomic():
+            reaction = ReviewReactions.objects.filter(
                 review=review,
-            )
-            .first()
-        )
+                user=request.user
+            ).first()
 
-        action = "added"
+            if reaction:
+                if reaction.is_like == is_like:
+                    reaction.delete()
 
-        # --------------------------- REACTION ---------------------------
-        try:
-            with transaction.atomic():
-
-                if existing:
-
-                    # removes same reaction
-                    if existing.is_like == is_like:
-                        existing.delete()
-                        action = "removed"
-
-                    # Switches to different reaction
-                    else:
-                        existing.is_like = is_like
-                        existing.save(
-                            update_fields=["is_like"]
-                        )
-                        action = "switched"
-
-                else:
-                    ReviewReactions.objects.create(
-                        user=current_user,
-                        review=review,
-                        is_like=is_like,
+                    return Response(
+                        {
+                            "message": (
+                                "Reaction removed."
+                            ),
+                            "total_likes": (
+                                review.total_likes
+                            ),
+                            "total_dislikes": (
+                                review.total_dislikes
+                            ),
+                            "current_user_reaction": None,
+                        },
+                        status=status.HTTP_200_OK
                     )
 
-        except Exception:
-            return Response(
-                {
-                    "error": "Failed to update reaction"
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+                reaction.is_like = is_like
 
-        # --------------------------- COMMENT REACTION COUNTS ---------------------------
-        total_likes = (
-            ReviewReactions.objects
-            .filter(
-                review=review,
-                is_like=True,
-            )
-            .count()
-        )
+                reaction.save(
+                    update_fields=[
+                        "is_like"
+                    ]
+                )
+            else:
+                reaction = ReviewReactions.objects.create(
+                    review=review,
+                    user=request.user,
+                    is_like=is_like
+                )
 
-        total_dislikes = (
-            ReviewReactions.objects
-            .filter(
-                review=review,
-                is_like=False,
-            )
-            .count()
-        )
-
-        # --------------------------- CURRENT COMMENT REACTION ---------------------------
-        current_reaction = (
-            ReviewReactions.objects
-            .filter(
-                review=review,
-                user=current_user,
-            )
-            .values_list(
-                "is_like",
-                flat=True,
-            )
-            .first()
-        )
-
-        # --------------------------- RESPONSE ---------------------------
         return Response(
             {
-                "action": action,
-
-                "comment": {
-                    "id": str(review.id),
-
-                    "total_likes": total_likes,
-
-                    "total_dislikes": total_dislikes,
-
-                    "user_reaction": (
-                        current_reaction
-                        if current_reaction is not None
-                        else None
-                    ),
-                },
+                "message": (
+                    "Reaction updated."
+                ),
+                "total_likes": (
+                    review.total_likes
+                ),
+                "total_dislikes": (
+                    review.total_dislikes
+                ),
+                "current_user_reaction": (
+                    "like"
+                    if reaction.is_like
+                    else "dislike"
+                ),
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_200_OK
         )
 
-    
-# --------------------------- MY REVIEWS ----------------------------------------------
+
+# ------------------------------MY REVIEWS---------------------------------------
 class MyReviewsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(
         self,
-        request,
+        request
     ):
-        """Get all reviews created by the currently authenticated buyer."""
-
-        current_user = request.user
-
-        reviews = (
-            Reviews.objects
-            .filter(
-                user_id=current_user.id
+        # ------------------------------GET MY REVIEWS---------------------------------------
+        if request.user.role != "buyer":
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts can "
+                        "access buyer reviews."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
             )
-            .select_related(
-                "user",
-                "sparepart",
-            )
-            .prefetch_related("likes")
-            .order_by("-created_at")
+
+        reviews = Reviews.objects.filter(
+            user=request.user
+        ).select_related(
+            "sparepart",
+            "user",
+            "user__profile"
+        ).prefetch_related(
+            "likes"
         )
-
-        result = []
-
-        for review in reviews:
-
-            review_dict = serialize_review(
-                review,
-                include_likes=True,
-                current_user=current_user,
-            )
-
-            # --------------------------- SPAREPART ID ---------------------------
-            review_dict["sparepart_id"] = str(
-                review.sparepart.id
-            )
-
-            # --------------------------- SPAREPART DETAILS ---------------------------
-            review_dict["sparepart"] = {
-                "id": str(
-                    review.sparepart.id
-                ),
-
-                "brand": (
-                    review.sparepart.brand
-                ),
-
-                "category": (
-                    review.sparepart.category
-                ),
-
-                "vehicle_type": (
-                    review.sparepart.vehicle_type
-                ),
-
-                "buying_price": money_to_float(
-                    review.sparepart.buying_price
-                ),
-
-                "marked_price": money_to_float(
-                    review.sparepart.marked_price
-                ),
-
-                "discount_amount": money_to_float(
-                    review.sparepart.discount_amount
-                ),
-
-                "discount_percentage": (
-                    review.sparepart.discount_percentage
-                ),
-
-                "image_url": (
-                    review.sparepart.image
-                ),
-            }
-
-            result.append(
-                review_dict
-            )
 
         return Response(
-            result,
-            status=status.HTTP_200_OK,
-        )
-
-# --------------------------- ORDERS ----------------------------------------------
-class BuyerOrdersView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(
-        self,
-        request,
-    ):
-        """Get logged-in user's paid orders."""
-
-        current_user = request.user
-
-        orders = (
-            Orders.objects
-            .prefetch_related(
-                "order_items__sparepart"
-            )
-            .filter(
-                user_id=current_user.id,
-                paid=True,
-            )
-            .order_by("-created_at")
-        )
-
-        summary = []
-
-        for order in orders:
-
-            order_items = list(
-                order.order_items.all()
-            )
-
-            # --------------------------- TOTAL PRICE ---------------------------
-            total_price = sum(
-                (
-                    money_to_decimal(
-                        item.subtotal
-                    )
-                    for item in order_items
-                ),
-                Decimal("0.00"),
-            )
-
-            # --------------------------- TOTAL ITEMS ---------------------------
-            total_items = sum(
-                int(
-                    item.quantity or 0
-                )
-                for item in order_items
-            )
-
-            # --------------------------- CREATED AT ---------------------------
-            created_at = (
-                order.created_at.isoformat()
-                if hasattr(
-                    order,
-                    "created_at",
-                )
-                and order.created_at
-                else None
-            )
-
-            # --------------------------- ORDER DATA ---------------------------
-            order_data = {
-                "id": str(
-                    order.id
-                ),
-
-                "status": (
-                    order.status
-                ),
-
-                "paid": (
-                    order.paid
-                ),
-
-                "payment_method": (
-                    order.payment_method
-                ),
-
-                "total_items": (
-                    total_items
-                ),
-
-                "total_price": money_to_float(
-                    total_price
-                ),
-
-                "address": (
-                    f"{order.street}, "
-                    f"{order.city}, "
-                    f"{order.country}"
-                ),
-
-                "created_at": (
-                    created_at
-                ),
-
-                "order_items": [
-                    {
+            [
+                {
+                    "id": str(review.id),
+                    "sparepart_id": str(
+                        review.sparepart.id
+                    ),
+                    "sparepart": {
                         "id": str(
-                            item.id
+                            review.sparepart.id
                         ),
-
-                        "quantity": int(
-                            item.quantity or 0
+                        "brand": review.sparepart.brand,
+                        "category": review.sparepart.category,
+                        "vehicle_type": (
+                            review.sparepart.vehicle_type
                         ),
-
-                        "price": money_to_float(
-                            item.unit_price
+                        "image_url": review.sparepart.image,
+                        "buying_price": (
+                            review.sparepart.buying_price
                         ),
-
-                        "subtotal": money_to_float(
-                            item.subtotal
+                        "discount_percentage": (
+                            review.sparepart.discount_percentage
                         ),
+                    },
+                    "user_display_name": get_user_display_name(
+                        review.user
+                    ),
+                    "rating": review.rating,
+                    "comment": review.comment,
+                    "created_at": review.created_at,
+                    "total_likes": review.total_likes,
+                    "total_dislikes": review.total_dislikes,
+                }
+                for review in reviews
+            ],
+            status=status.HTTP_200_OK
+        )
 
-                        "sparepart": {
-                            "id": str(
-                                item.sparepart.id
-                            ),
 
-                            "brand": (
-                                item.sparepart.brand
-                            ),
+# ------------------------------ADDRESS---------------------------------------
+class BuyerAddressView(APIView):
 
-                            "category": (
-                                item.sparepart.category
-                            ),
+    permission_classes = [
+        IsAuthenticated
+    ]
 
-                            "vehicle_type": (
-                                item.sparepart.vehicle_type
-                            ),
+    def serialize_address(
+        self,
+        address
+    ):
 
-                            "image_url": (
-                                item.sparepart.image
-                            ),
-                        },
-                    }
-                    for item in order_items
-                ],
-            }
+        return {
+            "id": str(
+                address.id
+            ),
+            "user": str(
+                address.user.id
+            ),
+            "street": address.street,
+            "city": address.city,
+            "postal_code": address.postal_code,
+            "country": address.country,
+            "created_at": address.created_at,
+            "updated_at": address.updated_at,
+        }
 
-            summary.append(
-                order_data
+    def check_buyer(
+        self,
+        request
+    ):
+
+        if request.user.role != "buyer":
+
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts have "
+                        "addresses."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        return None
+
+    def handle_validation_error(
+        self,
+        error
+    ):
+
+        if hasattr(
+            error,
+            "message_dict",
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        error.message_dict
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         return Response(
             {
-                "orders": summary
+                "error": error.messages
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    def get(
+        self,
+        request
+    ):
+
+        buyer_error = self.check_buyer(
+            request
+        )
+
+        if buyer_error:
+            return buyer_error
+
+        address = Address.objects.filter(
+            user=request.user
+        ).first()
+
+        if not address:
+
+            return Response(
+                {
+                    "error": (
+                        "Address does not exist."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            self.serialize_address(
+                address
+            ),
+            status=status.HTTP_200_OK
+        )
+
+    def post(
+        self,
+        request
+    ):
+
+        buyer_error = self.check_buyer(
+            request
+        )
+
+        if buyer_error:
+            return buyer_error
+
+        if Address.objects.filter(
+            user=request.user
+        ).exists():
+
+            return Response(
+                {
+                    "error": (
+                        "You already have an address."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        street = request.data.get(
+            "street"
+        )
+
+        city = request.data.get(
+            "city"
+        )
+
+        postal_code = request.data.get(
+            "postal_code"
+        )
+
+        country = request.data.get(
+            "country"
+        )
+
+        if (
+            street is None
+            or not str(
+                street
+            ).strip()
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "Street is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if (
+            city is None
+            or not str(
+                city
+            ).strip()
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "City is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if (
+            country is None
+            or not str(
+                country
+            ).strip()
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "Country is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        address = Address(
+            user=request.user,
+            street=str(
+                street
+            ).strip(),
+            city=str(
+                city
+            ).strip(),
+            postal_code=(
+                str(
+                    postal_code
+                ).strip()
+                if postal_code is not None
+                else ""
+            ),
+            country=str(
+                country
+            ).strip(),
+        )
+
+        try:
+
+            address.full_clean()
+
+            address.save()
+
+        except ValidationError as error:
+
+            return self.handle_validation_error(
+                error
+            )
+
+        return Response(
+            self.serialize_address(
+                address
+            ),
+            status=status.HTTP_201_CREATED
+        )
+
+    def put(
+        self,
+        request
+    ):
+
+        buyer_error = self.check_buyer(
+            request
+        )
+
+        if buyer_error:
+            return buyer_error
+
+        address = Address.objects.filter(
+            user=request.user
+        ).first()
+
+        if not address:
+
+            return Response(
+                {
+                    "error": (
+                        "Address does not exist."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        street = request.data.get(
+            "street"
+        )
+
+        city = request.data.get(
+            "city"
+        )
+
+        postal_code = request.data.get(
+            "postal_code"
+        )
+
+        country = request.data.get(
+            "country"
+        )
+
+        if (
+            street is None
+            or not str(
+                street
+            ).strip()
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "Street is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if (
+            city is None
+            or not str(
+                city
+            ).strip()
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "City is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if (
+            country is None
+            or not str(
+                country
+            ).strip()
+        ):
+
+            return Response(
+                {
+                    "error": (
+                        "Country is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        address.street = str(
+            street
+        ).strip()
+
+        address.city = str(
+            city
+        ).strip()
+
+        address.postal_code = (
+            str(
+                postal_code
+            ).strip()
+            if postal_code is not None
+            else ""
+        )
+
+        address.country = str(
+            country
+        ).strip()
+
+        try:
+
+            address.full_clean()
+
+            address.save()
+
+        except ValidationError as error:
+
+            return self.handle_validation_error(
+                error
+            )
+
+        return Response(
+            self.serialize_address(
+                address
+            ),
+            status=status.HTTP_200_OK
+        )
+
+    def patch(
+        self,
+        request
+    ):
+
+        buyer_error = self.check_buyer(
+            request
+        )
+
+        if buyer_error:
+            return buyer_error
+
+        address = Address.objects.filter(
+            user=request.user
+        ).first()
+
+        if not address:
+
+            return Response(
+                {
+                    "error": (
+                        "Address does not exist."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        allowed_fields = {
+            "street",
+            "city",
+            "postal_code",
+            "country",
+        }
+
+        invalid_fields = (
+            set(request.data.keys())
+            - allowed_fields
+        )
+
+        if invalid_fields:
+
+            return Response(
+                {
+                    "error": (
+                        "Only street, city, postal_code "
+                        "and country can be edited."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not request.data:
+
+            return Response(
+                {
+                    "error": (
+                        "At least one address field "
+                        "is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        for field in allowed_fields:
+
+            if field not in request.data:
+                continue
+
+            value = request.data.get(
+                field
+            )
+
+            if field != "postal_code":
+
+                if (
+                    value is None
+                    or not str(
+                        value
+                    ).strip()
+                ):
+
+                    return Response(
+                        {
+                            "error": (
+                                f"{field.replace('_', ' ').capitalize()} "
+                                "cannot be empty."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                value = str(
+                    value
+                ).strip()
+
+            else:
+
+                if value is None:
+
+                    value = ""
+
+                else:
+
+                    value = str(
+                        value
+                    ).strip()
+
+            setattr(
+                address,
+                field,
+                value,
+            )
+
+        try:
+
+            address.full_clean()
+
+            address.save()
+
+        except ValidationError as error:
+
+            return self.handle_validation_error(
+                error
+            )
+
+        return Response(
+            self.serialize_address(
+                address
+            ),
+            status=status.HTTP_200_OK
+        )
+
+    def delete(
+        self,
+        request
+    ):
+
+        buyer_error = self.check_buyer(
+            request
+        )
+
+        if buyer_error:
+            return buyer_error
+
+        address = Address.objects.filter(
+            user=request.user
+        ).first()
+
+        if not address:
+
+            return Response(
+                {
+                    "error": (
+                        "Address does not exist."
+                    )
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        address.delete()
+
+        return Response(
+            {
+                "message": (
+                    "Address deleted successfully."
+                )
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+# ------------------------------ CART ITEMS ---------------------------------------
+class CartItemsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def serialize_cart_item(
+        self,
+        cart_item
+    ):
+        sparepart = cart_item.sparepart
+
+        unit_price = (
+            money_to_decimal(
+                sparepart.marked_price
+            )
+            - money_to_decimal(
+                sparepart.discount_amount
+            )
+        ).quantize(
+            Decimal("0.01")
+        )
+
+        subtotal = (
+            unit_price
+            * cart_item.quantity
+        ).quantize(
+            Decimal("0.01")
+        )
+
+        return {
+            "id": str(cart_item.id),
+            "sparepart": serialize_sparepart(
+                sparepart
+            ),
+            "quantity": cart_item.quantity,
+            "unit_price": money_to_float(
+                unit_price
+            ),
+            "subtotal": money_to_float(
+                subtotal
+            ),
+            "created_at": cart_item.created_at,
+            "updated_at": cart_item.updated_at,
+        }
+
+    def get(
+        self,
+        request
+    ):
+        cart_items = (
+            CartItems.objects
+            .filter(
+                user=request.user
+            )
+            .select_related(
+                "sparepart"
+            )
+            .order_by(
+                "-created_at"
+            )
+        )
+
+        if not cart_items.exists():
+            return Response(
+                {
+                    "items": [],
+                    "total_quantity": 0,
+                    "total_price": 0.0,
+                },
+                status=status.HTTP_200_OK
+            )
+
+        items = [
+            self.serialize_cart_item(
+                cart_item
+            )
+            for cart_item in cart_items
+        ]
+
+        total_price = sum(
+            (
+                money_to_decimal(
+                    item["subtotal"]
+                )
+                for item in items
+            ),
+            Decimal("0.00")
+        ).quantize(
+            Decimal("0.01")
+        )
+
+        total_quantity = sum(
+            item["quantity"]
+            for item in items
+        )
+
+        return Response(
+            {
+                "items": items,
+                "total_quantity": total_quantity,
+                "total_price": money_to_float(
+                    total_price
+                ),
+            },
+            status=status.HTTP_200_OK
+        )
+
+    def post(
+        self,
+        request
+    ):
+        sparepart_id = request.data.get(
+            "sparepart_id"
+        )
+
+        quantity = request.data.get(
+            "quantity",
+            1
+        )
+
+        if not sparepart_id:
+            return Response(
+                {
+                    "error": (
+                        "sparepart_id is required."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            quantity = int(
+                quantity
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
+            return Response(
+                {
+                    "error": (
+                        "Quantity must be a "
+                        "positive integer."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if quantity <= 0:
+            return Response(
+                {
+                    "error": (
+                        "Quantity must be greater "
+                        "than zero."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        sparepart = get_object_or_404(
+            SpareParts,
+            id=sparepart_id
+        )
+
+        with transaction.atomic():
+            cart_item, created = (
+                CartItems.objects
+                .select_for_update()
+                .get_or_create(
+                    user=request.user,
+                    sparepart=sparepart,
+                    defaults={
+                        "quantity": quantity
+                    }
+                )
+            )
+
+            if not created:
+                cart_item.quantity += quantity
+
+                cart_item.save(
+                    update_fields=[
+                        "quantity",
+                        "updated_at"
+                    ]
+                )
+
+        return Response(
+            self.serialize_cart_item(
+                cart_item
+            ),
+            status=(
+                status.HTTP_201_CREATED
+                if created
+                else status.HTTP_200_OK
+            )
         )
 
     def patch(
         self,
         request,
-        order_id,
+        cart_item_id
     ):
-        """Cancel a paid pending order."""
-
-        current_user = request.user
-
-        order = get_object_or_404(
-            Orders,
-            pk=order_id,
+        cart_item = get_object_or_404(
+            CartItems,
+            id=cart_item_id,
+            user=request.user
         )
 
-        # --------------------------- OWNER CHECK ---------------------------
-        if order.user_id != current_user.id:
-
-            return Response(
-                {
-                    "error": (
-                        "You cannot modify "
-                        "someone else's order"
-                    )
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        data = request.data or {}
-
-        new_status = data.get(
-            "status"
+        quantity = request.data.get(
+            "quantity"
         )
 
-        # --------------------------- STATUS REQUIRED ---------------------------
-        if not new_status:
-
-            return Response(
-                {
-                    "error": "Missing status field"
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # --------------------------- ONLY PAID PENDING ORDERS ---------------------------
-        if not order.paid:
-
+        if quantity is None:
             return Response(
                 {
                     "error": (
-                        "Only paid orders can be cancelled"
+                        "quantity is required."
                     )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --------------------------- ONLY PENDING ---------------------------
-        if order.status != "pending":
-
+        try:
+            quantity = int(
+                quantity
+            )
+        except (
+            TypeError,
+            ValueError
+        ):
             return Response(
                 {
                     "error": (
-                        "Order cannot be updated "
-                        f"(current status: {order.status})"
+                        "Quantity must be a "
+                        "positive integer."
                     )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --------------------------- VALID STATUS ---------------------------
-        if new_status not in [
-            "cancelled"
-        ]:
-
+        if quantity <= 0:
             return Response(
                 {
-                    "error": "Invalid status change"
+                    "error": (
+                        "Quantity must be greater "
+                        "than zero. Use DELETE "
+                        "to remove the item."
+                    )
                 },
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-        # --------------------------- UPDATE ---------------------------
-        order.status = new_status
+        cart_item.quantity = quantity
 
-        order.save(
+        cart_item.save(
             update_fields=[
-                "status"
+                "quantity",
+                "updated_at"
             ]
         )
 
         return Response(
+            self.serialize_cart_item(
+                cart_item
+            ),
+            status=status.HTTP_200_OK
+        )
+
+    def delete(
+        self,
+        request,
+        cart_item_id
+    ):
+        cart_item = get_object_or_404(
+            CartItems,
+            id=cart_item_id,
+            user=request.user
+        )
+
+        cart_item.delete()
+
+        return Response(
             {
                 "message": (
-                    f"Order {order_id} status "
-                    f"updated to {new_status}"
+                    "Item removed from cart successfully."
                 )
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_200_OK
+        )
+
+    
+# ------------------------------BUYER ORDERS---------------------------------------
+class BuyerOrdersView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(
+        self,
+        request
+    ):
+        # ------------------------------GET BUYER ORDERS---------------------------------------
+        if request.user.role != "buyer":
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts have "
+                        "orders."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        orders = Orders.objects.filter(
+            user=request.user,
+            paid=True
+        ).select_related(
+            "address"
+        ).prefetch_related(
+            "order_items__sparepart"
+        ).order_by(
+            "-created_at"
+        )
+
+        response_data = []
+
+        for order in orders:
+            
+            # ------------------------------ORDER ITEMS---------------------------------------
+            items = []
+            total_quantity = 0
+
+            for item in order.order_items.all():
+                subtotal = money_to_decimal(
+                    item.subtotal
+                )
+
+                quantity = item.quantity
+
+                total_quantity += quantity
+
+                items.append(
+                    {
+                        "id": str(item.id),
+                        "sparepart": (
+                            serialize_sparepart(
+                                item.sparepart
+                            )
+                        ),
+                        "quantity": quantity,
+                        "unit_price": (
+                            money_to_float(
+                                item.unit_price
+                            )
+                        ),
+                        "subtotal": (
+                            money_to_float(
+                                subtotal
+                            )
+                        ),
+                    }
+                )
+
+            # ------------------------------ORDER ADDRESS---------------------------------------
+            address = order.address
+
+            if address:
+                address_details = {
+                    "id": str(address.id),
+                    "street": address.street,
+                    "city": address.city,
+                    "postal_code": address.postal_code,
+                    "country": address.country,
+                }
+
+                address_string = ", ".join(
+                    value
+                    for value in [
+                        address.street,
+                        address.city,
+                        address.postal_code,
+                        address.country,
+                    ]
+                    if value
+                )
+            else:
+                address_details = None
+                address_string = ""
+
+            # ------------------------------ORDER RESPONSE---------------------------------------
+            response_data.append(
+                {
+                    "id": str(order.id),
+                    "status": order.status,
+                    "paid": order.paid,
+                    "payment_method": (
+                        order.payment_method
+                    ),
+                    "created_at": order.created_at,
+                    "total_price": (
+                        money_to_float(
+                            money_to_decimal(
+                                order.total_price
+                            )
+                        )
+                    ),
+                    "total_quantity": (
+                        total_quantity
+                    ),
+                    "address": address_string,
+                    "address_details": (
+                        address_details
+                    ),
+                    "items": items,
+                }
+            )
+
+        return Response(
+            response_data,
+            status=status.HTTP_200_OK
+        )
+
+    def patch(
+        self,
+        request,
+        order_id
+    ):
+        # ------------------------------CANCEL ORDER---------------------------------------
+        if request.user.role != "buyer":
+            return Response(
+                {
+                    "error": (
+                        "Only buyer accounts can "
+                        "cancel orders."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        order = get_object_or_404(
+            Orders,
+            id=order_id
+        )
+
+        if order.user_id != request.user.id:
+            return Response(
+                {
+                    "error": (
+                        "You can only update your "
+                        "own orders."
+                    )
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if not order.paid:
+            return Response(
+                {
+                    "error": (
+                        "Only paid orders can be "
+                        "cancelled."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if order.status != "pending":
+            return Response(
+                {
+                    "error": (
+                        "Only pending orders can "
+                        "be cancelled."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        new_status = request.data.get(
+            "status"
+        )
+
+        if new_status != "cancelled":
+            return Response(
+                {
+                    "error": (
+                        "The only allowed status "
+                        "update is cancelled."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            order.status = "cancelled"
+
+            order.save(
+                update_fields=[
+                    "status"
+                ]
+            )
+
+        return Response(
+            {
+                "message": (
+                    "Order cancelled successfully."
+                ),
+                "order_id": str(
+                    order.id
+                ),
+                "status": order.status,
+            },
+            status=status.HTTP_200_OK
         )

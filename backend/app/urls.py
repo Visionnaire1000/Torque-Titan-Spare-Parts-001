@@ -12,6 +12,7 @@ from app.views.authViews import (
     DeleteAccountView,
     TokenRefreshView,
     LogoutView,
+    ProfileView,
 )
 
 from app.views.buyerViews import (
@@ -20,12 +21,16 @@ from app.views.buyerViews import (
     ReviewEditView,
     ReviewReactionsView,
     MyReviewsView,
+    BuyerAddressView,
+    CartItemsView,
     BuyerOrdersView,
-)
+    )
+
 
 from app.views.adminViews import (
     CreateAdminView,
     ListAdminsView,
+    UnlockAdminAccountView,
     DeleteAdminView,
     AdminOrdersView,
     AdminSparePartsView,
@@ -84,7 +89,7 @@ urlpatterns = [
     path(
         "auth/google/",
         GoogleLoginView.as_view(),
-        name="login",
+        name="google-login",
     ),
 
     path(
@@ -117,6 +122,12 @@ urlpatterns = [
         name="logout",
     ),
 
+    path(
+        "profile/",
+        ProfileView.as_view(),
+        name="profile",
+    ),
+
 
     # ---------------------- BUYER SPARE-PARTS -------------------------------------
     path(
@@ -143,7 +154,7 @@ urlpatterns = [
         "reviews/<str:review_id>/react/",
         ReviewReactionsView.as_view(),
         name="review-reaction",
-        ),
+    ),
 
     path(
         "reviews/<str:review_id>/edit/",
@@ -154,15 +165,34 @@ urlpatterns = [
     path(
         "reviews/<str:review_id>/delete/",
         ReviewEditView.as_view(),
-        name="review-reaction",
+        name="review-delete",
     ),
 
     path(
         "buyer-reviews/",
-       MyReviewsView.as_view(),
-       name="buyer-reviews",
+        MyReviewsView.as_view(),
+        name="buyer-reviews",
     ),
 
+    # ---------------------- BUYER ADDRESS -------------------------------------
+    path(
+        "address/",
+        BuyerAddressView.as_view(),
+        name="buyer-address",
+    ),
+
+     # ---------------------- CART ITEMS -------------------------------------
+    path(
+         "cart/",
+        CartItemsView.as_view(),
+        name="cart",
+    ),
+
+    path(
+         "cart/<str:cart_item_id>/",
+        CartItemsView.as_view(),
+        name="cart-item",
+    ),
 
     # ---------------------- BUYER ORDERS -------------------------------------
     path(
@@ -189,6 +219,12 @@ urlpatterns = [
         "admin/admins/",
         ListAdminsView.as_view(),
         name="list-admins",
+    ),
+
+    path(
+        "admin/unlock-admin/<str:admin_id>/",
+        UnlockAdminAccountView.as_view(),
+        name="unlock-admin",
     ),
 
     path(
@@ -247,7 +283,7 @@ urlpatterns = [
         name="create-stripe-session",
     ),
 
-     path(
+    path(
         "checkout/stripe-cancel/",
         CancelStripeSessionView.as_view(),
         name="stripe-cancel",
@@ -258,6 +294,7 @@ urlpatterns = [
         StripeWebhookView.as_view(),
         name="stripe-webhook",
     ),
+
 
     # ---------------------- PAYSTACK CHECKOUT -------------------------------------
     path(
@@ -278,13 +315,14 @@ urlpatterns = [
         name="paystack-webhook",
     ),
 
+
     # ---------------------- PAYPAL CHECKOUT -------------------------------------
     path(
         "checkout/create-paypal-session/",
         CreatePayPalSessionView.as_view(),
         name="create-paypal-session",
     ),
-    
+
     path(
         "checkout/paypal-capture/",
         CapturePayPalSessionView.as_view(),
@@ -302,7 +340,8 @@ urlpatterns = [
         PayPalWebhookView.as_view(),
         name="paypal-webhook",
     ),
-       
+
+
     # ---------------------- DATA ANALYTICS -------------------------------------
     path(
         "admin/revenue-analytics/",
@@ -314,5 +353,5 @@ urlpatterns = [
         "admin/reviews-analytics/",
         ReviewsAnalyticsView.as_view(),
         name="reviews-analytics",
-        ),
+    ),
 ]

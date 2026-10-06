@@ -1,10 +1,12 @@
 import { type CSSProperties, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { RefreshCw, Star, ThumbsDown, ThumbsUp } from "lucide-react";
+import { ArrowLeft, RefreshCw, Star, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import config from "../../config";
+
+
 
 /* ----------------------------- INTERFACES ------------------------- */
 interface ErrorStateProps {
@@ -31,14 +33,10 @@ interface Review {
   rating: number | null;
   comment: string | null;
   created_at: string;
-
   total_likes: number;
   total_dislikes: number;
-
   user_reaction: boolean | null;
-
-  display_name: string;
-  user_display_name?: string;
+  user_display_name: string;
 }
 
 interface SparePart {
@@ -53,23 +51,36 @@ interface SparePart {
   discount_percentage: number;
 }
 
-interface ReviewReactionResponse {
-  action: "added" | "removed" | "switched";
-
-  comment: {
-    id: string;
-    total_likes: number;
-    total_dislikes: number;
-    user_reaction: boolean | null;
-  };
-}
-
 interface ReviewActionOptions {
   method: "POST" | "PATCH" | "DELETE";
   endpoint: string;
   body?: Record<string, unknown>;
   successMessage?: string;
 }
+
+
+interface RestoreState {
+  from?: string;
+  restoreFilters?: {
+    brand?: string;
+    price?: string;
+    currentPage?: number;
+  };
+  restoreScrollY?: number;
+  expandedOrderId?: string | null;
+}
+
+interface SavedItemPosition {
+  from?: string;
+  restoreFilters?: {
+    brand?: string;
+    price?: string;
+    currentPage?: number;
+  };
+  restoreScrollY?: number;
+  expandedOrderId?: string | null;
+}
+
 
 /* ----------------------------- ERROR STATE ------------------------- */
 const ErrorState = ({
@@ -85,6 +96,7 @@ const ErrorState = ({
     </p>
 
     <button
+      type="button"
       onClick={onRetry}
       className="
         flex
@@ -163,9 +175,7 @@ const StarRating = ({
         (star) => {
           let fillPercent = 0;
 
-          if (
-            roundedValue >= star
-          ) {
+          if (roundedValue >= star) {
             fillPercent = 100;
           } else if (
             roundedValue + 0.5 ===
@@ -223,6 +233,126 @@ const StarRating = ({
           );
         }
       )}
+    </div>
+  );
+};
+
+/* ----------------------------- PROFILE CIRCLE ------------------------- */
+const getProfileInitials = (
+  displayName: string
+): string => {
+  const name =
+    displayName.trim();
+
+  if (!name) {
+    return "U";
+  }
+
+  const parts = name
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0]
+      .charAt(0)
+      .toUpperCase();
+  }
+
+  const firstInitial =
+    parts[0]
+      .charAt(0)
+      .toUpperCase();
+
+  const lastInitial =
+    parts[parts.length - 1]
+      .charAt(0)
+      .toUpperCase();
+
+  return `${firstInitial}${lastInitial}`;
+};
+
+const getProfileColor = (
+  displayName: string
+): string => {
+  const initials =
+    getProfileInitials(
+      displayName
+    );
+
+  const initial =
+    initials.charAt(0);
+
+  const colors: Record<
+    string,
+    string
+  > = {
+    A: "bg-red-500",
+    B: "bg-orange-500",
+    C: "bg-amber-500",
+    D: "bg-yellow-500",
+    E: "bg-lime-500",
+    F: "bg-green-500",
+    G: "bg-emerald-500",
+    H: "bg-teal-500",
+    I: "bg-cyan-500",
+    J: "bg-sky-500",
+    K: "bg-blue-500",
+    L: "bg-indigo-500",
+    M: "bg-violet-500",
+    N: "bg-purple-500",
+    O: "bg-fuchsia-500",
+    P: "bg-pink-500",
+    Q: "bg-rose-500",
+    R: "bg-red-600",
+    S: "bg-orange-600",
+    T: "bg-yellow-600",
+    U: "bg-green-600",
+    V: "bg-teal-600",
+    W: "bg-cyan-600",
+    X: "bg-blue-600",
+    Y: "bg-indigo-600",
+    Z: "bg-purple-600",
+  };
+
+  return (
+    colors[initial] ??
+    "bg-gray-500"
+  );
+};
+
+const ProfileCircle = ({
+  displayName,
+}: {
+  displayName: string;
+}) => {
+  const initials =
+    getProfileInitials(
+      displayName
+    );
+
+  const color =
+    getProfileColor(
+      displayName
+    );
+
+  return (
+    <div
+      className={`
+        flex
+        h-10
+        w-10
+        shrink-0
+        items-center
+        justify-center
+        rounded-full
+        text-sm
+        font-bold
+        text-white
+        ${color}
+      `}
+      aria-label={`${displayName} profile`}
+    >
+      {initials}
     </div>
   );
 };
@@ -378,41 +508,35 @@ const ItemDetailsSkeleton = () => (
               p-3
             "
           >
-            <Skeleton
-              width="120px"
-              height="16px"
-            />
+            <div className="flex items-center gap-3">
+              <Skeleton
+                width="40px"
+                height="40px"
+                borderRadius={999}
+              />
 
-            <Skeleton
-              width="80px"
-              height="14px"
-              style={{
-                marginTop: 4,
-              }}
-            />
+              <div className="flex flex-1 flex-col gap-2">
+                <Skeleton
+                  width="120px"
+                  height="16px"
+                />
 
-            <div className="my-1 flex gap-[5px]">
-              {[...Array(5)].map(
-                (_, j) => (
-                  <Skeleton
-                    key={j}
-                    width="20px"
-                    height="20px"
-                    borderRadius={999}
-                  />
-                )
-              )}
+                <Skeleton
+                  width="80px"
+                  height="14px"
+                />
+              </div>
             </div>
 
             <Skeleton
               width="90%"
               height="14px"
               style={{
-                marginTop: 4,
+                marginTop: 12,
               }}
             />
 
-            <div className="mt-1 flex gap-[5px]">
+            <div className="mt-3 flex gap-[5px]">
               <Skeleton
                 width="60px"
                 height="30px"
@@ -437,6 +561,12 @@ const BuyerItemDetails = () => {
   const { id } =
     useParams<{ id: string }>();
 
+  const location =
+    useLocation();
+
+  const navigate =
+    useNavigate();
+
   const { addItem } =
     useCart();
 
@@ -446,15 +576,14 @@ const BuyerItemDetails = () => {
     authFetch,
   } = useAuth();
 
-  const currentUserId: string | null =
+  const currentUserId:
+    string | null =
     user?.id != null
       ? String(user.id)
       : null;
 
   const [item, setItem] =
-    useState<SparePart | null>(
-      null
-    );
+    useState<SparePart | null>(null);
 
   const [reviews, setReviews] =
     useState<Review[]>([]);
@@ -488,12 +617,17 @@ const BuyerItemDetails = () => {
 
   /* ----------------------------- FETCH ------------------------- */
   const fetchItemAndReviews =
-    async (): Promise<void> => {
+    async (
+      showLoading = true
+    ): Promise<void> => {
       if (!id) {
         return;
       }
 
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
+
       setError(false);
 
       try {
@@ -504,7 +638,6 @@ const BuyerItemDetails = () => {
           fetch(
             `${config.API_BASE_URL}/spareparts/${id}/`
           ),
-
           authFetch(
             `${config.API_BASE_URL}/reviews/${id}/`
           ),
@@ -525,31 +658,33 @@ const BuyerItemDetails = () => {
         const reviewData: Review[] =
           await reviewsRes.json();
 
-        const normalizedReviews =
+        const normalizedReviews:
+          Review[] =
           reviewData.map(
             (review) => ({
               ...review,
-
               id: String(
                 review.id
               ),
-
               user_id: String(
                 review.user_id
               ),
-
-              total_likes:
-                Number(
-                  review.total_likes ??
-                    0
-                ),
-
+              rating:
+                review.rating !==
+                null
+                  ? Number(
+                      review.rating
+                    )
+                  : null,
+              total_likes: Number(
+                review.total_likes ??
+                  0
+              ),
               total_dislikes:
                 Number(
                   review.total_dislikes ??
                     0
                 ),
-
               user_reaction:
                 review.user_reaction ===
                 true
@@ -558,10 +693,8 @@ const BuyerItemDetails = () => {
                       false
                     ? false
                     : null,
-
-              display_name:
-                review.user_display_name ??
-                review.display_name ??
+              user_display_name:
+                review.user_display_name?.trim() ||
                 "User",
             })
           );
@@ -574,7 +707,9 @@ const BuyerItemDetails = () => {
         console.error(err);
         setError(true);
       } finally {
-        setLoading(false);
+        if (showLoading) {
+          setLoading(false);
+        }
       }
     };
 
@@ -584,15 +719,22 @@ const BuyerItemDetails = () => {
       return;
     }
 
-    void fetchItemAndReviews();
+    void fetchItemAndReviews(
+      true
+    );
   }, [
     authLoading,
     id,
+    currentUserId,
   ]);
 
   /* ----------------------------- SCROLL TO TOP ------------------------- */
   useEffect(() => {
-    window.scrollTo(0, 0);
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
   }, [id]);
 
   const averageRating =
@@ -607,10 +749,34 @@ const BuyerItemDetails = () => {
           (review) =>
             String(
               review.user_id
-            ) ===
-            currentUserId
+            ) === currentUserId
         ) ?? null
       : null;
+
+  /* ----------------------------- COMMENT REVIEWS ------------------------- */
+  const commentReviews =
+    reviews.filter(
+      (review) =>
+        Boolean(
+          review.comment?.trim()
+        )
+    );
+
+  const orderedCommentReviews =
+    userReview?.comment?.trim()
+      ? [
+          userReview,
+          ...commentReviews.filter(
+            (review) =>
+              String(
+                review.id
+              ) !==
+              String(
+                userReview.id
+              )
+          ),
+        ]
+      : commentReviews;
 
   /* ----------------------------- REVIEW ACTION ------------------------- */
   const handleReviewAction =
@@ -626,12 +792,10 @@ const BuyerItemDetails = () => {
             `${config.API_BASE_URL}${endpoint}`,
             {
               method,
-
               headers: {
                 "Content-Type":
                   "application/json",
               },
-
               body: body
                 ? JSON.stringify(
                     body
@@ -656,15 +820,15 @@ const BuyerItemDetails = () => {
           );
         }
 
-        if (
-          successMessage
-        ) {
+        if (successMessage) {
           toast.success(
             successMessage
           );
         }
 
-        await fetchItemAndReviews();
+        await fetchItemAndReviews(
+          false
+        );
 
         return true;
       } catch (err) {
@@ -675,6 +839,79 @@ const BuyerItemDetails = () => {
         );
 
         return false;
+      }
+    };
+
+  /* ----------------------------- REACT TO REVIEW ------------------------- */
+  const reactToReview =
+    async (
+      review: Review,
+      isLike: boolean
+    ): Promise<void> => {
+      if (
+        currentUserId === null
+      ) {
+        toast.info(
+          "Please log in to react to comments."
+        );
+
+        return;
+      }
+
+      if (
+        String(
+          review.user_id
+        ) === currentUserId
+      ) {
+        toast.info(
+          "You cannot react to your own comment."
+        );
+
+        return;
+      }
+
+      try {
+        const res =
+          await authFetch(
+            `${config.API_BASE_URL}/reviews/${review.id}/react/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                is_like:
+                  isLike,
+              }),
+            }
+          );
+
+        if (!res.ok) {
+          const errData =
+            await res
+              .json()
+              .catch(
+                () => ({})
+              );
+
+          throw new Error(
+            errData.error ??
+              errData.detail ??
+              errData.message ??
+              "Reaction failed"
+          );
+        }
+
+        await fetchItemAndReviews(
+          false
+        );
+      } catch (err) {
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Reaction failed"
+        );
       }
     };
 
@@ -689,12 +926,15 @@ const BuyerItemDetails = () => {
         return;
       }
 
+      const trimmedComment =
+        comment.trim();
+
       if (
         !rating &&
-        !comment.trim()
+        !trimmedComment
       ) {
         toast.error(
-          "Add a rating or comment"
+          "Add a rating or comment."
         );
 
         return;
@@ -702,18 +942,14 @@ const BuyerItemDetails = () => {
 
       void handleReviewAction({
         method: "POST",
-
         endpoint: `/reviews/${id}/`,
-
         body: {
           rating:
-            rating || undefined,
-
+            rating || null,
           comment:
-            comment.trim() ||
-            undefined,
+            trimmedComment ||
+            null,
         },
-
         successMessage:
           "Review added",
       }).then(
@@ -733,8 +969,10 @@ const BuyerItemDetails = () => {
     review: Review
   ): void => {
     if (
-      userReview?.id !==
-      review.id
+      currentUserId === null ||
+      String(
+        review.user_id
+      ) !== currentUserId
     ) {
       toast.error(
         "You can only edit your own review."
@@ -770,8 +1008,10 @@ const BuyerItemDetails = () => {
     review: Review
   ): void => {
     if (
-      userReview?.id !==
-      review.id
+      currentUserId === null ||
+      String(
+        review.user_id
+      ) !== currentUserId
     ) {
       toast.error(
         "You can only edit your own review."
@@ -780,12 +1020,15 @@ const BuyerItemDetails = () => {
       return;
     }
 
+    const trimmedComment =
+      editComment.trim();
+
     if (
       !editRating &&
-      !editComment.trim()
+      !trimmedComment
     ) {
       toast.error(
-        "Add a rating or comment"
+        "Add a rating or comment."
       );
 
       return;
@@ -793,19 +1036,14 @@ const BuyerItemDetails = () => {
 
     void handleReviewAction({
       method: "PATCH",
-
       endpoint: `/reviews/${review.id}/edit/`,
-
       body: {
         rating:
-          editRating ||
-          undefined,
-
+          editRating || null,
         comment:
-          editComment.trim() ||
-          undefined,
+          trimmedComment ||
+          null,
       },
-
       successMessage:
         "Review updated",
     }).then(
@@ -822,8 +1060,10 @@ const BuyerItemDetails = () => {
     review: Review
   ): void => {
     if (
-      userReview?.id !==
-      review.id
+      currentUserId === null ||
+      String(
+        review.user_id
+      ) !== currentUserId
     ) {
       toast.error(
         "You can only delete your own review."
@@ -834,136 +1074,87 @@ const BuyerItemDetails = () => {
 
     void handleReviewAction({
       method: "DELETE",
-
       endpoint: `/reviews/${review.id}/delete/`,
-
       successMessage:
         "Review deleted",
     });
   };
 
-  /* ----------------------------- COMMENT REACTION ------------------------- */
-  const reactToComment =
-    async (
-      review: Review,
-      isLike: boolean
-    ): Promise<void> => {
-      if (
-        !review.comment?.trim()
-      ) {
-        return;
-      }
+ /* ----------------------------- BACK ------------------------- */
+const handleBack =
+  (): void => {
+    const state =
+      location.state as
+        | RestoreState
+        | null;
 
-      if (
-        userReview?.id ===
-        review.id
-      ) {
-        return;
-      }
+    if (state?.from) {
+      navigate(
+        state.from,
+        {
+          state: {
+            restoreFilters:
+              state.restoreFilters,
+            restoreScrollY:
+              state.restoreScrollY,
+            expandedOrderId:
+              state.expandedOrderId,
+          },
+        }
+      );
 
-      if (
-        currentUserId === null
-      ) {
-        toast.info(
-          "Please log in to react to comments."
+      return;
+    }
+
+    if (id) {
+      const savedPosition =
+        sessionStorage.getItem(
+          `titan_item_restore_${id}`
         );
 
-        return;
-      }
+      if (savedPosition) {
+        try {
+          const parsed =
+            JSON.parse(
+              savedPosition
+            ) as SavedItemPosition;
 
-      try {
-        const res =
-          await authFetch(
-            `${config.API_BASE_URL}/reviews/${review.id}/react/`,
-            {
-              method: "POST",
+          if (parsed.from) {
+            navigate(
+              parsed.from,
+              {
+                state: {
+                  restoreFilters:
+                    parsed.restoreFilters,
+                  restoreScrollY:
+                    parsed.restoreScrollY,
+                  expandedOrderId:
+                    parsed.expandedOrderId,
+                },
+              }
+            );
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body: JSON.stringify({
-                is_like:
-                  isLike,
-              }),
-            }
-          );
-
-        if (!res.ok) {
-          const errData =
-            await res
-              .json()
-              .catch(
-                () => ({})
-              );
-
-          throw new Error(
-            errData.error ??
-              errData.detail ??
-              errData.message ??
-              "Failed to react to comment"
+            return;
+          }
+        } catch (error) {
+          console.error(
+            "Failed to restore saved listing position:",
+            error
           );
         }
-
-        const data: ReviewReactionResponse =
-          await res.json();
-
-        setReviews(
-          (prev) =>
-            prev.map(
-              (
-                existingReview
-              ) =>
-                String(
-                  existingReview.id
-                ) ===
-                String(
-                  review.id
-                )
-                  ? {
-                      ...existingReview,
-
-                      total_likes:
-                        Number(
-                          data
-                            .comment
-                            .total_likes
-                        ),
-
-                      total_dislikes:
-                        Number(
-                          data
-                            .comment
-                            .total_dislikes
-                        ),
-
-                      user_reaction:
-                        data
-                          .comment
-                          .user_reaction ===
-                        true
-                          ? true
-                          : data
-                                .comment
-                                .user_reaction ===
-                              false
-                            ? false
-                            : null,
-                    }
-                  : existingReview
-            )
-        );
-      } catch (err) {
-        toast.error(
-          err instanceof Error
-            ? err.message
-            : "Failed to react to comment"
-        );
-
-        await fetchItemAndReviews();
       }
-    };
+    }
+
+    if (
+      location.key !==
+      "default"
+    ) {
+      navigate(-1);
+      return;
+    }
+
+    navigate("/spareparts");
+  };
 
   /* ----------------------------- LOADING ------------------------- */
   if (
@@ -979,8 +1170,10 @@ const BuyerItemDetails = () => {
   if (error) {
     return (
       <ErrorState
-        onRetry={
-          fetchItemAndReviews
+        onRetry={() =>
+          void fetchItemAndReviews(
+            true
+          )
         }
       />
     );
@@ -1008,36 +1201,6 @@ const BuyerItemDetails = () => {
     );
   }
 
-  /* ----------------------------- SORT REVIEWS ------------------------- */
-  const sortedReviews =
-    [...reviews].sort(
-      (a, b) => {
-        const aIsOwner =
-          userReview?.id ===
-          a.id;
-
-        const bIsOwner =
-          userReview?.id ===
-          b.id;
-
-        if (
-          aIsOwner &&
-          !bIsOwner
-        ) {
-          return -1;
-        }
-
-        if (
-          !aIsOwner &&
-          bIsOwner
-        ) {
-          return 1;
-        }
-
-        return 0;
-      }
-    );
-
   /* ----------------------------- RENDER ------------------------- */
   return (
     <div
@@ -1055,7 +1218,26 @@ const BuyerItemDetails = () => {
         max-[480px]:mb-[30px]
       "
     >
-      {/* ----------------------------- ITEM DETAILS ------------------------- */}
+      <button
+        type="button"
+        onClick={handleBack}
+        aria-label="Go back"
+        className="
+          mb-3
+          mt-4
+          inline-flex
+          items-center
+          justify-start
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          transition-colors
+          hover:bg-[#eaf2f8]
+        "
+      >
+        <ArrowLeft size={30} />
+      </button>
+
       <div
         className="
           mb-8
@@ -1101,8 +1283,7 @@ const BuyerItemDetails = () => {
             "
           >
             {item.brand}{" "}
-            {item.category}{" "}
-            for{" "}
+            {item.category} for{" "}
             {item.vehicle_type}
           </h2>
 
@@ -1128,9 +1309,7 @@ const BuyerItemDetails = () => {
 
           <div className="mt-2 flex items-center gap-[5px]">
             <StarRating
-              value={
-                averageRating
-              }
+              value={averageRating}
               readonly
               size={22}
             />
@@ -1152,6 +1331,7 @@ const BuyerItemDetails = () => {
           </div>
 
           <button
+            type="button"
             onClick={() =>
               addItem(item)
             }
@@ -1173,8 +1353,7 @@ const BuyerItemDetails = () => {
         </div>
       </div>
 
-      {/* ----------------------------- ADD REVIEW ------------------------- */}
-      {!userReview ? (
+      {!userReview && (
         <div className="mb-8 border-y border-[#eee] p-4">
           <h3 className="mb-2 text-xl font-semibold">
             Add a Review
@@ -1182,9 +1361,7 @@ const BuyerItemDetails = () => {
 
           <StarRating
             value={rating}
-            onChange={
-              setRating
-            }
+            onChange={setRating}
           />
 
           <textarea
@@ -1211,9 +1388,8 @@ const BuyerItemDetails = () => {
           />
 
           <button
-            onClick={
-              submitReview
-            }
+            type="button"
+            onClick={submitReview}
             className="
               rounded-md
               bg-[rgb(0,64,128)]
@@ -1227,140 +1403,238 @@ const BuyerItemDetails = () => {
             Submit Review
           </button>
         </div>
-      ) : (
-        <p className="mb-8 text-gray-500">
-          You already reviewed this item.
-          You can edit or delete your review below.
-        </p>
       )}
 
-      {/* ----------------------------- REVIEWS ------------------------- */}
+      {userReview && (
+        <div className="mb-8 border-y border-[#eee] p-4">
+          {editingReviewId ===
+          userReview.id ? (
+            <>
+              <StarRating
+                value={editRating}
+                onChange={setEditRating}
+              />
+
+              <textarea
+                value={editComment}
+                onChange={(e) =>
+                  setEditComment(
+                    e.target.value
+                  )
+                }
+                placeholder="Write a comment (optional)"
+                className="
+                  mb-3
+                  min-h-[80px]
+                  w-full
+                  resize-y
+                  rounded-md
+                  border
+                  border-gray-300
+                  p-3
+                  outline-none
+                  transition
+                  focus:border-black
+                "
+              />
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    saveEdit(
+                      userReview
+                    )
+                  }
+                  className="
+                    rounded-md
+                    bg-[rgb(0,64,128)]
+                    px-3
+                    py-1.5
+                    text-white
+                    transition-colors
+                    hover:bg-[rgb(17,49,82)]
+                  "
+                >
+                  Save
+                </button>
+
+                <button
+                  type="button"
+                  onClick={
+                    cancelEdit
+                  }
+                  className="
+                    rounded-md
+                    bg-[rgb(0,64,128)]
+                    px-3
+                    py-1.5
+                    text-white
+                    transition-colors
+                    hover:bg-[rgb(17,49,82)]
+                  "
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mb-2 flex items-center gap-3">
+                <ProfileCircle
+                  displayName={
+                    userReview.user_display_name
+                  }
+                />
+
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[rgb(0,64,128)]">
+                      {
+                        userReview.user_display_name
+                      }
+                    </span>
+                  </div>
+
+                  <span className="text-sm text-gray-600">
+                    {new Date(
+                      userReview.created_at
+                    ).toLocaleDateString(
+                      "en-GB"
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {userReview.rating !==
+                null && (
+                <StarRating
+                  value={
+                    userReview.rating
+                  }
+                  readonly
+                />
+              )}
+
+              {userReview.comment?.trim() && (
+                <p className="my-3 leading-6">
+                  {
+                    userReview.comment
+                  }
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    startEdit(
+                      userReview
+                    )
+                  }
+                  className="
+                    rounded-md
+                    bg-[rgb(0,64,128)]
+                    px-3
+                    py-1.5
+                    text-white
+                    transition-colors
+                    hover:bg-[rgb(17,49,82)]
+                  "
+                >
+                  Edit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    deleteReview(
+                      userReview
+                    )
+                  }
+                  className="
+                    rounded-md
+                    bg-[rgb(0,64,128)]
+                    px-3
+                    py-1.5
+                    text-white
+                    transition-colors
+                    hover:bg-[rgb(17,49,82)]
+                  "
+                >
+                  Delete
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       <div>
         <h3 className="mb-4 text-2xl font-semibold">
-          Customer Reviews (
+          Customer Comments (
           {
-            reviews.filter(
-              (review) =>
-                review.comment?.trim()
-            ).length
+            orderedCommentReviews.length
           }
           )
         </h3>
 
-        {sortedReviews.map(
-          (review) => {
-            const isOwner =
-              userReview?.id ===
-              review.id;
+        {orderedCommentReviews.length ===
+        0 ? (
+          <p className="py-4 text-gray-500">
+            No customer comments yet.
+          </p>
+        ) : (
+          orderedCommentReviews.map(
+            (review) => {
+              const displayName =
+                review.user_display_name?.trim() ||
+                "User";
 
-            const hasComment =
-              Boolean(
-                review.comment?.trim()
-              );
+              const isOwnComment =
+                currentUserId !==
+                  null &&
+                String(
+                  review.user_id
+                ) ===
+                  currentUserId;
 
-            return (
-              <div
-                key={review.id}
-                className="
-                  mb-3
-                  rounded-md
-                  border
-                  border-gray-300
-                  bg-[#fafafa]
-                  p-3
-                "
-              >
-                {/* ----------------------------- EDIT MODE ------------------------- */}
-                {editingReviewId ===
-                review.id ? (
-                  <>
-                    <StarRating
-                      value={
-                        editRating
-                      }
-                      onChange={
-                        setEditRating
+              const currentReaction =
+                review.user_reaction;
+
+              return (
+                <div
+                  key={review.id}
+                  className="
+                    mb-3
+                    rounded-md
+                    border
+                    border-gray-300
+                    bg-[#fafafa]
+                    p-3
+                  "
+                >
+                  <div className="mb-2 flex items-center gap-3">
+                    <ProfileCircle
+                      displayName={
+                        displayName
                       }
                     />
 
-                    <textarea
-                      value={
-                        editComment
-                      }
-                      onChange={(
-                        e
-                      ) =>
-                        setEditComment(
-                          e.target.value
-                        )
-                      }
-                      className="
-                        mb-3
-                        h-[70px]
-                        w-full
-                        resize-y
-                        rounded-md
-                        border
-                        border-gray-300
-                        p-3
-                        text-sm
-                        outline-none
-                        transition
-                        focus:border-black
-                      "
-                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="block truncate font-bold text-[rgb(0,64,128)]">
+                          {
+                            displayName
+                          }
+                        </span>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          saveEdit(
-                            review
-                          )
-                        }
-                        className="
-                          rounded-md
-                          bg-[rgb(0,64,128)]
-                          px-3
-                          py-1.5
-                          text-white
-                          transition-colors
-                          hover:bg-[rgb(17,49,82)]
-                        "
-                      >
-                        Save
-                      </button>
-
-                      <button
-                        onClick={
-                          cancelEdit
-                        }
-                        className="
-                          rounded-md
-                          bg-[rgb(0,64,128)]
-                          px-3
-                          py-1.5
-                          text-white
-                          transition-colors
-                          hover:bg-[rgb(17,49,82)]
-                        "
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    {/* ----------------------------- REVIEW HEADER ------------------------- */}
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="ml-3 font-bold text-[rgb(0,64,128)]">
-                        {isOwner ? (
-                          <span className="ml-1 rounded bg-[#0677f8] px-2 py-[2px] text-[0.8rem] text-white">
+                        {isOwnComment && (
+                          <span className="shrink-0 rounded bg-[#0677f8] px-2 py-[2px] text-[0.8rem] text-white">
                             You
                           </span>
-                        ) : (
-                          review.display_name
                         )}
-                      </span>
+                      </div>
 
                       <span className="text-sm text-gray-600">
                         {new Date(
@@ -1370,150 +1644,107 @@ const BuyerItemDetails = () => {
                         )}
                       </span>
                     </div>
+                  </div>
 
-                    {/* ----------------------------- STAR RATING ------------------------- */}
-                    <StarRating
-                      value={
-                        review.rating ??
-                        0
+                  <p className="my-2 leading-6">
+                    {review.comment}
+                  </p>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      disabled={
+                        isOwnComment
                       }
-                      readonly
-                      size={20}
-                    />
-
-                    {/* ----------------------------- COMMENT ------------------------- */}
-                    {hasComment && (
-                      <p className="my-2 leading-6">
-                        {
-                          review.comment
+                      onClick={() =>
+                        void reactToReview(
+                          review,
+                          true
+                        )
+                      }
+                      className="
+                        inline-flex
+                        items-center
+                        gap-1
+                        rounded
+                        px-[10px]
+                        py-1
+                        text-[#333]
+                        transition-colors
+                        disabled:cursor-not-allowed
+                      "
+                      aria-label="Like comment"
+                    >
+                      <ThumbsUp
+                        size={18}
+                        strokeWidth={
+                          2
                         }
-                      </p>
-                    )}
+                        fill="none"
+                        className={
+                          currentReaction ===
+                          true
+                            ? "text-green-600"
+                            : "text-[#333]"
+                        }
+                      />
 
-                    {/* ----------------------------- OWNER ACTIONS ------------------------- */}
-                    {isOwner ? (
-                      <div className="flex gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            startEdit(
-                              review
-                            )
-                          }
-                          className="
-                            rounded-md
-                            bg-[rgb(0,64,128)]
-                            px-3
-                            py-1.5
-                            text-white
-                            transition-colors
-                            hover:bg-[rgb(17,49,82)]
-                          "
-                        >
-                          Edit
-                        </button>
+                      <span>
+                        {
+                          review.total_likes
+                        }
+                      </span>
+                    </button>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            deleteReview(
-                              review
-                            )
-                          }
-                          className="
-                            rounded-md
-                            bg-[rgb(0,64,128)]
-                            px-3
-                            py-1.5
-                            text-white
-                            transition-colors
-                            hover:bg-[rgb(17,49,82)]
-                          "
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    ) : (
-                      /* ----------------------------- COMMENT REACTIONS ------------------------- */
-                      hasComment && (
-                        <div className="flex gap-3">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              reactToComment(
-                                review,
-                                true
-                              )
-                            }
-                            className={`
-                              inline-flex
-                              items-center
-                              gap-1
-                              rounded
-                              bg-[#e0e0e0]
-                              px-[10px]
-                              py-1
-                              transition-colors
-                              hover:bg-[#d5d5d5]
-                              ${
-                                review.user_reaction ===
-                                true
-                                  ? "text-[#0f9d58]"
-                                  : "text-[#333]"
-                              }
-                            `}
-                          >
-                            <ThumbsUp
-                              size={16}
-                            />
+                    <button
+                      type="button"
+                      disabled={
+                        isOwnComment
+                      }
+                      onClick={() =>
+                        void reactToReview(
+                          review,
+                          false
+                        )
+                      }
+                      className="
+                        inline-flex
+                        items-center
+                        gap-1
+                        rounded
+                        px-[10px]
+                        py-1
+                        text-[#333]
+                        transition-colors
+                        disabled:cursor-not-allowed
+                      "
+                      aria-label="Dislike comment"
+                    >
+                      <ThumbsDown
+                        size={18}
+                        strokeWidth={
+                          2
+                        }
+                        fill="none"
+                        className={
+                          currentReaction ===
+                          false
+                            ? "text-red-600"
+                            : "text-[#333]"
+                        }
+                      />
 
-                            {
-                              review.total_likes
-                            }
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              reactToComment(
-                                review,
-                                false
-                              )
-                            }
-                            className={`
-                              inline-flex
-                              items-center
-                              gap-1
-                              rounded
-                              bg-[#e0e0e0]
-                              px-[10px]
-                              py-1
-                              transition-colors
-                              hover:bg-[#d5d5d5]
-                              ${
-                                review.user_reaction ===
-                                false
-                                  ? "text-[#d93025]"
-                                  : "text-[#333]"
-                              }
-                            `}
-                          >
-                            <ThumbsDown
-                              size={16}
-                            />
-
-                            {
-                              review.total_dislikes
-                            }
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          }
+                      <span>
+                        {
+                          review.total_dislikes
+                        }
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+          )
         )}
       </div>
     </div>

@@ -3,25 +3,27 @@ import os
 from dotenv import load_dotenv
 from django.core.management.base import BaseCommand
 from django.db import transaction
-from django.contrib.auth.hashers import make_password
 
 from app.models import (
     Users,
-    SpareParts,
 )
+
+from utils.tasks import send_admin_credentials_email_task
+
 
 load_dotenv()
 
 
 class Command(BaseCommand):
+    help = "Seed required production application data"
 
     def seed_super_admin(self):
-        """
-        Create the default super admin without OTP verification.
-        """
-
-        email = os.getenv("SUPER_ADMIN_EMAIL")
-        password = os.getenv("SUPER_ADMIN_PASSWORD")
+        email = os.getenv(
+            "SUPER_ADMIN_EMAIL"
+        )
+        password = os.getenv(
+            "SUPER_ADMIN_PASSWORD"
+        )
 
         if not email or not password:
             raise ValueError(
@@ -29,26 +31,40 @@ class Command(BaseCommand):
                 "must be set in .env"
             )
 
+        email = email.lower().strip()
+
         existing_admin = Users.objects.filter(
             email=email
         ).first()
 
         if existing_admin:
             self.stdout.write(
-                self.style.WARNING(
-                    "Super admin already exists"
-                )
+                f"Super admin '{email}' already exists. "
+                "Skipping creation."
             )
-            return
+            return existing_admin
 
         super_admin = Users(
             email=email,
-            password_hash=make_password(password),
             role="super_admin",
             email_verified=True,
+            is_active=True,
+            is_staff=True,
+            initial_password_changed=True,
+            initial_password_expires=None,
+        )
+
+        super_admin.set_password(
+            password
         )
 
         super_admin.save()
+
+        send_admin_credentials_email_task.delay(
+            super_admin.email,
+            password,
+            super_admin.role,
+        )
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -56,13 +72,15 @@ class Command(BaseCommand):
             )
         )
 
-    def seed_buyer(self):
-        """
-        Create the default buyer without OTP verification.
-        """
+        return super_admin
 
-        email = os.getenv("USER_EMAIL")
-        password = os.getenv("USER_PASSWORD")
+    def seed_buyer(self):
+        email = os.getenv(
+            "USER_EMAIL"
+        )
+        password = os.getenv(
+            "USER_PASSWORD"
+        )
 
         if not email or not password:
             raise ValueError(
@@ -70,28 +88,29 @@ class Command(BaseCommand):
                 "must be set in .env"
             )
 
+        email = email.lower().strip()
+
         existing_buyer = Users.objects.filter(
             email=email
         ).first()
 
         if existing_buyer:
             self.stdout.write(
-                self.style.WARNING(
-                    "Default buyer already exists"
-                )
+                f"Buyer '{email}' already exists. "
+                "Skipping creation."
             )
-            return
+            return existing_buyer
 
         buyer = Users(
             email=email,
-            password_hash=make_password(password),
             role="buyer",
             email_verified=True,
-            otp_resend_count=0,
-            otp_attempts=0,
-            otp_last_sent=None,
-            email_otp_hash=None,
-            email_otp_expires=None,
+            is_active=True,
+            is_staff=False,
+        )
+
+        buyer.set_password(
+            password
         )
 
         buyer.save()
@@ -102,9 +121,26 @@ class Command(BaseCommand):
             )
         )
 
+        return buyer
+
+    @transaction.atomic
+    def handle(self, *args, **options):
+        self.stdout.write(
+            "Starting production data seeding..."
+        )
+
+        self.seed_super_admin()
+        self.seed_buyer()
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                "Production data seeding completed successfully."
+            )
+        )
+
     def seed_spareparts(self):
            """
-           Create the hardcoded spare parts.
+           Creates the hardcoded spare parts.
            """
    
            spareparts_data = [
@@ -3628,7 +3664,8 @@ class Command(BaseCommand):
                },
                {
                    "category": "battery",
-                   "vehicle_type": "Optima",
+                   "vehicle_type": "sedan",
+                   "brand": "Optima",
                    "colour": "white",
                    "buying_price": 35000.00,
                    "marked_price": 39000.00,
@@ -4410,22 +4447,18 @@ class Command(BaseCommand):
                    "image": "https://i.imgur.com/tVNZKOw.jpeg",
                },
            ]
-   
-           spareparts = []
-   
+
+
            for data in spareparts_data:
-               spareparts.append(
-                   SpareParts(**data)
-               )
-   
-           SpareParts.objects.bulk_create(spareparts)
-   
-           self.stdout.write(
-               self.style.SUCCESS(
-                   f"Seeded {len(spareparts)} spare parts."
-               )
-           )
+               SpareParts.objects.create(**data)
            
+           self.stdout.write(
+                self.style.SUCCESS(
+                    f"Seeded {len(spareparts_data)} spare parts."
+                )
+            )
+              
+   
     def handle(self, *args, **options):
 
         self.stdout.write(

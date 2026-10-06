@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
@@ -22,6 +22,17 @@ interface SparePartsResponse {
 
 interface ErrorStateProps {
   onRetry: () => Promise<void>;
+}
+
+interface RestoreState {
+  from?: string;
+  restoreFilters?: {
+    brand?: string;
+    colour?: string;
+    price?: string;
+    currentPage?: number;
+  };
+  restoreScrollY?: number;
 }
 
 /* ---------------- Skeleton Card ---------------- */
@@ -110,24 +121,57 @@ const ErrorState = ({
 
 /* ---------------- Component ---------------- */
 const SedanBatteries = (): ReactElement => {
-  const [items, setItems] = useState<SparePart[]>([]);
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [brand, setBrand] = useState<string>("");
-  const [colour, setColour] = useState<string>("");
-  const [price, setPrice] = useState<string>("");
+  const restoreState =
+    location.state as RestoreState | null;
+
+  const hasRestoreState =
+    Boolean(restoreState?.restoreFilters) ||
+    typeof restoreState?.restoreScrollY === "number";
+
+  const [items, setItems] =
+    useState<SparePart[]>([]);
+
+  const [brand, setBrand] = useState<string>(
+    restoreState?.restoreFilters?.brand ?? ""
+  );
+
+  const [colour, setColour] =
+    useState<string>(
+      restoreState?.restoreFilters?.colour ?? ""
+    );
+
+  const [price, setPrice] =
+    useState<string>(
+      restoreState?.restoreFilters?.price ?? ""
+    );
 
   /* ---------------- Dropdown State ---------------- */
-  const [brandOpen, setBrandOpen] = useState<boolean>(false);
-  const [colourOpen, setColourOpen] = useState<boolean>(false);
-  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+  const [brandOpen, setBrandOpen] =
+    useState<boolean>(false);
+
+  const [colourOpen, setColourOpen] =
+    useState<boolean>(false);
+
+  const [priceOpen, setPriceOpen] =
+    useState<boolean>(false);
 
   /* ---------------- Dropdown Refs ---------------- */
-  const brandDropdownRef = useRef<HTMLDivElement>(null);
-  const colourDropdownRef = useRef<HTMLDivElement>(null);
-  const priceDropdownRef = useRef<HTMLDivElement>(null);
+  const brandDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const colourDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const priceDropdownRef =
+    useRef<HTMLDivElement>(null);
 
   const [currentPage, setCurrentPage] =
-    useState<number>(1);
+    useState<number>(
+      restoreState?.restoreFilters?.currentPage ?? 1
+    );
 
   const [totalPages, setTotalPages] =
     useState<number>(1);
@@ -139,6 +183,20 @@ const SedanBatteries = (): ReactElement => {
     useState<boolean>(false);
 
   const { addItem } = useCart();
+
+  /* ---------------- Restore Refs ---------------- */
+  const isRestoringRef =
+    useRef<boolean>(hasRestoreState);
+
+  const restoreScrollYRef =
+    useRef<number | null>(
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : null
+    );
+
+  const initialRestoreRef =
+    useRef<boolean>(hasRestoreState);
 
   /* ---------------- Filters ---------------- */
   const availableBrands: string[] = [
@@ -156,6 +214,36 @@ const SedanBatteries = (): ReactElement => {
     "white",
     "blue",
   ];
+
+  /* ---------------- Restore Listing State ---------------- */
+  useEffect(() => {
+    if (!hasRestoreState) return;
+
+    setBrand(
+      restoreState?.restoreFilters?.brand ?? ""
+    );
+
+    setColour(
+      restoreState?.restoreFilters?.colour ?? ""
+    );
+
+    setPrice(
+      restoreState?.restoreFilters?.price ?? ""
+    );
+
+    setCurrentPage(
+      restoreState?.restoreFilters?.currentPage ?? 1
+    );
+
+    setBrandOpen(false);
+    setColourOpen(false);
+    setPriceOpen(false);
+
+    restoreScrollYRef.current =
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : 0;
+  }, []);
 
   /* ---------------- Fetch ---------------- */
   const fetchBatteries =
@@ -197,8 +285,140 @@ const SedanBatteries = (): ReactElement => {
       }
     };
 
-  /* ---------------- Effects ---------------- */
+  /* ---------------- Restore Scroll Position ---------------- */
   useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY = restoreScrollYRef.current;
+
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) return;
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) return;
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+          });
+        });
+      });
+    };
+
+    const images = Array.from(
+      document.images
+    );
+
+    const pendingImages = images.filter(
+      (image) => !image.complete
+    );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining =
+        pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer =
+        window.setTimeout(() => {
+          restoreScroll();
+        }, 1500);
+
+      return () => {
+        cancelled = true;
+
+        window.clearTimeout(
+          fallbackTimer
+        );
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, currentPage]);
+
+  /* ---------------- Normal Page Scroll ---------------- */
+  useEffect(() => {
+    if (
+      isRestoringRef.current ||
+      restoreScrollYRef.current !== null
+    ) {
+      return;
+    }
+
     window.scrollTo({
       top: 0,
       left: 0,
@@ -206,6 +426,7 @@ const SedanBatteries = (): ReactElement => {
     });
   }, [currentPage]);
 
+  /* ---------------- Fetch Effect ---------------- */
   useEffect(() => {
     void fetchBatteries();
   }, [
@@ -215,7 +436,13 @@ const SedanBatteries = (): ReactElement => {
     currentPage,
   ]);
 
+  /* ---------------- Reset Page On Filter Change ---------------- */
   useEffect(() => {
+    if (initialRestoreRef.current) {
+      initialRestoreRef.current = false;
+      return;
+    }
+
     setCurrentPage(1);
   }, [
     brand,
@@ -232,6 +459,27 @@ const SedanBatteries = (): ReactElement => {
     setBrandOpen(false);
     setColourOpen(false);
     setPriceOpen(false);
+  };
+
+  /* ---------------- Item Navigation ---------------- */
+  const handleItemClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    itemId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${itemId}`, {
+      state: {
+        from: location.pathname,
+        restoreFilters: {
+          brand,
+          colour,
+          price,
+          currentPage,
+        },
+        restoreScrollY: window.scrollY,
+      },
+    });
   };
 
   /* ---------------- Cart ---------------- */
@@ -346,7 +594,9 @@ const SedanBatteries = (): ReactElement => {
           price !== "") && (
           <button
             type="button"
-            onClick={handleBackToAvailableParts}
+            onClick={
+              handleBackToAvailableParts
+            }
             aria-label="Back to available parts"
             className="
               mb-3
@@ -506,7 +756,9 @@ const SedanBatteries = (): ReactElement => {
                         key={itemBrand}
                         type="button"
                         onClick={() => {
-                          setBrand(itemBrand);
+                          setBrand(
+                            itemBrand
+                          );
                           setBrandOpen(false);
                         }}
                         className={`
@@ -579,7 +831,9 @@ const SedanBatteries = (): ReactElement => {
                 <span className="truncate">
                   {colour === ""
                     ? "All Colours"
-                    : colour.charAt(0).toUpperCase() +
+                    : colour
+                        .charAt(0)
+                        .toUpperCase() +
                       colour.slice(1)}
                 </span>
 
@@ -658,7 +912,9 @@ const SedanBatteries = (): ReactElement => {
                         key={itemColour}
                         type="button"
                         onClick={() => {
-                          setColour(itemColour);
+                          setColour(
+                            itemColour
+                          );
                           setColourOpen(false);
                         }}
                         className={`
@@ -674,7 +930,8 @@ const SedanBatteries = (): ReactElement => {
                           max-[480px]:py-2
                           max-[480px]:text-xs
                           ${
-                            colour === itemColour
+                            colour ===
+                            itemColour
                               ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
                               : "text-[#333]"
                           }
@@ -943,6 +1200,12 @@ const SedanBatteries = (): ReactElement => {
                 >
                   <Link
                     to={`/items/${item.id}`}
+                    onClick={(event) =>
+                      handleItemClick(
+                        event,
+                        item.id
+                      )
+                    }
                     className="
                       flex
                       h-full
@@ -975,7 +1238,8 @@ const SedanBatteries = (): ReactElement => {
                         text-[#333]
                       "
                     >
-                      {item.brand} {item.category} for{" "}
+                      {item.brand}{" "}
+                      {item.category} for{" "}
                       {item.vehicle_type}
                     </h4>
 
@@ -983,16 +1247,24 @@ const SedanBatteries = (): ReactElement => {
                       KES{" "}
                       {item.buying_price.toLocaleString()}
 
-                      {item.discount_percentage > 0 && (
+                      {item.discount_percentage >
+                        0 && (
                         <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
-                          (-{item.discount_percentage.toFixed(0)}%)
+                          (-
+                          {item.discount_percentage.toFixed(
+                            0
+                          )}
+                          %)
                         </span>
                       )}
                     </p>
 
                     <button
                       onClick={(event) =>
-                        handleAddToCart(item, event)
+                        handleAddToCart(
+                          item,
+                          event
+                        )
                       }
                       className="
                         rounded-md
@@ -1037,18 +1309,20 @@ const SedanBatteries = (): ReactElement => {
                 gap-2
               "
             >
-              {[1, 2, 3, 4].map((item) => (
-                <div
-                  key={item}
-                  className="
-                    h-8
-                    w-10
-                    animate-pulse
-                    rounded-md
-                    bg-gray-200
-                  "
-                />
-              ))}
+              {[1, 2, 3, 4].map(
+                (item) => (
+                  <div
+                    key={item}
+                    className="
+                      h-8
+                      w-10
+                      animate-pulse
+                      rounded-md
+                      bg-gray-200
+                    "
+                  />
+                )
+              )}
             </div>
           ) : (
             totalPages > 1 && (
@@ -1063,10 +1337,15 @@ const SedanBatteries = (): ReactElement => {
                 "
               >
                 <button
-                  disabled={currentPage === 1}
+                  disabled={
+                    currentPage === 1
+                  }
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.max(page - 1, 1)
+                      Math.max(
+                        page - 1,
+                        1
+                      )
                     )
                   }
                   className="
@@ -1099,41 +1378,45 @@ const SedanBatteries = (): ReactElement => {
                   </span>
                 )}
 
-                {visiblePages.map((page) => (
-                  <button
-                    key={page}
-                    onClick={() =>
-                      setCurrentPage(page)
-                    }
-                    className={
-                      page === currentPage
-                        ? `
-                          rounded
-                          border
-                          border-[#004080]
-                          bg-[#004080]
-                          px-3
-                          py-1.5
-                          text-sm
-                          font-semibold
-                          text-white
-                        `
-                        : `
-                          rounded
-                          border
-                          border-gray-300
-                          bg-white
-                          px-3
-                          py-1.5
-                          text-sm
-                          transition-colors
-                          hover:bg-gray-100
-                        `
-                    }
-                  >
-                    {page}
-                  </button>
-                ))}
+                {visiblePages.map(
+                  (page) => (
+                    <button
+                      key={page}
+                      onClick={() =>
+                        setCurrentPage(
+                          page
+                        )
+                      }
+                      className={
+                        page === currentPage
+                          ? `
+                            rounded
+                            border
+                            border-[#004080]
+                            bg-[#004080]
+                            px-3
+                            py-1.5
+                            text-sm
+                            font-semibold
+                            text-white
+                          `
+                          : `
+                            rounded
+                            border
+                            border-gray-300
+                            bg-white
+                            px-3
+                            py-1.5
+                            text-sm
+                            transition-colors
+                            hover:bg-gray-100
+                          `
+                      }
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
 
                 {visiblePages[
                   visiblePages.length - 1
@@ -1151,7 +1434,8 @@ const SedanBatteries = (): ReactElement => {
 
                 <button
                   disabled={
-                    currentPage === totalPages
+                    currentPage ===
+                    totalPages
                   }
                   onClick={() =>
                     setCurrentPage((page) =>

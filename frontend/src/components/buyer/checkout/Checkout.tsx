@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type SyntheticEvent } from "react";
+import { useState, useEffect, type SyntheticEvent } from "react";
 import { CreditCard, Smartphone } from "lucide-react";
 import { useCart, type CartItem } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -33,11 +33,12 @@ type MobileMoneyMethod = "mpesa" | "airtel";
 const PAYSTACK_POLL_INTERVAL = 3000;
 const PAYSTACK_MAX_ATTEMPTS = 60;
 
-const Checkout = () => {
-  const { items, clearCart } = useCart();
+const Checkout = (): React.JSX.Element => {
+  const { items } = useCart();
   const { authFetch, user } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [addressLoading, setAddressLoading] = useState(true);
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("stripe");
@@ -45,7 +46,8 @@ const Checkout = () => {
   const [mobileMoneyMethod, setMobileMoneyMethod] =
     useState<MobileMoneyMethod>("mpesa");
 
-  const [phone, setPhone] = useState("");
+  const [mobileMoneyPhone, setMobileMoneyPhone] =
+    useState("");
 
   const [address, setAddress] = useState<Address>({
     street: "",
@@ -55,58 +57,78 @@ const Checkout = () => {
   });
 
   useEffect(() => {
-    if (!user) return;
-
-    const savedAddress = localStorage.getItem(
-      `address_${user.id}`
-    );
-
-    if (!savedAddress) return;
-
-    try {
-      const parsedAddress = JSON.parse(
-        savedAddress
-      ) as Address;
-
-      setAddress({
-        street: parsedAddress.street ?? "",
-        city: parsedAddress.city ?? "",
-        postal_code: parsedAddress.postal_code ?? "",
-        country: parsedAddress.country ?? "",
-      });
-    } catch (error) {
-      console.error("Invalid saved address:", error);
-
-      localStorage.removeItem(
-        `address_${user.id}`
-      );
+    if (!user) {
+      setAddressLoading(false);
+      return;
     }
-  }, [user]);
 
-  const handleAddressChange = (
-    e: ChangeEvent<HTMLInputElement>
-  ) => {
-    const { name, value } = e.target;
+    const loadAddress = async (): Promise<void> => {
+      setAddressLoading(true);
 
-    setAddress((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+      try {
+        const response = await authFetch(
+          `${config.API_BASE_URL}/address/`,
+          {
+            method: "GET",
+          }
+        );
 
-  const handlePhoneChange = (
-    e: ChangeEvent<HTMLInputElement>
-  ) => {
-    setPhone(e.target.value);
-  };
+        if (response.status === 404) {
+          setAddress({
+            street: "",
+            city: "",
+            postal_code: "",
+            country: "",
+          });
 
-  const wait = () =>
-    new Promise<void>((resolve) => {
+          return;
+        }
+
+        const data = (await response.json()) as Address & {
+          message?: string;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          toast.error(
+            data.message ||
+              data.error ||
+              "Failed to load your saved address"
+          );
+
+          return;
+        }
+
+        setAddress({
+          street: data.street ?? "",
+          city: data.city ?? "",
+          postal_code: data.postal_code ?? "",
+          country: data.country ?? "",
+        });
+      } catch (error) {
+        console.error(
+          "Failed to load address:",
+          error
+        );
+
+        toast.error(
+          "Failed to load your saved address"
+        );
+      } finally {
+        setAddressLoading(false);
+      }
+    };
+
+    void loadAddress();
+  }, [user, authFetch]);
+
+  const wait = (): Promise<void> =>
+    new Promise<void>((resolve) =>
       setTimeout(
         resolve,
         PAYSTACK_POLL_INTERVAL
-      );
-    });
+      )
+    );
 
   const verifyPaystackPayment = async (
     reference: string
@@ -117,7 +139,7 @@ const Checkout = () => {
       attempt++
     ) {
       try {
-        const res = await authFetch(
+        const response = await authFetch(
           `${config.API_BASE_URL}/checkout/verify-paystack-session/${reference}/`,
           {
             method: "GET",
@@ -125,9 +147,9 @@ const Checkout = () => {
         );
 
         const data: CheckoutResponse =
-          await res.json();
+          await response.json();
 
-        if (!res.ok) {
+        if (!response.ok) {
           console.error(
             "Paystack verification failed:",
             data
@@ -138,8 +160,6 @@ const Checkout = () => {
         }
 
         if (data.paid === true) {
-          clearCart(false);
-
           toast.success(
             "Payment completed successfully."
           );
@@ -176,10 +196,12 @@ const Checkout = () => {
 
   const handleSubmit = async (
     e: SyntheticEvent<HTMLFormElement>
-  ) => {
+  ): Promise<void> => {
     e.preventDefault();
 
-    if (loading) return;
+    if (loading) {
+      return;
+    }
 
     if (!items || items.length === 0) {
       toast.error("Your cart is empty");
@@ -187,12 +209,12 @@ const Checkout = () => {
     }
 
     if (
-      !address.street ||
-      !address.city ||
-      !address.country
+      !address.street.trim() ||
+      !address.city.trim() ||
+      !address.country.trim()
     ) {
       toast.error(
-        "Please fill all required address fields"
+        "Please set up your shipping address before checking out."
       );
 
       return;
@@ -200,10 +222,10 @@ const Checkout = () => {
 
     if (
       paymentMethod === "paystack" &&
-      !phone.trim()
+      !mobileMoneyPhone.trim()
     ) {
       toast.error(
-        "Please enter the phone number for your mobile money payment"
+        "Please enter the mobile money phone number."
       );
 
       return;
@@ -227,23 +249,20 @@ const Checkout = () => {
 
       const requestBody: Record<string, unknown> = {
         items: items.map((item: CartItem) => ({
-          sparepart_id: item.id,
+          sparepart_id: item.sparepart_id,
           quantity: item.quantity,
         })),
-        street: address.street,
-        city: address.city,
-        postal_code: address.postal_code,
-        country: address.country,
       };
 
       if (paymentMethod === "paystack") {
         requestBody.payment_method =
           mobileMoneyMethod;
 
-        requestBody.phone = phone.trim();
+        requestBody.phone_number =
+          mobileMoneyPhone.trim();
       }
 
-      const res = await authFetch(
+      const response = await authFetch(
         `${config.API_BASE_URL}${endpoint}`,
         {
           method: "POST",
@@ -255,29 +274,22 @@ const Checkout = () => {
       );
 
       const data: CheckoutResponse =
-        await res.json();
+        await response.json();
 
-      if (!res.ok) {
+      if (!response.ok) {
         toast.error(
-          data.error ||
-            data.message ||
-            `Failed to create ${paymentMethod} checkout session`
+          data.message ||
+            data.error ||
+            "Unable to start payment"
         );
 
         return;
       }
 
-      if (user) {
-        localStorage.setItem(
-          `address_${user.id}`,
-          JSON.stringify(address)
-        );
-      }
-
       if (paymentMethod === "stripe") {
         if (!data.checkout_url) {
           toast.error(
-            "No Stripe payment URL was returned by the server"
+            "Stripe checkout URL was not returned"
           );
 
           return;
@@ -292,7 +304,7 @@ const Checkout = () => {
       if (paymentMethod === "paypal") {
         if (!data.approval_url) {
           toast.error(
-            "No PayPal approval URL was returned by the server"
+            "PayPal approval URL was not returned"
           );
 
           return;
@@ -312,11 +324,6 @@ const Checkout = () => {
           );
         }
 
-        localStorage.setItem(
-          "checkout_address",
-          JSON.stringify(address)
-        );
-
         window.location.href =
           data.approval_url;
 
@@ -329,9 +336,8 @@ const Checkout = () => {
         data.status === "abandoned"
       ) {
         toast.error(
-          data.display_text ||
-            data.message ||
-            "Paystack payment failed. Your cart has been kept."
+          data.message ||
+            "The mobile money payment could not be started."
         );
 
         return;
@@ -339,8 +345,7 @@ const Checkout = () => {
 
       if (!data.reference) {
         toast.error(
-          data.message ||
-            "No Paystack payment reference was returned. Your cart has been kept."
+          "Paystack payment reference was not returned"
         );
 
         return;
@@ -351,18 +356,12 @@ const Checkout = () => {
       );
     } catch (error) {
       console.error(
-        `${paymentMethod} checkout error:`,
+        "Checkout error:",
         error
       );
 
       toast.error(
-        `Error initiating ${
-          paymentMethod === "stripe"
-            ? "Stripe"
-            : paymentMethod === "paystack"
-              ? "Paystack"
-              : "PayPal"
-        } payment`
+        "Something went wrong while processing your payment."
       );
     } finally {
       setLoading(false);
@@ -370,77 +369,172 @@ const Checkout = () => {
   };
 
   return (
-    <div className="mt-[40px] w-full px-4 pb-10 pt-[20px]">
-      <form
-        onSubmit={handleSubmit}
-        className="mx-auto my-8 max-w-[500px] rounded-xl bg-[#f9f9f9] p-8 font-sans shadow-[0_4px_10px_rgba(0,0,0,0.1)]"
-      >
-        <h2 className="mb-6 text-center text-[1.8rem] font-bold text-[#004080]">
-          Shipping Address
-        </h2>
+    <div className="w-full flex justify-center px-4 py-8">
+      <div className="w-full max-w-[700px]">
+        <form
+          onSubmit={handleSubmit}
+          className="
+            w-full
+            bg-[#f9f9f9]
+            rounded-xl
+            shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+            p-8
+            mt-[80px]
+            font-[Arial,sans-serif]
+            max-[480px]:p-4
+          "
+        >
+          <h2
+            className="
+              text-center
+              text-[rgb(0,64,128)]
+              font-semibold
+              mb-6
+              text-[1.8rem]
+              max-[480px]:text-[1.5rem]
+            "
+          >
+            Checkout
+          </h2>
 
-        <input
-          type="text"
-          name="street"
-          placeholder="Street"
-          value={address.street}
-          onChange={handleAddressChange}
-          required
-          className="mb-4 w-full rounded-lg border-[1.5px] border-[#004080] px-3 py-[0.8rem] text-base text-black outline-none transition duration-300 focus:shadow-[0_0_0_2px_rgb(3,29,56)]"
-        />
+          <h3
+            className="
+              text-[rgb(0,64,128)]
+              font-semibold
+              text-[1.2rem]
+              mb-4
+            "
+          >
+            Shipping Address
+          </h3>
 
-        <input
-          type="text"
-          name="city"
-          placeholder="City"
-          value={address.city}
-          onChange={handleAddressChange}
-          required
-          className="mb-4 w-full rounded-lg border-[1.5px] border-[#004080] px-3 py-[0.8rem] text-base text-black outline-none transition duration-300 focus:shadow-[0_0_0_2px_rgb(3,29,56)]"
-        />
+          {addressLoading ? (
+            <p className="text-center text-gray-600 mb-6">
+              Loading saved address...
+            </p>
+          ) : (
+            <div
+              className="
+                mb-6
+                p-4
+                rounded-lg
+                bg-white
+                border
+                border-gray-300
+                text-gray-700
+              "
+            >
+              {address.street ||
+              address.city ||
+              address.postal_code ||
+              address.country ? (
+                <div className="space-y-2">
+                  <p>
+                    <span className="font-semibold">
+                      Street:
+                    </span>{" "}
+                    {address.street || "—"}
+                  </p>
 
-        <input
-          type="text"
-          name="postal_code"
-          placeholder="Postal Code"
-          value={address.postal_code}
-          onChange={handleAddressChange}
-          className="mb-4 w-full rounded-lg border-[1.5px] border-[#004080] px-3 py-[0.8rem] text-base text-black outline-none transition duration-300 focus:shadow-[0_0_0_2px_rgb(3,29,56)]"
-        />
+                  <p>
+                    <span className="font-semibold">
+                      City:
+                    </span>{" "}
+                    {address.city || "—"}
+                  </p>
 
-        <input
-          type="text"
-          name="country"
-          placeholder="Country"
-          value={address.country}
-          onChange={handleAddressChange}
-          required
-          className="mb-6 w-full rounded-lg border-[1.5px] border-[#004080] px-3 py-[0.8rem] text-base text-black outline-none transition duration-300 focus:shadow-[0_0_0_2px_rgb(3,29,56)]"
-        />
+                  <p>
+                    <span className="font-semibold">
+                      Postal Code:
+                    </span>{" "}
+                    {address.postal_code || "—"}
+                  </p>
 
-        <div className="mb-6">
-          <h3 className="mb-3 text-base font-semibold text-[#004080]">
+                  <p>
+                    <span className="font-semibold">
+                      Country:
+                    </span>{" "}
+                    {address.country || "—"}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-red-600">
+                  No saved shipping address was found.
+                  Please set up your address before
+                  checking out.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div
+            className="
+              mb-6
+              p-4
+              rounded-lg
+              bg-white
+              border
+              border-gray-300
+              text-gray-700
+              text-sm
+            "
+          >
+            <p>
+              Please make sure your profile is fully set
+              up before checking out. Your name, phone
+              number, and ID details are taken from your
+              saved profile, while your shipping address
+              is taken from your saved address.
+            </p>
+          </div>
+
+          <h3
+            className="
+              text-[rgb(0,64,128)]
+              font-semibold
+              text-[1.2rem]
+              mb-4
+            "
+          >
             Payment Method
           </h3>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div
+            className="
+              grid
+              grid-cols-3
+              gap-3
+              w-full
+              max-w-[540px]
+              mb-6
+              max-[480px]:grid-cols-1
+            "
+          >
             <button
               type="button"
               onClick={() =>
                 setPaymentMethod("stripe")
               }
-              disabled={loading}
-              className={`flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-3 font-semibold transition ${
-                paymentMethod === "stripe"
-                  ? "border-[#004080] bg-[#004080] text-white"
-                  : "cursor-pointer border-gray-300 bg-white text-[#004080] hover:border-[#004080]"
-              }`}
+              className={`
+                flex
+                items-center
+                justify-center
+                gap-2
+                h-[52px]
+                px-4
+                rounded-lg
+                border
+                transition-all
+                duration-200
+                cursor-pointer
+                ${
+                  paymentMethod === "stripe"
+                    ? "bg-[rgb(0,64,128)] text-white border-[rgb(0,64,128)]"
+                    : "bg-white text-[rgb(0,64,128)] border-gray-300 hover:border-[rgb(0,64,128)]"
+                }
+              `}
             >
-              <CreditCard
-                size={21}
-                strokeWidth={2.2}
-              />
-
+              <CreditCard size={22} />
               <span>Card</span>
             </button>
 
@@ -449,141 +543,269 @@ const Checkout = () => {
               onClick={() =>
                 setPaymentMethod("paystack")
               }
-              disabled={loading}
-              className={`flex items-center justify-center gap-2 rounded-lg border-2 px-3 py-3 font-semibold transition ${
-                paymentMethod === "paystack"
-                  ? "border-[#004080] bg-[#004080] text-white"
-                  : "cursor-pointer border-gray-300 bg-white text-[#004080] hover:border-[#004080]"
-              }`}
+              className={`
+                flex
+                items-center
+                justify-center
+                gap-2
+                h-[52px]
+                px-4
+                rounded-lg
+                border
+                transition-all
+                duration-200
+                cursor-pointer
+                ${
+                  paymentMethod === "paystack"
+                    ? "bg-[rgb(0,64,128)] text-white border-[rgb(0,64,128)]"
+                    : "bg-white text-[rgb(0,64,128)] border-gray-300 hover:border-[rgb(0,64,128)]"
+                }
+              `}
             >
-              <Smartphone
-                size={21}
-                strokeWidth={2.2}
-              />
-
+              <Smartphone size={22} />
               <span>Mobile Money</span>
             </button>
 
             <button
-             type="button"
-             onClick={() => setPaymentMethod("paypal")}
-             disabled={loading}
-             className={`flex items-center justify-center gap-3 rounded-lg border-2 px-4 py-3 font-semibold transition ${
-             paymentMethod === "paypal"
-              ? "border-[#004080]"
-              : "cursor-pointer border-gray-300 bg-white hover:border-[#004080]"
-             }`}
+              type="button"
+              onClick={() =>
+                setPaymentMethod("paypal")
+              }
+              className={`
+                flex
+                items-center
+                justify-center
+                h-[52px]
+                px-4
+                rounded-lg
+                border
+                transition-all
+                duration-200
+                cursor-pointer
+                ${
+                  paymentMethod === "paypal"
+                    ? "border-[rgb(0,64,128)]"
+                    : "bg-white border-gray-300 hover:border-[rgb(0,64,128)]"
+                }
+              `}
             >
-               <img
-                 src="https://i.imgur.com/nPULbde.png"
-                 alt="PayPal"
-                 className="h-13 w-auto max-w-[100%] object-contain"
-               />
+              <img
+                src="https://i.imgur.com/nPULbde.png"
+                alt="PayPal"
+                className="h-[80%] w-[90%] object-contain"
+              />
             </button>
           </div>
-        </div>
 
-        {paymentMethod === "paystack" && (
-          <div className="mb-6">
-            <h3 className="mb-3 text-base font-semibold text-[#004080]">
-              Select your Mobile Money Provider
-            </h3>
-
-            <div className="mb-4 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileMoneyMethod("mpesa")
-                }
-                disabled={loading}
-                className={`flex items-center justify-center gap-3 rounded-lg border-2 px-4 py-3 font-semibold transition ${
-                  mobileMoneyMethod === "mpesa"
-                    ? "border-[#004080]"
-                    : "cursor-pointer border-gray-300 bg-white hover:border-[#004080]"
-                }`}
+          {paymentMethod === "paystack" && (
+            <div className="mb-6">
+              <div
+                className="
+                  grid
+                  grid-cols-2
+                  gap-3
+                  max-w-[360px]
+                  mb-4
+                  max-[480px]:max-w-full
+                "
               >
-                <img
-                  src="https://i.imgur.com/ZJrVqS3.jpeg"
-                  alt="M-PESA"
-                  className="h-13 w-auto max-w-[100%] object-contain"
-                />
-              </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMobileMoneyMethod("mpesa")
+                  }
+                  className={`
+                    flex
+                    items-center
+                    justify-center
+                    h-[58px]
+                    px-4
+                    rounded-lg
+                    border
+                    transition-all
+                    duration-200
+                    cursor-pointer
+                    ${
+                      mobileMoneyMethod === "mpesa"
+                        ? "border-[rgb(0,64,128)]"
+                        : "bg-white border-gray-300 hover:border-[rgb(0,64,128)]"
+                    }
+                  `}
+                >
+                  <img
+                    src="https://i.imgur.com/ZJrVqS3.jpeg"
+                    alt="M-PESA"
+                    className="
+                      h-[90%]
+                      max-w-[90%]
+                      object-contain
+                      rounded
+                    "
+                  />
+                </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setMobileMoneyMethod("airtel")
-                }
-                disabled={loading}
-                className={`flex items-center justify-center gap-3 rounded-lg border-2 px-4 py-3 font-semibold transition ${
-                  mobileMoneyMethod === "airtel"
-                    ? "border-[#004080]"
-                    : "cursor-pointer border-gray-300 bg-white hover:border-[#004080]"
-                }`}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMobileMoneyMethod("airtel")
+                  }
+                  className={`
+                    flex
+                    items-center
+                    justify-center
+                    h-[58px]
+                    px-4
+                    rounded-lg
+                    border
+                    transition-all
+                    duration-200
+                    cursor-pointer
+                    ${
+                      mobileMoneyMethod === "airtel"
+                        ? "border-[rgb(0,64,128)]"
+                        : "bg-white border-gray-300 hover:border-[rgb(0,64,128)]"
+                    }
+                  `}
+                >
+                  <img
+                    src="https://i.imgur.com/NXJScUg.png"
+                    alt="Airtel Money"
+                    className="
+                      h-[90%]
+                      max-w-[90%]
+                      object-contain
+                    "
+                  />
+                </button>
+              </div>
+
+              <div
+                className="
+                  mb-4
+                  max-w-[360px]
+                  max-[480px]:max-w-full
+                "
               >
-                <img
-                  src="https://i.imgur.com/NXJScUg.png"
-                  alt="Airtel Money"
-                  className="h-13 w-auto max-w-[100%] object-contain"
-                />
-              </button>
+                <label
+                  htmlFor="mobile-money-phone"
+                  className="
+                    block
+                    mb-2
+                    text-sm
+                    font-semibold
+                    text-gray-700
+                  "
+                >
+                  {mobileMoneyMethod === "mpesa"
+                    ? "M-PESA Phone Number"
+                    : "Airtel Money Phone Number"}
+                </label>
 
-              <p className="col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-gray-700">
-                <span className="font-semibold text-amber-700">
-                  Note:
-                </span>{" "}
-                The maximum mobile money transaction
-                limit is{" "}
-                <span className="font-bold">
-                  KES 250,000
-                </span>
-                .
-              </p>
+                <input
+                  id="mobile-money-phone"
+                  type="tel"
+                  value={mobileMoneyPhone}
+                  onChange={(e) =>
+                    setMobileMoneyPhone(
+                      e.target.value
+                    )
+                  }
+                  placeholder="Enter mobile money number"
+                  autoComplete="tel"
+                  className="
+                    w-full
+                    h-[46px]
+                    px-3
+                    rounded-lg
+                    bg-white
+                    border
+                    border-gray-300
+                    text-gray-700
+                    outline-none
+                    transition-colors
+                    duration-200
+                    focus:border-[rgb(0,64,128)]
+                    focus:ring-1
+                    focus:ring-[rgb(0,64,128)]
+                  "
+                />
+              </div>
+
+              <div
+                className="
+                  p-4
+                  rounded-lg
+                  bg-white
+                  border
+                  border-gray-300
+                  text-gray-700
+                  text-sm
+                "
+              >
+               <p className="mb-2">
+                 Enter the phone number registered for
+                 your selected mobile money service.
+               </p>
+
+               <p className="font-semibold text-red-600">
+                 Mobile money payments cannot exceed KES 250,000.
+               </p>
+              </div>
             </div>
+          )}
 
-            <input
-              type="tel"
-              name="phone"
-              placeholder="Phone Number"
-              value={phone}
-              onChange={handlePhoneChange}
-              required
-              className="w-full rounded-lg border-[1.5px] border-[#004080] px-3 py-[0.8rem] text-base text-black outline-none transition duration-300 focus:shadow-[0_0_0_2px_rgb(3,29,56)]"
-            />
+          {paymentMethod === "paypal" && (
+            <div
+              className="
+                mb-6
+                p-4
+                rounded-lg
+                bg-white
+                border
+                border-gray-300
+                text-gray-700
+                text-sm
+              "
+            >
+              You will be redirected to PayPal to
+              complete your payment securely.
+            </div>
+          )}
 
-            <p className="mt-2 text-sm text-gray-600">
-              Enter the Kenyan mobile number
-              that will receive the payment
-              request.
-            </p>
-          </div>
-        )}
-
-        {paymentMethod === "paypal" && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-gray-700">
-            You will be redirected to PayPal to
-            securely approve your payment.
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full cursor-pointer rounded-lg bg-[#004080] py-[0.8rem] text-[1.1rem] text-white transition duration-300 hover:bg-[rgb(3,32,59)] disabled:cursor-not-allowed disabled:bg-[#ccc]"
-        >
-          {loading
-            ? "Processing..."
-            : paymentMethod === "stripe"
-              ? "Pay with Card"
-              : paymentMethod === "paypal"
-                ? "Pay with PayPal"
-                : `Pay with ${
-                    mobileMoneyMethod === "mpesa"
-                      ? "M-PESA"
-                      : "Airtel Money"
-                  }`}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={
+              loading ||
+              addressLoading ||
+              !items ||
+              items.length === 0 ||
+              !address.street.trim() ||
+              !address.city.trim() ||
+              !address.country.trim() ||
+              (paymentMethod === "paystack" &&
+                !mobileMoneyPhone.trim())
+            }
+            className="
+              w-full
+              p-[0.8rem]
+              rounded-lg
+              text-[1.1rem]
+              text-white
+              bg-[rgb(0,64,128)]
+              transition-colors
+              duration-300
+              cursor-pointer
+              hover:bg-[rgb(3,32,59)]
+              disabled:bg-[#ccc]
+              disabled:cursor-not-allowed
+            "
+          >
+            {loading
+              ? "Processing..."
+              : "Proceed to Payment"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
+
 
 /* ---------------- Types ---------------- */
 interface SparePart {
@@ -22,6 +23,17 @@ interface SparePartsResponse {
 
 interface ErrorStateProps {
   onRetry: () => Promise<void>;
+}
+
+interface RestoreState {
+  from?: string;
+  restoreFilters?: {
+    brand?: string;
+    colour?: string;
+    price?: string;
+    currentPage?: number;
+  };
+  restoreScrollY?: number;
 }
 
 /* ---------------- Skeleton Card ---------------- */
@@ -91,29 +103,81 @@ const ErrorState = ({
 
 /* ---------------- Component ---------------- */
 const SedanRims = (): ReactElement => {
-  const [items, setItems] = useState<SparePart[]>([]);
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [brand, setBrand] = useState<string>("");
-  const [colour, setColour] = useState<string>("");
-  const [price, setPrice] = useState<string>("");
+  const restoreState =
+    location.state as RestoreState | null;
+
+  const hasRestoreState =
+    Boolean(restoreState?.restoreFilters);
+
+  const [items, setItems] =
+    useState<SparePart[]>([]);
+
+  const [brand, setBrand] =
+    useState<string>(
+      restoreState?.restoreFilters?.brand ?? ""
+    );
+
+  const [colour, setColour] =
+    useState<string>(
+      restoreState?.restoreFilters?.colour ?? ""
+    );
+
+  const [price, setPrice] =
+    useState<string>(
+      restoreState?.restoreFilters?.price ?? ""
+    );
 
   /* ---------------- Dropdown State ---------------- */
-  const [brandOpen, setBrandOpen] = useState<boolean>(false);
-  const [colourOpen, setColourOpen] = useState<boolean>(false);
-  const [priceOpen, setPriceOpen] = useState<boolean>(false);
+  const [brandOpen, setBrandOpen] =
+    useState<boolean>(false);
+
+  const [colourOpen, setColourOpen] =
+    useState<boolean>(false);
+
+  const [priceOpen, setPriceOpen] =
+    useState<boolean>(false);
 
   /* ---------------- Dropdown Refs ---------------- */
-  const brandDropdownRef = useRef<HTMLDivElement>(null);
-  const colourDropdownRef = useRef<HTMLDivElement>(null);
-  const priceDropdownRef = useRef<HTMLDivElement>(null);
+  const brandDropdownRef =
+    useRef<HTMLDivElement>(null);
 
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(false);
+  const colourDropdownRef =
+    useRef<HTMLDivElement>(null);
 
-  const [error, setError] = useState<boolean>(false);
+  const priceDropdownRef =
+    useRef<HTMLDivElement>(null);
+
+  const [currentPage, setCurrentPage] =
+    useState<number>(
+      restoreState?.restoreFilters?.currentPage ?? 1
+    );
+
+  const [totalPages, setTotalPages] =
+    useState<number>(1);
+
+  const [loading, setLoading] =
+    useState<boolean>(false);
+
+  const [error, setError] =
+    useState<boolean>(false);
 
   const { addItem } = useCart();
+
+  const isRestoringRef =
+    useRef<boolean>(hasRestoreState);
+
+  const initialRestoreRef =
+    useRef<boolean>(hasRestoreState);
+
+  const restoreScrollYRef =
+    useRef<number | null>(
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : null
+    );
 
   const availableBrands: string[] = [
     "Enkei",
@@ -130,6 +194,38 @@ const SedanRims = (): ReactElement => {
     "black",
     "gold",
   ];
+
+  /* ---------------- Restore Listing State ---------------- */
+  useEffect(() => {
+    if (!hasRestoreState) {
+      return;
+    }
+
+    setBrand(
+      restoreState?.restoreFilters?.brand ?? ""
+    );
+
+    setColour(
+      restoreState?.restoreFilters?.colour ?? ""
+    );
+
+    setPrice(
+      restoreState?.restoreFilters?.price ?? ""
+    );
+
+    setCurrentPage(
+      restoreState?.restoreFilters?.currentPage ?? 1
+    );
+
+    setBrandOpen(false);
+    setColourOpen(false);
+    setPriceOpen(false);
+
+    restoreScrollYRef.current =
+      typeof restoreState?.restoreScrollY === "number"
+        ? restoreState.restoreScrollY
+        : 0;
+  }, []);
 
   /* ---------------- Fetch Rims ---------------- */
   const fetchRims = async (): Promise<void> => {
@@ -155,7 +251,8 @@ const SedanRims = (): ReactElement => {
         throw new Error("Failed to fetch rims");
       }
 
-      const data: SparePartsResponse = await response.json();
+      const data: SparePartsResponse =
+        await response.json();
 
       setItems(data.items ?? []);
       setTotalPages(data.pages ?? 1);
@@ -169,15 +266,7 @@ const SedanRims = (): ReactElement => {
     }
   };
 
-  /* ---------------- Effects ---------------- */
-  useEffect(() => {
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: "auto",
-    });
-  }, [currentPage]);
-
+  /* ---------------- Fetch On Filter/Page Change ---------------- */
   useEffect(() => {
     void fetchRims();
   }, [
@@ -187,13 +276,189 @@ const SedanRims = (): ReactElement => {
     currentPage,
   ]);
 
+  /* ---------------- Reset Page When Filters Change ---------------- */
   useEffect(() => {
+    if (initialRestoreRef.current) {
+      initialRestoreRef.current = false;
+      return;
+    }
+
     setCurrentPage(1);
   }, [
     brand,
     colour,
     price,
   ]);
+
+  /* ---------------- Restore Exact Scroll Position ---------------- */
+  useEffect(() => {
+    if (
+      loading ||
+      restoreScrollYRef.current === null
+    ) {
+      return;
+    }
+
+    const scrollY =
+      restoreScrollYRef.current;
+
+    isRestoringRef.current = true;
+
+    let cancelled = false;
+
+    const restoreScroll = (): void => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: "auto",
+      });
+
+      requestAnimationFrame(() => {
+        if (cancelled) {
+          return;
+        }
+
+        window.scrollTo({
+          top: scrollY,
+          left: 0,
+          behavior: "auto",
+        });
+
+        requestAnimationFrame(() => {
+          if (cancelled) {
+            return;
+          }
+
+          window.scrollTo({
+            top: scrollY,
+            left: 0,
+            behavior: "auto",
+          });
+
+          requestAnimationFrame(() => {
+            if (cancelled) {
+              return;
+            }
+
+            window.scrollTo({
+              top: scrollY,
+              left: 0,
+              behavior: "auto",
+            });
+
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+          });
+        });
+      });
+    };
+
+    const images = Array.from(document.images);
+
+    const pendingImages =
+      images.filter(
+        (image) => !image.complete
+      );
+
+    if (pendingImages.length === 0) {
+      restoreScroll();
+    } else {
+      let remaining =
+        pendingImages.length;
+
+      const handleImageLoad = (): void => {
+        remaining -= 1;
+
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
+
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true }
+        );
+
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true }
+        );
+      });
+
+      const fallbackTimer =
+        window.setTimeout(() => {
+          restoreScroll();
+        }, 1500);
+
+      return () => {
+        cancelled = true;
+
+        window.clearTimeout(
+          fallbackTimer
+        );
+
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad
+          );
+
+          image.removeEventListener(
+            "error",
+            handleImageLoad
+          );
+        });
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, currentPage]);
+
+  /* ---------------- Normal Page Scroll ---------------- */
+  useEffect(() => {
+    if (
+      isRestoringRef.current ||
+      restoreScrollYRef.current !== null
+    ) {
+      return;
+    }
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: "auto",
+    });
+  }, [currentPage]);
+
+  /* ---------------- Item Navigation ---------------- */
+  const handleItemClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    itemId: string
+  ): void => {
+    event.preventDefault();
+
+    navigate(`/items/${itemId}`, {
+      state: {
+        from: location.pathname,
+        restoreFilters: {
+          brand,
+          colour,
+          price,
+          currentPage,
+        },
+        restoreScrollY: window.scrollY,
+      },
+    });
+  };
 
   /* ---------------- Cart ---------------- */
   const handleAddToCart = (
@@ -207,16 +472,17 @@ const SedanRims = (): ReactElement => {
   };
 
   /* ---------------- Back To Available Parts ---------------- */
-  const handleBackToAvailableParts = (): void => {
-    setBrand("");
-    setColour("");
-    setPrice("");
-    setCurrentPage(1);
+  const handleBackToAvailableParts =
+    (): void => {
+      setBrand("");
+      setColour("");
+      setPrice("");
+      setCurrentPage(1);
 
-    setBrandOpen(false);
-    setColourOpen(false);
-    setPriceOpen(false);
-  };
+      setBrandOpen(false);
+      setColourOpen(false);
+      setPriceOpen(false);
+    };
 
   /* ---------------- Filters Dropdown ---------------- */
   useEffect(() => {
@@ -296,7 +562,8 @@ const SedanRims = (): ReactElement => {
     return pages;
   };
 
-  const visiblePages = getVisiblePages();
+  const visiblePages =
+    getVisiblePages();
 
   /* ---------------- Render ---------------- */
   return (
@@ -324,12 +591,12 @@ const SedanRims = (): ReactElement => {
                 onClick={handleBackToAvailableParts}
                 aria-label="Back to available parts"
                 className="
+                  mt-4
                   inline-flex
                   items-center
                   justify-center
                   rounded-md
                   p-2
-                  mt-4
                   text-[rgb(0,64,128)]
                   transition-colors
                   hover:bg-[#eaf2f8]
@@ -373,7 +640,9 @@ const SedanRims = (): ReactElement => {
                 <button
                   type="button"
                   onClick={() => {
-                    setBrandOpen((open) => !open);
+                    setBrandOpen(
+                      (open) => !open
+                    );
                     setColourOpen(false);
                     setPriceOpen(false);
                   }}
@@ -472,7 +741,9 @@ const SedanRims = (): ReactElement => {
                           key={itemBrand}
                           type="button"
                           onClick={() => {
-                            setBrand(itemBrand);
+                            setBrand(
+                              itemBrand
+                            );
                             setBrandOpen(false);
                           }}
                           className={`
@@ -616,7 +887,9 @@ const SedanRims = (): ReactElement => {
                           key={itemColour}
                           type="button"
                           onClick={() => {
-                            setColour(itemColour);
+                            setColour(
+                              itemColour
+                            );
                             setColourOpen(false);
                           }}
                           className={`
@@ -889,6 +1162,12 @@ const SedanRims = (): ReactElement => {
                 >
                   <Link
                     to={`/items/${item.id}`}
+                    onClick={(event) =>
+                      handleItemClick(
+                        event,
+                        item.id
+                      )
+                    }
                     className="
                       flex
                       h-full
@@ -953,7 +1232,10 @@ const SedanRims = (): ReactElement => {
 
                     <button
                       onClick={(event) =>
-                        handleAddToCart(item, event)
+                        handleAddToCart(
+                          item,
+                          event
+                        )
                       }
                       className="
                         rounded-md
@@ -1017,7 +1299,10 @@ const SedanRims = (): ReactElement => {
                   disabled={currentPage === 1}
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.max(page - 1, 1)
+                      Math.max(
+                        page - 1,
+                        1
+                      )
                     )
                   }
                   className="
@@ -1088,7 +1373,9 @@ const SedanRims = (): ReactElement => {
                 )}
 
                 <button
-                  disabled={currentPage === totalPages}
+                  disabled={
+                    currentPage === totalPages
+                  }
                   onClick={() =>
                     setCurrentPage((page) =>
                       Math.min(

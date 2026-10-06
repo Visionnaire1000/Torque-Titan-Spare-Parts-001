@@ -150,6 +150,7 @@ const Login = () => {
                 -translate-y-1/2
                 text-gray-500
                 transition-colors
+                cursor-pointer
                 hover:text-[rgb(0,64,128)]
               "
             >
@@ -187,6 +188,7 @@ const Login = () => {
               text-base
               font-bold
               text-white
+              cursor-pointer
               transition-colors
               duration-300
               hover:bg-[rgba(13,54,95,0.831)]

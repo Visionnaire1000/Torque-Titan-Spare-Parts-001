@@ -13,6 +13,7 @@ const ForgotPassword = (): React.JSX.Element => {
 
   const [showNewPassword, setShowNewPassword] =
     useState<boolean>(false);
+
   const [
     showConfirmPassword,
     setShowConfirmPassword,
@@ -24,11 +25,18 @@ const ForgotPassword = (): React.JSX.Element => {
   const [isSubmitting, setIsSubmitting] =
     useState<boolean>(false);
 
+  const [passwordError, setPasswordError] =
+    useState<string>("");
+
+  const [emailError, setEmailError] =
+    useState<string>("");
+
   const {
     sendForgotPasswordOtp,
     completeForgotPassword,
     otpCountdowns,
     resendOtp,
+    resendLoading,
   } = useAuth();
 
   const navigate = useNavigate();
@@ -36,16 +44,60 @@ const ForgotPassword = (): React.JSX.Element => {
   const forgotPasswordCountdown =
     otpCountdowns.forgot_password;
 
+  const emailPattern =
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const passwordPattern =
+    /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
   const passwordsMatch =
     newPassword.trim() ===
     confirmPassword.trim();
+
+  const handleNewPasswordChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): void => {
+    const value = e.target.value;
+
+    setNewPassword(value);
+
+    if (!value) {
+      setPasswordError("");
+      return;
+    }
+
+    setPasswordError(
+      !passwordPattern.test(value)
+        ? "Password must be at least 8 characters and include one uppercase letter, one number, and one special character."
+        : ""
+    );
+  };
+
+  const handleEmailChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): void => {
+    const value = e.target.value;
+
+    setEmail(value);
+
+    setEmailError(
+      !emailPattern.test(value)
+        ? "Enter a valid email address"
+        : ""
+    );
+  };
 
   const handleSendOtp = async (
     e: React.SyntheticEvent<HTMLFormElement>
   ): Promise<void> => {
     e.preventDefault();
 
-    if (!passwordsMatch) {
+    if (
+      passwordError ||
+      emailError ||
+      !passwordPattern.test(newPassword) ||
+      !passwordsMatch
+    ) {
       return;
     }
 
@@ -71,7 +123,11 @@ const ForgotPassword = (): React.JSX.Element => {
   ): Promise<void> => {
     e.preventDefault();
 
-    if (otp.length !== 6) {
+    if (
+      otp.length !== 6 ||
+      !passwordPattern.test(newPassword) ||
+      !passwordsMatch
+    ) {
       return;
     }
 
@@ -96,7 +152,10 @@ const ForgotPassword = (): React.JSX.Element => {
   };
 
   const handleResendOtp = async (): Promise<void> => {
-    if (forgotPasswordCountdown > 0) {
+    if (
+      forgotPasswordCountdown > 0 ||
+      resendLoading
+    ) {
       return;
     }
 
@@ -158,11 +217,7 @@ const ForgotPassword = (): React.JSX.Element => {
                 type="email"
                 placeholder="email"
                 value={email}
-                onChange={(
-                  e: React.ChangeEvent<HTMLInputElement>
-                ) =>
-                  setEmail(e.target.value)
-                }
+                onChange={handleEmailChange}
                 required
                 className="
                   rounded-md
@@ -178,6 +233,26 @@ const ForgotPassword = (): React.JSX.Element => {
                 "
               />
 
+              {emailError && (
+                <p
+                  className="
+                    mt-[-5px]
+                    block
+                    rounded-[5px]
+                    border
+                    border-[#f5c2c7]
+                    bg-[#f8d7da]
+                    px-[10px]
+                    py-[5px]
+                    text-[0.9rem]
+                    font-medium
+                    text-[#d9534f]
+                  "
+                >
+                  {emailError}
+                </p>
+              )}
+
               <div className="relative">
                 <input
                   type={
@@ -187,13 +262,7 @@ const ForgotPassword = (): React.JSX.Element => {
                   }
                   placeholder="new password"
                   value={newPassword}
-                  onChange={(
-                    e: React.ChangeEvent<HTMLInputElement>
-                  ) =>
-                    setNewPassword(
-                      e.target.value
-                    )
-                  }
+                  onChange={handleNewPasswordChange}
                   required
                   className="
                     w-full
@@ -240,6 +309,26 @@ const ForgotPassword = (): React.JSX.Element => {
                   )}
                 </button>
               </div>
+
+              {passwordError && (
+                <p
+                  className="
+                    mt-[-5px]
+                    block
+                    rounded-[5px]
+                    border
+                    border-[#f5c2c7]
+                    bg-[#f8d7da]
+                    px-[10px]
+                    py-[5px]
+                    text-[0.9rem]
+                    font-medium
+                    text-[#d9534f]
+                  "
+                >
+                  {passwordError}
+                </p>
+              )}
 
               <div className="relative">
                 <input
@@ -307,7 +396,21 @@ const ForgotPassword = (): React.JSX.Element => {
               {newPassword &&
                 confirmPassword &&
                 !passwordsMatch && (
-                  <p className="text-sm text-red-600">
+                  <p
+                    className="
+                      mt-[-5px]
+                      block
+                      rounded-[5px]
+                      border
+                      border-[#f5c2c7]
+                      bg-[#f8d7da]
+                      px-[10px]
+                      py-[5px]
+                      text-[0.9rem]
+                      font-medium
+                      text-[#d9534f]
+                    "
+                  >
                     Passwords do not match.
                   </p>
                 )}
@@ -316,9 +419,15 @@ const ForgotPassword = (): React.JSX.Element => {
                 type="submit"
                 disabled={
                   isSubmitting ||
+                  Boolean(passwordError) ||
+                  Boolean(emailError) ||
+                  !newPassword ||
+                  !confirmPassword ||
+                  !passwordPattern.test(newPassword) ||
                   !passwordsMatch
                 }
                 className="
+                  w-full
                   rounded-md
                   bg-[rgb(0,64,128)]
                   py-3
@@ -328,6 +437,7 @@ const ForgotPassword = (): React.JSX.Element => {
                   transition-colors
                   duration-300
                   hover:bg-[rgba(13,54,95,0.831)]
+                  cursor-pointer
                   disabled:cursor-not-allowed
                   disabled:bg-[#ccc]
                 "
@@ -395,9 +505,12 @@ const ForgotPassword = (): React.JSX.Element => {
                 type="submit"
                 disabled={
                   isSubmitting ||
-                  otp.length !== 6
+                  otp.length !== 6 ||
+                  !passwordPattern.test(newPassword) ||
+                  !passwordsMatch
                 }
                 className="
+                  w-full
                   rounded-md
                   bg-[rgb(0,64,128)]
                   py-3
@@ -407,6 +520,7 @@ const ForgotPassword = (): React.JSX.Element => {
                   transition-colors
                   duration-300
                   hover:bg-[rgba(13,54,95,0.831)]
+                  cursor-pointer
                   disabled:cursor-not-allowed
                   disabled:bg-[#ccc]
                 "
@@ -422,20 +536,34 @@ const ForgotPassword = (): React.JSX.Element => {
                   void handleResendOtp();
                 }}
                 disabled={
+                  resendLoading ||
                   forgotPasswordCountdown > 0
                 }
                 className="
-                  text-sm
-                  font-semibold
-                  text-[rgb(0,64,128)]
-                  hover:underline
+                  w-full
+                  rounded-md
+                  border
+                  border-[rgb(0,64,128)]
+                  bg-[rgb(0,64,128)]
+                  py-3
+                  text-base
+                  font-bold
+                  text-white
+                  transition-colors
+                  duration-300
+                  hover:bg-[rgba(0,64,128,0.26)]
+                  cursor-pointer
                   disabled:cursor-not-allowed
+                  disabled:border-[#ccc]
+                  disabled:bg-[#f5f5f5]
                   disabled:text-gray-400
                 "
               >
                 {forgotPasswordCountdown > 0
                   ? `Resend OTP in ${forgotPasswordCountdown}s`
-                  : "Resend OTP"}
+                  : resendLoading
+                    ? "Resending OTP..."
+                    : "Resend OTP"}
               </button>
             </form>
           </>
