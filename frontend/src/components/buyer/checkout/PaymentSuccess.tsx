@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useCart } from "../../../contexts/CartContext";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import config from "../../../config";
 
-
 const PaymentSuccess = () => {
   const { authFetch } = useAuth();
+  const { loadCart } = useCart();
   const [searchParams] = useSearchParams();
 
   const hasRun = useRef(false);
@@ -23,6 +24,7 @@ const PaymentSuccess = () => {
     hasRun.current = true;
 
     const paypalOrderId = searchParams.get("token");
+    const paymentMethod = searchParams.get("method");
 
     const handlePayment = async () => {
       if (paypalOrderId) {
@@ -51,6 +53,8 @@ const PaymentSuccess = () => {
             );
           }
 
+          await loadCart();
+
           setPaymentSuccess(true);
 
           toast.success("Payment Successful.", {
@@ -74,26 +78,55 @@ const PaymentSuccess = () => {
         return;
       }
 
-      try {
-        setPaymentSuccess(true);
+      if (paymentMethod === "paystack") {
+        setProcessing(true);
 
-        toast.success("Payment Successful.", {
-          autoClose: 3000,
-        });
+        try {
+          await loadCart();
+
+          setPaymentSuccess(true);
+
+          toast.success("Payment Successful.", {
+            autoClose: 3000,
+          });
+        } catch (error) {
+          console.error(
+            "Paystack payment success error:",
+            error
+          );
+
+          toast.error(
+            "There was a problem completing your payment."
+          );
+        } finally {
+          setProcessing(false);
+        }
+
+        return;
+      }
+
+      try {
+        setProcessing(true);
+
+        await loadCart();
+
+        setPaymentSuccess(true);
       } catch (error) {
         console.error(
-          "PaymentSuccess error:",
+          "Stripe payment success error:",
           error
         );
 
         toast.error(
           "There was a problem completing your payment."
         );
+      } finally {
+        setProcessing(false);
       }
     };
 
     void handlePayment();
-  }, [authFetch, searchParams]);
+  }, [authFetch, loadCart, searchParams]);
 
   if (processing) {
     return (
@@ -114,7 +147,7 @@ const PaymentSuccess = () => {
           </h1>
 
           <p className="leading-relaxed text-gray-500">
-            Please wait while we confirm your PayPal payment.
+            Please wait while we confirm your payment.
           </p>
         </div>
       </div>

@@ -129,6 +129,48 @@ def send_order_confirmation_email(
     return True
 
 
+def send_order_cancellation_email(
+    to_email: str,
+    order_id: str,
+    total_price: str,
+    payment_method: str,
+):
+    payment_method_display = {
+        "stripe": "Stripe",
+        "paystack": "Paystack",
+        "paypal": "PayPal",
+    }.get(
+        str(payment_method).lower(),
+        str(payment_method).title(),
+    )
+
+    subject = "Your Order Has Been Cancelled"
+
+    message = (
+        "Your Torque Titan Spares order has been successfully cancelled.\n\n"
+        f"Order ID: {order_id}\n"
+        "Order Status: Cancelled\n"
+        f"Payment Method: {payment_method_display}\n"
+        f"Order Total: KES {total_price}\n\n"
+        "Your order cancellation has been confirmed.\n"
+        "Thank you for shopping with Torque Titan Spares."
+    )
+
+    print(
+        "\n"
+        "========================================\n"
+        "ORDER CANCELLATION EMAIL\n"
+        "========================================\n"
+        f"To: {to_email}\n"
+        f"Subject: {subject}\n"
+        "\n"
+        f"{message}\n"
+        "========================================\n"
+    )
+
+    return True
+
+
 def send_order_status_email(
     to_email: str,
     order_id: str,

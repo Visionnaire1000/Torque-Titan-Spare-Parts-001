@@ -5,6 +5,7 @@ from utils.brevo_email import (
     send_new_login_email,
     send_otp_email,
     send_order_confirmation_email,
+    send_order_cancellation_email,
     send_order_status_email,
 )
 
@@ -53,6 +54,25 @@ def send_order_confirmation_email_task(
     payment_method: str,
 ):
     success = send_order_confirmation_email(
+        user_email,
+        order_id,
+        total_price,
+        payment_method,
+    )
+
+    return success
+
+
+@celery.task(
+    name="utils.tasks.send_order_cancellation_email_task"
+)
+def send_order_cancellation_email_task(
+    user_email: str,
+    order_id: str,
+    total_price: str,
+    payment_method: str,
+):
+    success = send_order_cancellation_email(
         user_email,
         order_id,
         total_price,

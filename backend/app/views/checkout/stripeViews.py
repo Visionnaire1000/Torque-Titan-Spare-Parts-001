@@ -57,7 +57,10 @@ def clear_user_cart(user):
     ).delete()
 
 
-def mark_order_as_paid(order_id):
+def mark_order_as_paid(
+    order_id,
+    payment_reference=None,
+):
     with transaction.atomic():
 
         order = (
@@ -95,11 +98,23 @@ def mark_order_as_paid(order_id):
         order.total_price = total_price
         order.paid = True
 
+        if payment_reference:
+            order.payment_reference = (
+                payment_reference
+            )
+
+        update_fields = [
+            "total_price",
+            "paid",
+        ]
+
+        if payment_reference:
+            update_fields.append(
+                "payment_reference"
+            )
+
         order.save(
-            update_fields=[
-                "total_price",
-                "paid",
-            ]
+            update_fields=update_fields
         )
 
         clear_user_cart(
@@ -124,6 +139,44 @@ def mark_order_as_paid(order_id):
         )
 
         return order
+
+
+def refund_stripe_order(order):
+
+    if not order.payment_reference:
+
+        raise ValueError(
+            "Stripe payment reference is missing."
+        )
+
+    refund_amount = (
+        calculate_order_total(
+            order
+        )
+    )
+
+    if refund_amount <= Decimal("0.00"):
+
+        raise ValueError(
+            "Refund amount must be greater than zero."
+        )
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    stripe.Refund.create(
+        payment_intent=order.payment_reference,
+        amount=int(
+            (
+                refund_amount * Decimal("100")
+            ).quantize(
+                Decimal("1")
+            )
+        ),
+        metadata={
+            "order_id": str(order.id),
+        },
+        idempotency_key=f"order-cancellation-{order.id}",
+    )
 
 
 # --------------------------- CREATE STRIPE CHECKOUT SESSION ---------------------------
@@ -339,6 +392,7 @@ class CreateStripeSessionView(APIView):
                     customer_email=current_user.email,
                     success_url=settings.STRIPE_SUCCESS_URL,
                     cancel_url=cancel_url,
+                    idempotency_key=f"stripe-checkout-{order.id}",
                 )
             )
 
@@ -462,7 +516,7 @@ class CancelStripeSessionView(APIView):
             )
 
         return HttpResponseRedirect(
-            settings.STRIPE_CANCEL_REDIRECT_URL
+            settings.STRIPE_CANCEL_URL
         )
 
 
@@ -679,8 +733,28 @@ class StripeWebhookView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
+                    payment_reference = (
+                        session.payment_intent
+                    )
+
+                    if not payment_reference:
+
+                        print(
+                            f"STRIPE WEBHOOK ERROR: "
+                            f"Missing payment_intent "
+                            f"for order {order_id}"
+                        )
+
+                        return Response(
+                            {
+                                "error": "Missing payment reference"
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
                     mark_order_as_paid(
-                        order.id
+                        order.id,
+                        payment_reference,
                     )
 
             except Orders.DoesNotExist:

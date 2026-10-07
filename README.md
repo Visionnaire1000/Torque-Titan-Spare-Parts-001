@@ -95,7 +95,7 @@ The backend utilizes the following core models:
 ### Reviews
 
 - `POST /reviews/<string:part_id>/` — Post a rating and/or comment
-- `POST /reviews/<string:review_id>/edit/` — Edit an existing review
+- `PATCH /reviews/<string:review_id>/edit/` — Edit an existing review
 - `DELETE /reviews/<string:review_id>/delete/` — Delete an existing review
 - `POST /reviews/<string:review_id>/react/` — Like or dislike a review
 - `GET /buyer-reviews/` — Fetch the authenticated buyer's reviews

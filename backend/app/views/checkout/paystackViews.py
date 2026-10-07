@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import requests
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.conf import settings
 from django.db import transaction
@@ -60,11 +60,21 @@ def normalize_phone(phone):
 
 def get_paystack_headers():
 
-    secret_key = settings.PAYSTACK_SECRET_KEY
+    secret_key = getattr(
+        settings,
+        "PAYSTACK_SECRET_KEY",
+        None,
+    )
+
+    if not secret_key:
+        raise ValueError(
+            "Paystack secret key is not configured"
+        )
 
     return {
         "Authorization": f"Bearer {secret_key}",
         "Content-Type": "application/json",
+        "Accept": "application/json",
     }
 
 
@@ -78,7 +88,8 @@ def calculate_order_total(order):
         )
         for item in order.order_items.all()
     ).quantize(
-        Decimal("0.01")
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
     )
 
 
@@ -88,22 +99,45 @@ def calculate_paystack_expected_amount(order):
         order
     )
 
+    if total_price <= Decimal("0.00"):
+        return 0
+
     return int(
         (
             total_price * Decimal("100")
         ).quantize(
-            Decimal("1")
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
         )
     )
 
 
-def mark_order_as_paid(order_id):
+def clear_user_cart(user):
+
+    deleted_count, _ = CartItems.objects.filter(
+        user=user
+    ).delete()
+
+    print(
+        f"PAYSTACK CART CLEAR: "
+        f"user={user.id}, "
+        f"deleted_cart_items={deleted_count}"
+    )
+
+
+def mark_order_as_paid(
+    order_id,
+    payment_reference=None,
+):
 
     with transaction.atomic():
 
         order = (
             Orders.objects
             .select_for_update()
+            .select_related(
+                "user"
+            )
             .prefetch_related(
                 "order_items"
             )
@@ -113,6 +147,31 @@ def mark_order_as_paid(order_id):
         )
 
         if order.paid:
+
+            if (
+                not order.payment_reference
+                and payment_reference
+            ):
+
+                order.payment_reference = (
+                    payment_reference
+                )
+
+                order.save(
+                    update_fields=[
+                        "payment_reference",
+                    ]
+                )
+
+            clear_user_cart(
+                order.user
+            )
+
+            print(
+                f"PAYSTACK PAYMENT: "
+                f"Order {order_id} is already marked as paid"
+            )
+
             return order
 
         total_price = calculate_order_total(
@@ -128,16 +187,28 @@ def mark_order_as_paid(order_id):
         order.total_price = total_price
         order.paid = True
 
+        update_fields = [
+            "total_price",
+            "paid",
+        ]
+
+        if payment_reference:
+
+            order.payment_reference = (
+                payment_reference
+            )
+
+            update_fields.append(
+                "payment_reference"
+            )
+
         order.save(
-            update_fields=[
-                "total_price",
-                "paid",
-            ]
+            update_fields=update_fields
         )
 
-        CartItems.objects.filter(
-            user=order.user
-        ).delete()
+        clear_user_cart(
+            order.user
+        )
 
         customer_email = order.user.email
         order_id_value = str(order.id)
@@ -153,7 +224,7 @@ def mark_order_as_paid(order_id):
         )
 
         print(
-            f"ORDER {order_id} "
+            f"ORDER {order.id} "
             "MARKED AS PAID BY PAYSTACK"
         )
 
@@ -194,6 +265,226 @@ def mark_order_as_expired(order_id):
         return order
 
 
+def get_existing_paystack_refund(
+    payment_reference,
+):
+
+    try:
+
+        response = requests.get(
+            "https://api.paystack.co/refund",
+            params={
+                "transaction": payment_reference,
+            },
+            headers=get_paystack_headers(),
+            timeout=30,
+        )
+
+    except requests.RequestException as exc:
+
+        print(
+            "PAYSTACK REFUND CHECK ERROR:",
+            repr(exc),
+        )
+
+        raise ValueError(
+            "Unable to check existing Paystack refunds."
+        )
+
+    try:
+
+        response_data = response.json()
+
+    except ValueError:
+
+        response_data = {}
+
+    if not response.ok:
+
+        raise ValueError(
+            response_data.get(
+                "message"
+            )
+            or "Unable to check existing Paystack refunds."
+        )
+
+    if not response_data.get(
+        "status"
+    ):
+
+        raise ValueError(
+            response_data.get(
+                "message"
+            )
+            or "Unable to check existing Paystack refunds."
+        )
+
+    refunds = response_data.get(
+        "data",
+        []
+    )
+
+    if not isinstance(
+        refunds,
+        list,
+    ):
+
+        return None
+
+    for refund in refunds:
+
+        refund_status = (
+            refund.get("status")
+        )
+
+        if refund_status in [
+            "pending",
+            "processing",
+            "processed",
+            "needs-attention",
+        ]:
+
+            return refund
+
+    return None
+
+
+def refund_paystack_order(order):
+
+    if not order.payment_reference:
+
+        raise ValueError(
+            "Paystack payment reference is missing."
+        )
+
+    refund_amount = calculate_order_total(
+        order
+    )
+
+    if refund_amount <= Decimal("0.00"):
+
+        raise ValueError(
+            "Refund amount must be greater than zero."
+        )
+
+    amount_subunit = int(
+        (
+            refund_amount * Decimal("100")
+        ).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
+        )
+    )
+
+    with transaction.atomic():
+
+        locked_order = (
+            Orders.objects
+            .select_for_update()
+            .prefetch_related(
+                "order_items"
+            )
+            .get(
+                pk=order.id
+            )
+        )
+
+        if not locked_order.payment_reference:
+
+            raise ValueError(
+                "Paystack payment reference is missing."
+            )
+
+        existing_refund = (
+            get_existing_paystack_refund(
+                locked_order.payment_reference
+            )
+        )
+
+        if existing_refund:
+
+            print(
+                "PAYSTACK REFUND: "
+                f"Existing refund found for order "
+                f"{locked_order.id}. "
+                f"refund_id={existing_refund.get('id')}, "
+                f"status={existing_refund.get('status')}"
+            )
+
+            return {
+                "status": True,
+                "message": (
+                    "Existing Paystack refund found."
+                ),
+                "data": existing_refund,
+                "already_refunded": True,
+            }
+
+        payload = {
+            "transaction": (
+                locked_order.payment_reference
+            ),
+            "amount": amount_subunit,
+            "currency": "KES",
+            "merchant_note": (
+                f"Refund for order {locked_order.id}"
+            ),
+            "customer_note": (
+                "Refund for cancelled order"
+            ),
+        }
+
+        try:
+
+            response = requests.post(
+                "https://api.paystack.co/refund",
+                json=payload,
+                headers=get_paystack_headers(),
+                timeout=30,
+            )
+
+        except requests.RequestException as exc:
+
+            print(
+                "PAYSTACK REFUND REQUEST ERROR:",
+                repr(exc),
+            )
+
+            raise ValueError(
+                "Unable to connect to Paystack for refund."
+            )
+
+        try:
+
+            response_data = response.json()
+
+        except ValueError:
+
+            response_data = {}
+
+        if not response.ok:
+
+            raise ValueError(
+                response_data.get(
+                    "message"
+                )
+                or "Paystack refund failed."
+            )
+
+        if not response_data.get(
+            "status"
+        ):
+
+            raise ValueError(
+                response_data.get(
+                    "message"
+                )
+                or "Paystack refund failed."
+            )
+
+        return response_data
+
+
 # --------------------------- CREATE PAYSTACK CHECKOUT SESSION ---------------------------
 class CreatePaystackSessionView(APIView):
 
@@ -218,7 +509,6 @@ class CreatePaystackSessionView(APIView):
             "phone_number"
         )
 
-        # --------------------------- VALIDATION ---------------------------
         if not items:
 
             return Response(
@@ -255,7 +545,6 @@ class CreatePaystackSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- CUSTOMER PROFILE ---------------------------
         try:
 
             Profile.objects.get(
@@ -273,7 +562,6 @@ class CreatePaystackSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- CUSTOMER ADDRESS ---------------------------
         try:
 
             address = (
@@ -294,7 +582,6 @@ class CreatePaystackSessionView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- MOBILE MONEY PHONE ---------------------------
         try:
 
             phone = normalize_phone(
@@ -320,7 +607,6 @@ class CreatePaystackSessionView(APIView):
 
             with transaction.atomic():
 
-                # --------------------------- CREATE ORDER ---------------------------
                 order = Orders.objects.create(
                     user=current_user,
                     address=address,
@@ -332,7 +618,6 @@ class CreatePaystackSessionView(APIView):
                     ),
                 )
 
-                # --------------------------- CREATE ORDER ITEMS ---------------------------
                 for item in items:
 
                     if not isinstance(
@@ -401,14 +686,22 @@ class CreatePaystackSessionView(APIView):
                         sparepart.marked_price
                         - sparepart.discount_amount
                     ).quantize(
-                        Decimal("0.01")
+                        Decimal("0.01"),
+                        rounding=ROUND_HALF_UP,
                     )
+
+                    if unit_price < Decimal("0.00"):
+
+                        raise ValueError(
+                            "Invalid spare part price"
+                        )
 
                     subtotal = (
                         unit_price
                         * quantity
                     ).quantize(
-                        Decimal("0.01")
+                        Decimal("0.01"),
+                        rounding=ROUND_HALF_UP,
                     )
 
                     OrderItems.objects.create(
@@ -419,7 +712,6 @@ class CreatePaystackSessionView(APIView):
                         subtotal=subtotal,
                     )
 
-                # --------------------------- ORDER TOTAL ---------------------------
                 order.total_price = (
                     calculate_order_total(
                         order
@@ -438,7 +730,6 @@ class CreatePaystackSessionView(APIView):
                     ]
                 )
 
-                # --------------------------- PAYSTACK AMOUNT ---------------------------
                 amount_subunit = (
                     calculate_paystack_expected_amount(
                         order
@@ -451,11 +742,15 @@ class CreatePaystackSessionView(APIView):
                         "Order total must be greater than zero"
                     )
 
-                # --------------------------- PAYSTACK CHARGE ---------------------------
+                paystack_reference = (
+                    f"TT-{order.id}"
+                )
+
                 payload = {
                     "email": current_user.email,
                     "amount": amount_subunit,
                     "currency": "KES",
+                    "reference": paystack_reference,
                     "mobile_money": {
                         "phone": phone,
                         "provider": provider,
@@ -470,12 +765,23 @@ class CreatePaystackSessionView(APIView):
                     },
                 }
 
-                response = requests.post(
-                    "https://api.paystack.co/charge",
-                    json=payload,
-                    headers=get_paystack_headers(),
-                    timeout=30,
-                )
+                try:
+
+                    response = requests.post(
+                        "https://api.paystack.co/charge",
+                        json=payload,
+                        headers=get_paystack_headers(),
+                        timeout=30,
+                    )
+
+                except requests.RequestException as exc:
+
+                    print(
+                        "PAYSTACK REQUEST ERROR:",
+                        repr(exc),
+                    )
+
+                    raise
 
                 try:
 
@@ -522,6 +828,7 @@ class CreatePaystackSessionView(APIView):
                     payment_data.get(
                         "reference"
                     )
+                    or paystack_reference
                 )
 
                 if not reference:
@@ -583,7 +890,6 @@ class CreatePaystackSessionView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        # --------------------------- IMMEDIATE FAILURE ---------------------------
         if payment_status in [
             "failed",
             "timeout",
@@ -723,6 +1029,27 @@ class VerifyPaystackSessionView(APIView):
                 )
             )
 
+            verified_reference = (
+                payment_data.get(
+                    "reference"
+                )
+            )
+
+            if (
+                not verified_reference
+                or verified_reference != reference
+            ):
+
+                return Response(
+                    {
+                        "error": (
+                            "Paystack payment reference "
+                            "does not match"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             payment_status = (
                 payment_data.get(
                     "status"
@@ -752,228 +1079,208 @@ class VerifyPaystackSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            with transaction.atomic():
+            try:
 
-                try:
-
-                    order = (
-                        Orders.objects
-                        .select_for_update()
-                        .prefetch_related(
-                            "order_items"
-                        )
-                        .get(
-                            pk=order_id,
-                            user_id=request.user.id,
-                        )
+                order = (
+                    Orders.objects
+                    .prefetch_related(
+                        "order_items"
                     )
-
-                except Orders.DoesNotExist:
-
-                    return Response(
-                        {
-                            "error": (
-                                "Payment order not found"
-                            )
-                        },
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-
-                if order.paid:
-
-                    return Response(
-                        {
-                            "success": True,
-                            "paid": True,
-                            "status": order.status,
-                            "order_id": str(
-                                order.id
-                            ),
-                            "reference": reference,
-                            "payment_method": (
-                                order.payment_method
-                            ),
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                # --------------------------- VERIFY PAYMENT METHOD ---------------------------
-                metadata_payment_method = (
-                    metadata.get(
-                        "payment_method"
+                    .get(
+                        pk=order_id,
+                        user_id=request.user.id,
                     )
                 )
 
+            except Orders.DoesNotExist:
+
+                return Response(
+                    {
+                        "error": (
+                            "Payment order not found"
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if order.paid:
+
                 if (
-                    not metadata_payment_method
-                    or metadata_payment_method
-                    != order.payment_method
+                    order.payment_reference
+                    and order.payment_reference
+                    != reference
                 ):
 
                     return Response(
                         {
                             "error": (
-                                "Payment method does not "
-                                "match the order"
+                                "Payment reference does "
+                                "not match the paid order"
                             )
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # --------------------------- SUCCESS ---------------------------
-                if payment_status == "success":
+                clear_user_cart(
+                    order.user
+                )
 
-                    payment_amount = (
-                        payment_data.get(
-                            "amount"
-                        )
-                    )
-
-                    if payment_amount is None:
-
-                        return Response(
-                            {
-                                "error": (
-                                    "Paystack payment is missing "
-                                    "the payment amount"
-                                )
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    try:
-
-                        payment_amount = int(
-                            payment_amount
-                        )
-
-                    except (
-                        ValueError,
-                        TypeError,
-                    ):
-
-                        return Response(
-                            {
-                                "error": (
-                                    "Invalid Paystack payment amount"
-                                )
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    expected_amount = (
-                        calculate_paystack_expected_amount(
-                            order
-                        )
-                    )
-
-                    if (
-                        payment_amount
-                        != expected_amount
-                    ):
-
-                        return Response(
-                            {
-                                "error": (
-                                    "Paystack payment amount "
-                                    "does not match order total"
-                                )
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    payment_currency = (
-                        payment_data.get(
-                            "currency"
-                        )
-                    )
-
-                    if (
-                        not payment_currency
-                        or payment_currency.upper()
-                        != "KES"
-                    ):
-
-                        return Response(
-                            {
-                                "error": (
-                                    "Invalid payment currency"
-                                )
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-
-                    # --------------------------- MARK PAID ---------------------------
-                    order = mark_order_as_paid(
-                        order.id
-                    )
-
-                    return Response(
-                        {
-                            "success": True,
-                            "paid": True,
-                            "status": order.status,
-                            "order_id": str(
-                                order.id
-                            ),
-                            "reference": reference,
-                            "payment_method": (
-                                order.payment_method
-                            ),
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                # --------------------------- FAILED / TIMEOUT ---------------------------
-                if payment_status in [
-                    "failed",
-                    "timeout",
-                ]:
-
-                    order.status = "expired"
-
-                    order.save(
-                        update_fields=[
-                            "status",
-                        ]
-                    )
-
-                    return Response(
-                        {
-                            "success": False,
-                            "paid": False,
-                            "expired": True,
-                            "status": order.status,
-                            "order_id": str(
-                                order.id
-                            ),
-                            "reference": reference,
-                            "payment_method": (
-                                order.payment_method
-                            ),
-                            "message": (
-                                payment_data.get(
-                                    "message"
-                                )
-                                or (
-                                    "Paystack payment "
-                                    "expired"
-                                )
-                            ),
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                # --------------------------- STILL PROCESSING ---------------------------
                 return Response(
                     {
                         "success": True,
-                        "paid": False,
-                        "expired": False,
+                        "paid": True,
                         "status": order.status,
-                        "payment_status": (
-                            payment_status
+                        "order_id": str(
+                            order.id
                         ),
+                        "reference": reference,
+                        "payment_method": (
+                            order.payment_method
+                        ),
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            metadata_payment_method = (
+                metadata.get(
+                    "payment_method"
+                )
+            )
+
+            if (
+                not metadata_payment_method
+                or metadata_payment_method
+                != order.payment_method
+            ):
+
+                return Response(
+                    {
+                        "error": (
+                            "Payment method does not "
+                            "match the order"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if payment_status == "success":
+
+                payment_amount = (
+                    payment_data.get(
+                        "amount"
+                    )
+                )
+
+                if payment_amount is None:
+
+                    return Response(
+                        {
+                            "error": (
+                                "Paystack payment is missing "
+                                "the payment amount"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                try:
+
+                    payment_amount = int(
+                        payment_amount
+                    )
+
+                except (
+                    ValueError,
+                    TypeError,
+                ):
+
+                    return Response(
+                        {
+                            "error": (
+                                "Invalid Paystack payment amount"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                expected_amount = (
+                    calculate_paystack_expected_amount(
+                        order
+                    )
+                )
+
+                if (
+                    payment_amount
+                    != expected_amount
+                ):
+
+                    return Response(
+                        {
+                            "error": (
+                                "Paystack payment amount "
+                                "does not match order total"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                payment_currency = (
+                    payment_data.get(
+                        "currency"
+                    )
+                )
+
+                if (
+                    not payment_currency
+                    or payment_currency.upper()
+                    != "KES"
+                ):
+
+                    return Response(
+                        {
+                            "error": (
+                                "Invalid payment currency"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                order = mark_order_as_paid(
+                    order.id,
+                    payment_reference=reference,
+                )
+
+                return Response(
+                    {
+                        "success": True,
+                        "paid": True,
+                        "status": order.status,
+                        "order_id": str(
+                            order.id
+                        ),
+                        "reference": reference,
+                        "payment_method": (
+                            order.payment_method
+                        ),
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            if payment_status in [
+                "failed",
+                "timeout",
+            ]:
+
+                order = mark_order_as_expired(
+                    order.id
+                )
+
+                return Response(
+                    {
+                        "success": False,
+                        "paid": False,
+                        "expired": True,
+                        "status": order.status,
                         "order_id": str(
                             order.id
                         ),
@@ -986,13 +1293,42 @@ class VerifyPaystackSessionView(APIView):
                                 "message"
                             )
                             or (
-                                "Payment is still "
-                                "processing"
+                                "Paystack payment "
+                                "expired"
                             )
                         ),
                     },
                     status=status.HTTP_200_OK,
                 )
+
+            return Response(
+                {
+                    "success": True,
+                    "paid": False,
+                    "expired": False,
+                    "status": order.status,
+                    "payment_status": (
+                        payment_status
+                    ),
+                    "order_id": str(
+                        order.id
+                    ),
+                    "reference": reference,
+                    "payment_method": (
+                        order.payment_method
+                    ),
+                    "message": (
+                        payment_data.get(
+                            "message"
+                        )
+                        or (
+                            "Payment is still "
+                            "processing"
+                        )
+                    ),
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except requests.RequestException as exc:
 
@@ -1050,9 +1386,25 @@ class PaystackWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- VERIFY WEBHOOK SIGNATURE ---------------------------
+        secret_key = getattr(
+            settings,
+            "PAYSTACK_SECRET_KEY",
+            None,
+        )
+
+        if not secret_key:
+
+            return Response(
+                {
+                    "error": (
+                        "Paystack secret key is not configured"
+                    )
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
         expected_signature = hmac.new(
-            settings.PAYSTACK_SECRET_KEY.encode(
+            secret_key.encode(
                 "utf-8"
             ),
             payload,
@@ -1075,7 +1427,6 @@ class PaystackWebhookView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- PARSE EVENT ---------------------------
         try:
 
             event = request.data
@@ -1132,7 +1483,6 @@ class PaystackWebhookView(APIView):
             "payment_method"
         )
 
-        # --------------------------- EVENTS WITHOUT ORDER ---------------------------
         if event_type not in [
             "charge.success",
             "charge.failed",
@@ -1175,210 +1525,219 @@ class PaystackWebhookView(APIView):
 
         try:
 
-            with transaction.atomic():
+            order = (
+                Orders.objects
+                .prefetch_related(
+                    "order_items"
+                )
+                .get(
+                    pk=order_id
+                )
+            )
 
-                order = (
-                    Orders.objects
-                    .select_for_update()
-                    .prefetch_related(
-                        "order_items"
-                    )
-                    .get(
-                        pk=order_id
-                    )
+            if (
+                not payment_method
+                or payment_method
+                != order.payment_method
+            ):
+
+                print(
+                    "PAYSTACK WEBHOOK ERROR: "
+                    "Payment method mismatch"
                 )
 
-                # --------------------------- VERIFY PAYMENT METHOD ---------------------------
+                return Response(
+                    {
+                        "error": (
+                            "Payment method does not "
+                            "match order"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if order.paid:
+
                 if (
-                    not payment_method
-                    or payment_method
-                    != order.payment_method
+                    order.payment_reference
+                    and order.payment_reference
+                    != reference
                 ):
 
                     print(
                         "PAYSTACK WEBHOOK ERROR: "
-                        "Payment method mismatch"
+                        "Payment reference mismatch "
+                        f"for order {order.id}"
                     )
 
                     return Response(
                         {
                             "error": (
-                                "Payment method does not "
-                                "match order"
+                                "Payment reference does "
+                                "not match paid order"
                             )
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # --------------------------- ALREADY PAID ---------------------------
-                if order.paid:
+                clear_user_cart(
+                    order.user
+                )
 
-                    return Response(
-                        {
-                            "success": True
-                        },
-                        status=status.HTTP_200_OK,
+                return Response(
+                    {
+                        "success": True
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            if event_type == "charge.failed":
+
+                if order.status == "pending":
+
+                    order = mark_order_as_expired(
+                        order.id
                     )
 
-                # --------------------------- FAILED ---------------------------
-                if event_type == "charge.failed":
+                    print(
+                        f"PAYSTACK PAYMENT {reference} "
+                        f"FAILED FOR ORDER {order.id}. "
+                        "ORDER MARKED AS EXPIRED."
+                    )
+
+                return Response(
+                    {
+                        "success": True
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            if payment_status != "success":
+
+                if payment_status in [
+                    "failed",
+                    "timeout",
+                ]:
 
                     if order.status == "pending":
 
-                        order.status = "expired"
-
-                        order.save(
-                            update_fields=[
-                                "status",
-                            ]
+                        order = mark_order_as_expired(
+                            order.id
                         )
 
                         print(
                             f"PAYSTACK PAYMENT {reference} "
-                            f"FAILED FOR ORDER {order.id}. "
+                            f"STATUS={payment_status} "
+                            f"FOR ORDER {order.id}. "
                             "ORDER MARKED AS EXPIRED."
                         )
 
-                    return Response(
-                        {
-                            "success": True
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                # --------------------------- SUCCESS EVENT ---------------------------
-                if payment_status != "success":
-
-                    if payment_status in [
-                        "failed",
-                        "timeout",
-                    ]:
-
-                        if order.status == "pending":
-
-                            order.status = "expired"
-
-                            order.save(
-                                update_fields=[
-                                    "status",
-                                ]
-                            )
-
-                            print(
-                                f"PAYSTACK PAYMENT {reference} "
-                                f"STATUS={payment_status} "
-                                f"FOR ORDER {order.id}. "
-                                "ORDER MARKED AS EXPIRED."
-                            )
-
-                    return Response(
-                        {
-                            "success": True
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-
-                # --------------------------- VERIFY CURRENCY ---------------------------
-                if (
-                    not payment_currency
-                    or payment_currency.upper()
-                    != "KES"
-                ):
-
-                    print(
-                        "PAYSTACK WEBHOOK ERROR: "
-                        "Invalid payment currency"
-                    )
-
-                    return Response(
-                        {
-                            "error": (
-                                "Invalid payment currency"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # --------------------------- VERIFY AMOUNT ---------------------------
-                if payment_amount is None:
-
-                    print(
-                        "PAYSTACK WEBHOOK ERROR: "
-                        "Missing payment amount"
-                    )
-
-                    return Response(
-                        {
-                            "error": (
-                                "Payment amount is missing"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                try:
-
-                    payment_amount = int(
-                        payment_amount
-                    )
-
-                except (
-                    ValueError,
-                    TypeError,
-                ):
-
-                    print(
-                        "PAYSTACK WEBHOOK ERROR: "
-                        "Invalid payment amount"
-                    )
-
-                    return Response(
-                        {
-                            "error": (
-                                "Invalid payment amount"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                expected_amount = (
-                    calculate_paystack_expected_amount(
-                        order
-                    )
+                return Response(
+                    {
+                        "success": True
+                    },
+                    status=status.HTTP_200_OK,
                 )
 
-                if (
-                    payment_amount
-                    != expected_amount
-                ):
-
-                    print(
-                        "PAYSTACK WEBHOOK ERROR: "
-                        f"Amount mismatch for order "
-                        f"{order.id}. "
-                        f"Expected {expected_amount}, "
-                        f"received {payment_amount}"
-                    )
-
-                    return Response(
-                        {
-                            "error": (
-                                "Payment amount does not "
-                                "match order total"
-                            )
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-                # --------------------------- MARK PAID ---------------------------
-                order = mark_order_as_paid(
-                    order.id
-                )
+            if (
+                not payment_currency
+                or payment_currency.upper()
+                != "KES"
+            ):
 
                 print(
-                    f"PAYSTACK PAYMENT {reference} "
-                    f"CONFIRMED FOR ORDER {order.id}"
+                    "PAYSTACK WEBHOOK ERROR: "
+                    "Invalid payment currency"
                 )
+
+                return Response(
+                    {
+                        "error": (
+                            "Invalid payment currency"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if payment_amount is None:
+
+                print(
+                    "PAYSTACK WEBHOOK ERROR: "
+                    "Missing payment amount"
+                )
+
+                return Response(
+                    {
+                        "error": (
+                            "Payment amount is missing"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+
+                payment_amount = int(
+                    payment_amount
+                )
+
+            except (
+                ValueError,
+                TypeError,
+            ):
+
+                print(
+                    "PAYSTACK WEBHOOK ERROR: "
+                    "Invalid payment amount"
+                )
+
+                return Response(
+                    {
+                        "error": (
+                            "Invalid payment amount"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            expected_amount = (
+                calculate_paystack_expected_amount(
+                    order
+                )
+            )
+
+            if (
+                payment_amount
+                != expected_amount
+            ):
+
+                print(
+                    "PAYSTACK WEBHOOK ERROR: "
+                    f"Amount mismatch for order "
+                    f"{order.id}. "
+                    f"Expected {expected_amount}, "
+                    f"received {payment_amount}"
+                )
+
+                return Response(
+                    {
+                        "error": (
+                            "Payment amount does not "
+                            "match order total"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            order = mark_order_as_paid(
+                order.id,
+                payment_reference=reference,
+            )
+
+            print(
+                f"PAYSTACK PAYMENT {reference} "
+                f"CONFIRMED FOR ORDER {order.id}"
+            )
 
         except Orders.DoesNotExist:
 

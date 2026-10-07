@@ -267,14 +267,13 @@ const SearchBar = () => {
           bg-cover
           bg-center
           bg-no-repeat
+          bg-[linear-gradient(rgba(0,0,0,0.5),rgba(0,0,0,0.5)),url('https://i.imgur.com/6R1dsG5.jpeg')]
+          blur-sm scale-105
+          bg-[url('https://i.imgur.com/6R1dsG5.jpeg')]
         "
-        style={{
-          backgroundImage:
-            "url('https://i.imgur.com/6R1dsG5.jpeg')",
-        }}
       />
 
-      <div className="w-full max-w-[760px]">
+      <div className="w-full max-w-[760px] ">
         <div
           ref={searchContainerRef}
           className="relative"
@@ -439,6 +438,7 @@ const SearchBar = () => {
                           rounded-md
                           text-gray-300
                           transition
+                          cursor-pointer
                           hover:bg-white/10
                           hover:text-white
                         "

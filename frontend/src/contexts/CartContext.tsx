@@ -61,6 +61,8 @@ interface CartContextType {
     showToast?: boolean
   ) => Promise<boolean>;
 
+  loadCart: () => Promise<void>;
+
   total: number;
 
   itemCount: number;
@@ -490,6 +492,7 @@ const CartProvider = ({
         removeItem,
         updateQuantity,
         clearCart,
+        loadCart,
         total,
         itemCount,
         loading,

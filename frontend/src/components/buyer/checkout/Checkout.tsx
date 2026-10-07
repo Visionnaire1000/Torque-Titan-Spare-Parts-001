@@ -1,7 +1,9 @@
+
 import { useState, useEffect, type SyntheticEvent } from "react";
 import { CreditCard, Smartphone } from "lucide-react";
 import { useCart, type CartItem } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import config from "../../../config";
 
@@ -36,6 +38,7 @@ const PAYSTACK_MAX_ATTEMPTS = 60;
 const Checkout = (): React.JSX.Element => {
   const { items } = useCart();
   const { authFetch, user } = useAuth();
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [addressLoading, setAddressLoading] = useState(true);
@@ -160,10 +163,6 @@ const Checkout = (): React.JSX.Element => {
         }
 
         if (data.paid === true) {
-          toast.success(
-            "Payment completed successfully."
-          );
-
           return true;
         }
 
@@ -351,9 +350,15 @@ const Checkout = (): React.JSX.Element => {
         return;
       }
 
-      await verifyPaystackPayment(
+      const verified = await verifyPaystackPayment(
         data.reference
       );
+
+      if (verified) {
+        navigate(
+          "/payment-success?method=paystack"
+        );
+      }
     } catch (error) {
       console.error(
         "Checkout error:",
@@ -742,14 +747,14 @@ const Checkout = (): React.JSX.Element => {
                   text-sm
                 "
               >
-               <p className="mb-2">
-                 Enter the phone number registered for
-                 your selected mobile money service.
-               </p>
+                <p className="mb-2">
+                  Enter the phone number registered for
+                  your selected mobile money service.
+                </p>
 
-               <p className="font-semibold text-red-600">
-                 Mobile money payments cannot exceed KES 250,000.
-               </p>
+                <p className="font-semibold text-red-600">
+                  Mobile money payments cannot exceed KES 250,000.
+                </p>
               </div>
             </div>
           )}

@@ -1646,6 +1646,12 @@ class Orders(models.Model):
         blank=True,
     )
 
+    payment_reference = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+    
+    )
     created_at = models.DateTimeField(
         default=timezone.now
     )

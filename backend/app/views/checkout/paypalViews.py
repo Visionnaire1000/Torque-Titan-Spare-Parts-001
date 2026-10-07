@@ -48,12 +48,21 @@ def calculate_order_total(order):
 
 
 def clear_user_cart(user):
-    CartItems.objects.filter(
+    deleted_count, _ = CartItems.objects.filter(
         user=user
     ).delete()
 
+    print(
+        f"PAYPAL CART CLEAR: "
+        f"user={user.id}, "
+        f"deleted_cart_items={deleted_count}"
+    )
 
-def mark_order_as_paid(order_id):
+
+def mark_order_as_paid(
+    order_id,
+    payment_reference=None,
+):
     with transaction.atomic():
 
         order = (
@@ -71,6 +80,25 @@ def mark_order_as_paid(order_id):
         )
 
         if order.paid:
+
+            if (
+                payment_reference
+                and not order.payment_reference
+            ):
+
+                order.payment_reference = (
+                    payment_reference
+                )
+
+                order.save(
+                    update_fields=[
+                        "payment_reference",
+                    ]
+                )
+
+            clear_user_cart(
+                order.user
+            )
 
             print(
                 f"PAYPAL PAYMENT: "
@@ -94,11 +122,22 @@ def mark_order_as_paid(order_id):
         order.total_price = total_price
         order.paid = True
 
+        update_fields = [
+            "total_price",
+            "paid",
+        ]
+
+        if payment_reference:
+            order.payment_reference = (
+                payment_reference
+            )
+
+            update_fields.append(
+                "payment_reference"
+            )
+
         order.save(
-            update_fields=[
-                "total_price",
-                "paid",
-            ]
+            update_fields=update_fields
         )
 
         clear_user_cart(
@@ -109,11 +148,6 @@ def mark_order_as_paid(order_id):
         order_id_value = str(order.id)
         payment_method = order.payment_method
 
-        print(
-            f"ORDER {order_id_value} "
-            "MARKED AS PAID BY PAYPAL"
-        )
-
         transaction.on_commit(
             lambda: send_order_confirmation_email_task.delay(
                 customer_email,
@@ -123,7 +157,39 @@ def mark_order_as_paid(order_id):
             )
         )
 
+        print(
+            f"ORDER {order.id} "
+            "MARKED AS PAID BY PAYPAL"
+        )
+
         return order
+
+
+def refund_paypal_order(order):
+
+    if not order.payment_reference:
+
+        raise ValueError(
+            "PayPal capture ID is missing."
+        )
+
+    access_token = (
+        get_paypal_access_token()
+    )
+
+    return paypal_request(
+        method="POST",
+        path=(
+            "/v2/payments/captures/"
+            f"{order.payment_reference}"
+            "/refund"
+        ),
+        access_token=access_token,
+        payload={},
+        request_id=(
+            f"refund-{order.id}"
+        ),
+    )
 
 
 def calculate_paypal_items(
@@ -218,6 +284,7 @@ def get_paypal_access_token():
     )
 
     if not client_id or not client_secret:
+
         raise ValueError(
             "PayPal credentials are not configured"
         )
@@ -302,6 +369,7 @@ def get_paypal_access_token():
     )
 
     if not access_token:
+
         raise ValueError(
             "PayPal did not return an access token"
         )
@@ -333,11 +401,15 @@ def paypal_request(
     }
 
     if request_id:
-        headers["PayPal-Request-Id"] = request_id
+
+        headers["PayPal-Request-Id"] = (
+            request_id
+        )
 
     body = None
 
     if payload is not None:
+
         body = json.dumps(
             payload
         ).encode("utf-8")
@@ -362,6 +434,7 @@ def paypal_request(
             )
 
             if not response_body:
+
                 return {}
 
             return json.loads(
@@ -427,6 +500,7 @@ def verify_paypal_webhook(
     )
 
     if not webhook_id:
+
         raise ValueError(
             "PayPal webhook ID is not configured"
         )
@@ -459,6 +533,7 @@ def get_paypal_currency():
     ).upper()
 
     if currency != "USD":
+
         raise ValueError(
             "PAYPAL_CURRENCY must be USD"
         )
@@ -525,6 +600,7 @@ def get_paypal_kes_to_usd_rate():
     )
 
     if raw_rate is None:
+
         raise ValueError(
             "USD/KES exchange rate was not returned"
         )
@@ -591,6 +667,7 @@ def get_paypal_approval_url(paypal_order):
     ):
 
         if link.get("rel") == "approve":
+
             return link.get("href")
 
     return None
@@ -605,6 +682,7 @@ def get_paypal_purchase_unit(
     )
 
     if not purchase_units:
+
         return None
 
     return purchase_units[0]
@@ -612,6 +690,7 @@ def get_paypal_purchase_unit(
 
 def get_expected_paypal_total(order):
     if order.paypal_total is None:
+
         raise ValueError(
             "PayPal total is not stored for this order"
         )
@@ -639,6 +718,7 @@ def validate_paypal_amount(
         or paypal_currency.upper()
         != expected_currency
     ):
+
         return False
 
     paypal_total = paypal_amount.get(
@@ -646,6 +726,7 @@ def validate_paypal_amount(
     )
 
     if paypal_total is None:
+
         return False
 
     try:
@@ -1154,6 +1235,10 @@ class CapturePayPalSessionView(APIView):
 
             if order.paid:
 
+                clear_user_cart(
+                    order.user
+                )
+
                 return Response(
                     {
                         "success": True,
@@ -1358,8 +1443,25 @@ class CapturePayPalSessionView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            capture_id = capture.get(
+                "id"
+            )
+
+            if not capture_id:
+
+                return Response(
+                    {
+                        "error": (
+                            "PayPal capture ID "
+                            "is missing"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             order = mark_order_as_paid(
-                order.id
+                order.id,
+                payment_reference=capture_id,
             )
 
         except ValueError as exc:
@@ -1785,6 +1887,10 @@ class PayPalWebhookView(APIView):
 
                     if order.paid:
 
+                        clear_user_cart(
+                            order.user
+                        )
+
                         return Response(
                             {
                                 "success": True,
@@ -1897,8 +2003,25 @@ class PayPalWebhookView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
+                    capture_id = resource.get(
+                        "id"
+                    )
+
+                    if not capture_id:
+
+                        return Response(
+                            {
+                                "error": (
+                                    "PayPal capture ID "
+                                    "is missing"
+                                )
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
                     mark_order_as_paid(
-                        order.id
+                        order.id,
+                        payment_reference=capture_id,
                     )
 
             except Orders.DoesNotExist:

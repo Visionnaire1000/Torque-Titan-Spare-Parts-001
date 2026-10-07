@@ -1,8 +1,13 @@
 from decimal import Decimal, InvalidOperation
 
+from datetime import timedelta
+
+import requests
+
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -17,6 +22,13 @@ from app.models import (
     Reviews,
     ReviewReactions,
 )
+
+from app.views.checkout.stripeViews import refund_stripe_order
+from app.views.checkout.paystackViews import refund_paystack_order
+from app.views.checkout.paypalViews import refund_paypal_order
+
+from utils.tasks import ( send_order_cancellation_email_task )
+
 
 
 # --------------------------- DECIMAL HELPERS ----------------------------------------------
@@ -2158,7 +2170,7 @@ class CartItemsView(APIView):
             status=status.HTTP_200_OK
         )
 
-    
+
 # ------------------------------BUYER ORDERS---------------------------------------
 class BuyerOrdersView(APIView):
     permission_classes = [IsAuthenticated]
@@ -2193,7 +2205,7 @@ class BuyerOrdersView(APIView):
         response_data = []
 
         for order in orders:
-            
+
             # ------------------------------ORDER ITEMS---------------------------------------
             items = []
             total_quantity = 0
@@ -2247,7 +2259,7 @@ class BuyerOrdersView(APIView):
                         address.street,
                         address.city,
                         address.postal_code,
-                        address.country,
+                        address.country
                     ]
                     if value
                 )
@@ -2305,66 +2317,221 @@ class BuyerOrdersView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        order = get_object_or_404(
-            Orders,
-            id=order_id
-        )
-
-        if order.user_id != request.user.id:
-            return Response(
-                {
-                    "error": (
-                        "You can only update your "
-                        "own orders."
-                    )
-                },
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        if not order.paid:
-            return Response(
-                {
-                    "error": (
-                        "Only paid orders can be "
-                        "cancelled."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if order.status != "pending":
-            return Response(
-                {
-                    "error": (
-                        "Only pending orders can "
-                        "be cancelled."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        new_status = request.data.get(
-            "status"
-        )
-
-        if new_status != "cancelled":
-            return Response(
-                {
-                    "error": (
-                        "The only allowed status "
-                        "update is cancelled."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+        # ------------------------------VALIDATE ORDER---------------------------------------
         with transaction.atomic():
+            order = get_object_or_404(
+                Orders.objects.select_for_update(),
+                id=order_id
+            )
+
+            if order.user_id != request.user.id:
+                return Response(
+                    {
+                        "error": (
+                            "You can only update your "
+                            "own orders."
+                        )
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            if not order.paid:
+                return Response(
+                    {
+                        "error": (
+                            "Only paid orders can be "
+                            "cancelled."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if order.status != "pending":
+                return Response(
+                    {
+                        "error": (
+                            "Only pending orders can "
+                            "be cancelled."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            new_status = request.data.get(
+                "status"
+            )
+
+            if new_status != "cancelled":
+                return Response(
+                    {
+                        "error": (
+                            "The only allowed status "
+                            "update is cancelled."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # ------------------------------ONE HOUR CANCELLATION WINDOW---------------------------------------
+            cancellation_deadline = (
+                order.created_at
+                + timedelta(hours=1)
+            )
+
+            if timezone.now() >= cancellation_deadline:
+                return Response(
+                    {
+                        "error": (
+                            "This order can no longer "
+                            "be cancelled because more "
+                            "than one hour has passed "
+                            "since it was placed."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # ------------------------------REFUND---------------------------------------
+        try:
+            if order.payment_method == "stripe":
+                refund_stripe_order(
+                    order
+                )
+
+            elif order.payment_method in [
+                "mpesa",
+                "airtel"
+            ]:
+                refund_paystack_order(
+                    order
+                )
+
+            elif order.payment_method == "paypal":
+                refund_paypal_order(
+                    order
+                )
+
+            else:
+                return Response(
+                    {
+                        "error": (
+                            "Unsupported payment "
+                            "method for refund."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except ValueError as exc:
+            return Response(
+                {
+                    "error": str(exc)
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except requests.RequestException:
+            return Response(
+                {
+                    "error": (
+                        "Unable to connect to the "
+                        "payment provider to process "
+                        "the refund."
+                    )
+                },
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+        except Exception as exc:
+            print(
+                "ORDER REFUND ERROR:",
+                repr(exc)
+            )
+
+            return Response(
+                {
+                    "error": (
+                        "Failed to process the "
+                        "order refund."
+                    )
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # ------------------------------MARK ORDER CANCELLED---------------------------------------
+        with transaction.atomic():
+            order = (
+                Orders.objects
+                .select_for_update()
+                .get(
+                    id=order_id
+                )
+            )
+
+            # ------------------------------FINAL STATE CHECK---------------------------------------
+            if (
+                not order.paid
+                or order.status != "pending"
+            ):
+                return Response(
+                    {
+                        "error": (
+                            "The order could not be "
+                            "cancelled because its state "
+                            "has changed."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
+            # ------------------------------RECHECK ONE HOUR WINDOW---------------------------------------
+            cancellation_deadline = (
+                order.created_at
+                + timedelta(hours=1)
+            )
+
+            if timezone.now() >= cancellation_deadline:
+                return Response(
+                    {
+                        "error": (
+                            "This order can no longer "
+                            "be cancelled because more "
+                            "than one hour has passed "
+                            "since it was placed."
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT
+                )
+
             order.status = "cancelled"
 
             order.save(
                 update_fields=[
                     "status"
                 ]
+            )
+
+            # ------------------------------CANCELLATION EMAIL---------------------------------------
+            customer_email = request.user.email
+            order_id_value = str(order.id)
+
+            total_price = money_to_float(
+                money_to_decimal(
+                    order.total_price
+                )
+            )
+
+            payment_method = order.payment_method
+
+            transaction.on_commit(
+                lambda: (
+                    send_order_cancellation_email_task.delay(
+                        customer_email,
+                        order_id_value,
+                        total_price,
+                        payment_method
+                    )
+                )
             )
 
         return Response(

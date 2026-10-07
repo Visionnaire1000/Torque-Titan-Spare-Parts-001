@@ -140,6 +140,9 @@ const BuyerOrders: React.FC = () => {
   const [orderIdToCancel, setOrderIdToCancel] =
     useState<string | null>(null);
 
+  const [currentTime, setCurrentTime] =
+    useState<number>(Date.now());
+
   const [seenOrderIds, setSeenOrderIds] =
     useState<SeenOrders>(() => {
       try {
@@ -175,6 +178,23 @@ const BuyerOrders: React.FC = () => {
     Intl.DateTimeFormat()
       .resolvedOptions()
       .timeZone;
+
+
+  /* ---------------- Cancellation Timer ---------------- */
+  useEffect(() => {
+    const interval =
+      window.setInterval(() => {
+        setCurrentTime(
+          Date.now(),
+        );
+      }, 1000);
+
+    return () => {
+      window.clearInterval(
+        interval,
+      );
+    };
+  }, []);
 
 
   /* ---------------- Disable Browser Scroll Restoration ---------------- */
@@ -535,6 +555,66 @@ const BuyerOrders: React.FC = () => {
         hour12: true,
       },
     ).format(utcDate);
+  };
+
+
+  /* ---------------- Cancellation Time ---------------- */
+  const getOrderCreatedAt = (
+    dateString: string,
+  ): number => {
+    const value =
+      String(
+        dateString,
+      ).trim();
+
+    if (!value) {
+      return NaN;
+    }
+
+    const date =
+      value.endsWith("Z") ||
+      /[+-]\d{2}:?\d{2}$/.test(
+        value,
+      )
+        ? new Date(value)
+        : new Date(`${value}Z`);
+
+    return date.getTime();
+  };
+
+
+  /* ---------------- Check Cancellation Availability ---------------- */
+  const canCancelOrder = (
+    order: Order,
+  ): boolean => {
+    if (
+      order.status.toLowerCase() !==
+      "pending"
+    ) {
+      return false;
+    }
+
+    const createdAt =
+      getOrderCreatedAt(
+        order.created_at,
+      );
+
+    if (
+      !Number.isFinite(
+        createdAt,
+      )
+    ) {
+      return false;
+    }
+
+    const cancellationDeadline =
+      createdAt +
+      60 * 60 * 1000;
+
+    return (
+      currentTime <
+      cancellationDeadline
+    );
   };
 
 
@@ -1007,6 +1087,7 @@ const BuyerOrders: React.FC = () => {
     );
   }
 
+
   /* ---------------- Error ---------------- */
   if (error) {
     return (
@@ -1015,6 +1096,7 @@ const BuyerOrders: React.FC = () => {
       />
     );
   }
+
 
   /* ---------------- Empty ---------------- */
   if (!orders.length) {
@@ -1263,286 +1345,305 @@ const BuyerOrders: React.FC = () => {
           ].map(
             (
               order: Order,
-            ) => (
-              <div
-                key={order.id}
-                className="
-                  w-full
-                  rounded-lg
-                  border
-                  border-gray-300
-                  bg-gray-50
-                  p-4
-                  transition-shadow
-                  duration-300
-                  hover:shadow-lg
-                "
-              >
-                {/* ---------- Header ---------- */}
+            ) => {
+              const cancellationAvailable =
+                canCancelOrder(
+                  order,
+                );
+
+              return (
                 <div
-                  onClick={() =>
-                    setExpandedOrderId(
-                      expandedOrderId ===
-                        order.id
-                        ? null
-                        : order.id,
-                    )
-                  }
+                  key={order.id}
                   className="
-                    mb-3
-                    flex
-                    cursor-pointer
-                    flex-wrap
-                    items-center
-                    justify-between
-                    gap-2
-                    text-base
+                    w-full
+                    rounded-lg
+                    border
+                    border-gray-300
+                    bg-gray-50
+                    p-4
+                    transition-shadow
+                    duration-300
+                    hover:shadow-lg
                   "
                 >
-                  <strong>
-                    Order #{order.id}
-                  </strong>
-
-                  <span className="font-semibold uppercase text-[#004080]">
-                    {order.status}
-                  </span>
-
-                  <span className="cursor-pointer">
-                    {expandedOrderId ===
-                    order.id ? (
-                      <ChevronUp
-                        size={18}
-                      />
-                    ) : (
-                      <ChevronDown
-                        size={18}
-                      />
-                    )}
-                  </span>
-                </div>
-
-
-                {/* ---------- Order Info ---------- */}
-                <div className="space-y-2 text-[15px]">
-                  <div>
-                    <span className="font-semibold">
-                      Total Items:
-                    </span>{" "}
-                    {order.total_quantity}
-                  </div>
-
-                  <div>
-                    <span className="font-semibold">
-                      Total Cost:
-                    </span>
-
-                    <span className="ml-2 font-semibold text-red-600">
-                      KES{" "}
-                      {order.total_price?.toLocaleString() ??
-                        "0"}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="font-semibold">
-                      Payment Method:
-                    </span>{" "}
-                    <span className="font-medium text-[#004080]">
-                      {getPaymentMethodLabel(
-                        order.payment_method,
-                      )}
-                    </span>
-                  </div>
-
-                  <div>
-                    <span className="font-semibold">
-                      Shipping Address:
-                    </span>{" "}
-                    {order.address ||
-                      "N/A"}
-                  </div>
-
-                  <div>
-                    <span className="font-semibold">
-                      Created At:
-                    </span>{" "}
-                    {formatOrderTime(
-                      order.created_at,
-                    )}
-
-                    <small className="ml-2 text-xs text-gray-500">
-                      ({timeZone})
-                    </small>
-                  </div>
-                </div>
-
-
-                {/* ---------- Cancel Button ---------- */}
-                {order.status ===
-                  "pending" && (
-                  <button
-                    type="button"
+                  {/* ---------- Header ---------- */}
+                  <div
                     onClick={() =>
-                      cancelOrder(
-                        order.id,
+                      setExpandedOrderId(
+                        expandedOrderId ===
+                          order.id
+                          ? null
+                          : order.id,
                       )
                     }
                     className="
-                      mt-4
-                      rounded-md
-                      bg-red-600
-                      px-4
-                      py-2
-                      text-sm
-                      font-medium
-                      text-white
-                      transition
-                      hover:bg-red-700
+                      mb-3
+                      flex
+                      cursor-pointer
+                      flex-wrap
+                      items-center
+                      justify-between
+                      gap-2
+                      text-base
                     "
                   >
-                    Cancel Order
-                  </button>
-                )}
+                    <strong>
+                      Order #{order.id}
+                    </strong>
 
+                    <span className="font-semibold uppercase text-[#004080]">
+                      {order.status}
+                    </span>
 
-                {/* ---------- Expanded Items ---------- */}
-                {expandedOrderId ===
-                  order.id &&
-                  Array.isArray(
-                    order.items,
-                  ) &&
-                  order.items.length >
-                    0 && (
-                    <div className="mt-4 border-t border-gray-200 pt-4">
-                      {order.items.map(
-                        (
-                          item: OrderItem,
-                        ) => (
-                          <div
-                            key={
-                              item.id
-                            }
-                            className="
-                              mb-4
-                              flex
-                              flex-col
-                              gap-4
-                              border-b
-                              border-dashed
-                              border-gray-300
-                              pb-4
-                              sm:flex-row
-                            "
-                          >
-                            {/* ---------- ITEM IMAGE ---------- */}
-                            <Link
-                              to={`/items/${item.sparepart.id}`}
-                              state={{
-                                from:
-                                  location.pathname,
-                                restoreScrollY:
-                                  window.scrollY,
-                                expandedOrderId:
-                                  order.id,
-                              }}
-                              className="flex justify-center sm:block"
-                            >
-                              <img
-                                src={getImageUrl(
-                                  item
-                                    .sparepart
-                                    .image,
-                                )}
-                                alt={
-                                  item
-                                    .sparepart
-                                    .brand ||
-                                  "Spare part"
-                                }
-                                className="
-                                  h-24
-                                  w-24
-                                  rounded-md
-                                  object-cover
-                                "
-                                onError={(
-                                  event,
-                                ) => {
-                                  const target =
-                                    event.currentTarget;
-
-                                  if (
-                                    target.src.endsWith(
-                                      "/placeholder.png",
-                                    )
-                                  ) {
-                                    return;
-                                  }
-
-                                  target.src =
-                                    "/placeholder.png";
-                                }}
-                              />
-                            </Link>
-
-
-                            {/* ---------- ITEM INFORMATION ---------- */}
-                            <div className="flex-1 text-center sm:text-left">
-                              <strong className="block text-base">
-                                {
-                                  item
-                                    .sparepart
-                                    .brand
-                                }{" "}
-                                {
-                                  item
-                                    .sparepart
-                                    .category
-                                }{" "}
-                                for{" "}
-                                {
-                                  item
-                                    .sparepart
-                                    .vehicle_type
-                                }
-                              </strong>
-
-                              <p className="mt-2">
-                                <span className="font-semibold">
-                                  Quantity:
-                                </span>{" "}
-                                {
-                                  item.quantity
-                                }
-                              </p>
-
-                              <p className="mt-1">
-                                <span className="font-semibold">
-                                  Unit Price:
-                                </span>{" "}
-                                KES{" "}
-                                {item.unit_price?.toLocaleString() ??
-                                  "0"}
-                              </p>
-
-                              <p className="mt-1">
-                                <span className="font-semibold">
-                                  Subtotal:
-                                </span>{" "}
-                                <span className="font-semibold text-red-600">
-                                  KES{" "}
-                                  {item.subtotal?.toLocaleString() ??
-                                    "0"}
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-                        ),
+                    <span className="cursor-pointer">
+                      {expandedOrderId ===
+                      order.id ? (
+                        <ChevronUp
+                          size={18}
+                        />
+                      ) : (
+                        <ChevronDown
+                          size={18}
+                        />
                       )}
+                    </span>
+                  </div>
+
+
+                  {/* ---------- Order Info ---------- */}
+                  <div className="space-y-2 text-[15px]">
+                    <div>
+                      <span className="font-semibold">
+                        Total Items:
+                      </span>{" "}
+                      {order.total_quantity}
                     </div>
+
+                    <div>
+                      <span className="font-semibold">
+                        Total Cost:
+                      </span>
+
+                      <span className="ml-2 font-semibold text-red-600">
+                        KES{" "}
+                        {order.total_price?.toLocaleString() ??
+                          "0"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold">
+                        Payment Method:
+                      </span>{" "}
+                      <span className="font-medium text-[#004080]">
+                        {getPaymentMethodLabel(
+                          order.payment_method,
+                        )}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="font-semibold">
+                        Shipping Address:
+                      </span>{" "}
+                      {order.address ||
+                        "N/A"}
+                    </div>
+
+                    <div>
+                      <span className="font-semibold">
+                        Created At:
+                      </span>{" "}
+                      {formatOrderTime(
+                        order.created_at,
+                      )}
+
+                      <small className="ml-2 text-xs text-gray-500">
+                        ({timeZone})
+                      </small>
+                    </div>
+                  </div>
+
+
+                  {/* ---------- Cancel Button ---------- */}
+                  {order.status.toLowerCase() ===
+                    "pending" && (
+                    <button
+                      type="button"
+                      disabled={
+                        !cancellationAvailable
+                      }
+                      onClick={() => {
+                        if (
+                          cancellationAvailable
+                        ) {
+                          cancelOrder(
+                            order.id,
+                          );
+                        }
+                      }}
+                      className={`
+                        mt-4
+                        rounded-md
+                        px-4
+                        py-2
+                        text-sm
+                        font-medium
+                        text-white
+                        transition
+                        ${
+                          cancellationAvailable
+                            ? "bg-red-600 hover:bg-red-700"
+                            : "cursor-not-allowed bg-gray-400 opacity-60"
+                        }
+                      `}
+                    >
+                      {cancellationAvailable
+                        ? "Cancel Order"
+                        : "Cancellation Period Expired"}
+                    </button>
                   )}
-              </div>
-            ),
+
+
+                  {/* ---------- Expanded Items ---------- */}
+                  {expandedOrderId ===
+                    order.id &&
+                    Array.isArray(
+                      order.items,
+                    ) &&
+                    order.items.length >
+                      0 && (
+                      <div className="mt-4 border-t border-gray-200 pt-4">
+                        {order.items.map(
+                          (
+                            item: OrderItem,
+                          ) => (
+                            <div
+                              key={
+                                item.id
+                              }
+                              className="
+                                mb-4
+                                flex
+                                flex-col
+                                gap-4
+                                border-b
+                                border-dashed
+                                border-gray-300
+                                pb-4
+                                sm:flex-row
+                              "
+                            >
+                              {/* ---------- ITEM IMAGE ---------- */}
+                              <Link
+                                to={`/items/${item.sparepart.id}`}
+                                state={{
+                                  from:
+                                    location.pathname,
+                                  restoreScrollY:
+                                    window.scrollY,
+                                  expandedOrderId:
+                                    order.id,
+                                }}
+                                className="flex justify-center sm:block"
+                              >
+                                <img
+                                  src={getImageUrl(
+                                    item
+                                      .sparepart
+                                      .image,
+                                  )}
+                                  alt={
+                                    item
+                                      .sparepart
+                                      .brand ||
+                                    "Spare part"
+                                  }
+                                  className="
+                                    h-24
+                                    w-24
+                                    rounded-md
+                                    object-cover
+                                  "
+                                  onError={(
+                                    event,
+                                  ) => {
+                                    const target =
+                                      event.currentTarget;
+
+                                    if (
+                                      target.src.endsWith(
+                                        "/placeholder.png",
+                                      )
+                                    ) {
+                                      return;
+                                    }
+
+                                    target.src =
+                                      "/placeholder.png";
+                                  }}
+                                />
+                              </Link>
+
+
+                              {/* ---------- ITEM INFORMATION ---------- */}
+                              <div className="flex-1 text-center sm:text-left">
+                                <strong className="block text-base">
+                                  {
+                                    item
+                                      .sparepart
+                                      .brand
+                                  }{" "}
+                                  {
+                                    item
+                                      .sparepart
+                                      .category
+                                  }{" "}
+                                  for{" "}
+                                  {
+                                    item
+                                      .sparepart
+                                      .vehicle_type
+                                  }
+                                </strong>
+
+                                <p className="mt-2">
+                                  <span className="font-semibold">
+                                    Quantity:
+                                  </span>{" "}
+                                  {
+                                    item.quantity
+                                  }
+                                </p>
+
+                                <p className="mt-1">
+                                  <span className="font-semibold">
+                                    Unit Price:
+                                  </span>{" "}
+                                  KES{" "}
+                                  {item.unit_price?.toLocaleString() ??
+                                    "0"}
+                                </p>
+
+                                <p className="mt-1">
+                                  <span className="font-semibold">
+                                    Subtotal:
+                                  </span>{" "}
+                                  <span className="font-semibold text-red-600">
+                                    KES{" "}
+                                    {item.subtotal?.toLocaleString() ??
+                                      "0"}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    )}
+                </div>
+              );
+            },
           )
         ) : (
           <div

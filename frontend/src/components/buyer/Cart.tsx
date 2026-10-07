@@ -305,6 +305,7 @@ const Cart = () => {
                               text-white
                               transition-all
                               duration-200
+                              cursor-pointer
                               hover:border-[rgb(11,98,184)]
                               hover:bg-[rgb(9,39,69)]
                             "
@@ -347,6 +348,7 @@ const Cart = () => {
                               text-white
                               transition-all
                               duration-200
+                              cursor-pointer
                               hover:border-[rgb(11,98,184)]
                               hover:bg-[rgb(9,39,69)]
                             "
@@ -386,6 +388,7 @@ const Cart = () => {
                             text-[#e53e3e]
                             transition-colors
                             duration-200
+                            cursor-pointer
                             hover:text-[#c53030]
                           "
                         >
@@ -409,6 +412,7 @@ const Cart = () => {
                   text-white
                   transition-colors
                   duration-200
+                  cursor-pointer
                   hover:bg-[rgb(160,0,0)]
                 "
                 onClick={() => setShowClearCartDialog(true)}
@@ -541,6 +545,7 @@ const Cart = () => {
                 hover:bg-gray-100
                 hover:text-gray-700
                 focus:outline-none
+                cursor-pointer
               "
             >
               <X size={17} />
@@ -622,6 +627,7 @@ const Cart = () => {
                     focus:outline-none
                     focus:ring-2
                     focus:ring-gray-300
+                    cursor-pointer
                   "
                 >
                   Cancel
@@ -646,6 +652,7 @@ const Cart = () => {
                     focus:ring-2
                     focus:ring-red-500
                     focus:ring-offset-1
+                    cursor-pointer
                   "
                 >
                   Clear Cart

@@ -6,6 +6,7 @@ import { useCart } from "../../contexts/CartContext";
 import config from "../../config";
 import Footer from "../shared/layout/Footer";
 
+
 // ------------------ Interfaces ------------------
 interface SparePart {
   id: string;
@@ -62,9 +63,6 @@ const BuyerHomepage = () => {
 
   const [carouselIndex, setCarouselIndex] =
     useState<number>(0);
-
-  const [loadedImages, setLoadedImages] =
-    useState<Record<string, boolean>>({});
 
   const { addItem } = useCart();
 
@@ -338,15 +336,6 @@ const BuyerHomepage = () => {
     addItem(item);
   };
 
-  const handleImageLoad = (
-    id: string
-  ): void => {
-    setLoadedImages((prev) => ({
-      ...prev,
-      [id]: true,
-    }));
-  };
-
   const handleItemClick = (
     event: MouseEvent<HTMLAnchorElement>,
     itemId: string
@@ -376,7 +365,20 @@ const BuyerHomepage = () => {
         <button
           type="button"
           onClick={fetchSpareParts}
-          className="mt-3 flex items-center gap-[6px] rounded-lg bg-[#ff4d4f] px-4 py-[10px] text-white transition-colors duration-200 hover:bg-[#d9363e]"
+          className="
+            mt-3
+            flex
+            items-center
+            gap-[6px]
+            rounded-lg
+            bg-[#ff4d4f]
+            px-4
+            py-[10px]
+            text-white
+            transition-colors
+            duration-200
+            hover:bg-[#d9363e]
+          "
         >
           <RefreshCw size={16} />
           Retry
@@ -500,7 +502,7 @@ const BuyerHomepage = () => {
                   "
                 >
                   <div
-                    className={`
+                    className="
                       flex
                       h-full
                       cursor-pointer
@@ -515,21 +517,11 @@ const BuyerHomepage = () => {
                       hover:-translate-y-1
                       hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
                       sm:p-3
-                      ${
-                        loadedImages[item.id]
-                          ? ""
-                          : "animate-pulse"
-                      }
-                    `}
+                    "
                   >
                     <img
                       src={item.image}
                       alt={item.brand}
-                      onLoad={() =>
-                        handleImageLoad(
-                          item.id
-                        )
-                      }
                       className="
                         mb-[10px]
                         mt-10
@@ -599,6 +591,7 @@ const BuyerHomepage = () => {
                         )
                       }
                       className="
+                        cursor-pointer
                         rounded-md
                         bg-[rgb(0,64,128)]
                         px-4
@@ -674,7 +667,7 @@ const BuyerHomepage = () => {
               className="text-inherit no-underline"
             >
               <div
-                className={`
+                className="
                   flex
                   h-full
                   cursor-pointer
@@ -689,21 +682,11 @@ const BuyerHomepage = () => {
                   hover:-translate-y-1
                   hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
                   sm:p-3
-                  ${
-                    loadedImages[item.id]
-                      ? ""
-                      : "animate-pulse"
-                  }
-                `}
+                "
               >
                 <img
                   src={item.image}
                   alt={item.brand}
-                  onLoad={() =>
-                    handleImageLoad(
-                      item.id
-                    )
-                  }
                   className="
                     mb-[10px]
                     mt-10
@@ -759,6 +742,7 @@ const BuyerHomepage = () => {
                     )
                   }
                   className="
+                    cursor-pointer
                     rounded-md
                     bg-[rgb(0,64,128)]
                     px-4
