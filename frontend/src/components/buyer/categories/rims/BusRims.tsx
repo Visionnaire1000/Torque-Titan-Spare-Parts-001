@@ -631,6 +631,26 @@ const BusRims = (): ReactElement => {
         max-[480px]:max-w-[480px]
       "
     >
+      <Link
+        to="/"
+        aria-label="Back to home"
+        className="
+         inline-flex
+         items-center
+         justify-center
+         rounded-md
+         p-2
+         text-[rgb(0,64,128)]
+         text-lg
+         font-bold
+         transition-colors
+         cursor-pointer
+         hover:bg-[#eaf2f8]
+      "
+    >
+      Home
+    </Link>
+
       {/* Top Left Back Arrow */}
       {!error &&
         (brand !== "" ||
@@ -656,6 +676,7 @@ const BusRims = (): ReactElement => {
                 p-2
                 text-[rgb(0,64,128)]
                 transition-colors
+                cursor-pointer
                 hover:bg-[#eaf2f8]
               "
             >
@@ -717,6 +738,7 @@ const BusRims = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -808,6 +830,7 @@ const BusRims = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -854,6 +877,7 @@ const BusRims = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -948,6 +972,7 @@ const BusRims = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -995,6 +1020,7 @@ const BusRims = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -1090,6 +1116,7 @@ const BusRims = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:text-base
                       ${
@@ -1116,6 +1143,7 @@ const BusRims = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:text-base
                       ${
@@ -1142,6 +1170,7 @@ const BusRims = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:text-base
                       ${
@@ -1281,6 +1310,7 @@ const BusRims = (): ReactElement => {
                         font-bold
                         text-white
                         transition-colors
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1355,6 +1385,7 @@ const BusRims = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1432,6 +1463,7 @@ const BusRims = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50

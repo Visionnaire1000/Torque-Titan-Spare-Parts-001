@@ -1,5 +1,9 @@
 from utils.celery_worker import celery
 
+from django.utils import timezone
+
+from app.models import Users
+
 from utils.brevo_email import (
     send_admin_credentials_email,
     send_new_login_email,
@@ -7,6 +11,8 @@ from utils.brevo_email import (
     send_order_confirmation_email,
     send_order_cancellation_email,
     send_order_status_email,
+    send_account_locked_email,
+    send_account_unlocked_email,
 )
 
 
@@ -18,13 +24,11 @@ def send_email_task(
     otp_code: str,
     otp_type: str,
 ):
-    success = send_otp_email(
+    return send_otp_email(
         user_email,
         otp_code,
         otp_type,
     )
-
-    return success
 
 
 @celery.task(
@@ -35,13 +39,11 @@ def send_admin_credentials_email_task(
     password: str,
     role: str,
 ):
-    success = send_admin_credentials_email(
+    return send_admin_credentials_email(
         user_email,
         password,
         role,
     )
-
-    return success
 
 
 @celery.task(
@@ -53,14 +55,12 @@ def send_order_confirmation_email_task(
     total_price: str,
     payment_method: str,
 ):
-    success = send_order_confirmation_email(
+    return send_order_confirmation_email(
         user_email,
         order_id,
         total_price,
         payment_method,
     )
-
-    return success
 
 
 @celery.task(
@@ -72,14 +72,12 @@ def send_order_cancellation_email_task(
     total_price: str,
     payment_method: str,
 ):
-    success = send_order_cancellation_email(
+    return send_order_cancellation_email(
         user_email,
         order_id,
         total_price,
         payment_method,
     )
-
-    return success
 
 
 @celery.task(
@@ -90,13 +88,11 @@ def send_order_status_email_task(
     order_id: str,
     order_status: str,
 ):
-    success = send_order_status_email(
+    return send_order_status_email(
         user_email,
         order_id,
         order_status,
     )
-
-    return success
 
 
 @celery.task(
@@ -107,10 +103,72 @@ def send_new_login_email_task(
     ip_address: str,
     user_agent: str,
 ):
-    success = send_new_login_email(
+    return send_new_login_email(
         user_email,
         ip_address,
         user_agent,
     )
 
-    return success
+
+@celery.task(
+    name="utils.tasks.send_account_locked_email_task"
+)
+def send_account_locked_email_task(
+    user_email: str,
+    role: str,
+):
+    return send_account_locked_email(
+        user_email,
+        role,
+    )
+
+
+@celery.task(
+    name="utils.tasks.send_account_unlocked_email_task"
+)
+def send_account_unlocked_email_task(
+    user_email: str,
+    role: str,
+):
+    return send_account_unlocked_email(
+        user_email,
+        role,
+    )
+
+
+@celery.task(
+    name="utils.tasks.lock_expired_initial_admin_accounts"
+)
+def lock_expired_initial_admin_accounts():
+    now = timezone.now()
+
+    expired_accounts = Users.objects.filter(
+        role__in=[
+            "admin",
+            "super_admin",
+        ],
+        initial_password_changed=False,
+        initial_password_expires__isnull=False,
+        initial_password_expires__lte=now,
+        is_active=True,
+    )
+
+    locked_count = 0
+
+    for user in expired_accounts.iterator():
+        user.is_active = False
+
+        user.save(
+            update_fields=[
+                "is_active",
+            ]
+        )
+
+        send_account_locked_email_task.delay(
+            user.email,
+            user.role,
+        )
+
+        locked_count += 1
+
+    return locked_count

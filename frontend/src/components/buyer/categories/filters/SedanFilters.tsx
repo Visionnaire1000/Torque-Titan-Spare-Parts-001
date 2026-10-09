@@ -563,6 +563,26 @@ const SedanFilters = (): ReactElement => {
         max-[480px]:max-w-[480px]
       "
     >
+      <Link
+        to="/"
+        aria-label="Back to home"
+        className="
+          inline-flex
+          items-center
+          justify-center
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          text-lg
+          font-bold
+          transition-colors
+          cursor-pointer
+          hover:bg-[#eaf2f8]
+        "
+          >
+           Home
+        </Link>
+      
       {/* Top Left Back Arrow */}
       {!error &&
         (brand !== "" ||
@@ -588,6 +608,7 @@ const SedanFilters = (): ReactElement => {
                 p-2
                 text-[rgb(0,64,128)]
                 transition-colors
+                cursor-pointer
                 hover:bg-[#eaf2f8]
               "
             >
@@ -649,6 +670,7 @@ const SedanFilters = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -746,6 +768,7 @@ const SedanFilters = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:px-2
                         max-[480px]:py-2
@@ -794,6 +817,7 @@ const SedanFilters = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -894,6 +918,7 @@ const SedanFilters = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:px-2
                         max-[480px]:py-2
@@ -943,6 +968,7 @@ const SedanFilters = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -1044,6 +1070,7 @@ const SedanFilters = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1072,6 +1099,7 @@ const SedanFilters = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1100,6 +1128,7 @@ const SedanFilters = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1224,6 +1253,7 @@ const SedanFilters = (): ReactElement => {
                         text-white
                         transition-colors
                         duration-200
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1300,6 +1330,7 @@ const SedanFilters = (): ReactElement => {
                     py-1.5
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-gray-100
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1391,6 +1422,7 @@ const SedanFilters = (): ReactElement => {
                     text-sm
                     transition-colors
                     hover:bg-gray-100
+                    cursor-pointer
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "

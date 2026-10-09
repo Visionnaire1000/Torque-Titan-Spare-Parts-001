@@ -403,12 +403,20 @@ def refund_paystack_order(order):
 
         if existing_refund:
 
+            refund_id = existing_refund.get(
+                "id"
+            )
+
+            refund_status = existing_refund.get(
+                "status"
+            )
+
             print(
                 "PAYSTACK REFUND: "
-                f"Existing refund found for order "
-                f"{locked_order.id}. "
-                f"refund_id={existing_refund.get('id')}, "
-                f"status={existing_refund.get('status')}"
+                f"Order {locked_order.id} | "
+                f"Refund {refund_id or 'N/A'} | "
+                f"Status {refund_status or 'UNKNOWN'} | "
+                "Existing refund"
             )
 
             return {
@@ -482,7 +490,27 @@ def refund_paystack_order(order):
                 or "Paystack refund failed."
             )
 
+        refund = response_data.get(
+            "data"
+        ) or {}
+
+        refund_id = refund.get(
+            "id"
+        )
+
+        refund_status = refund.get(
+            "status"
+        )
+
+        print(
+            "PAYSTACK REFUND: "
+            f"Order {locked_order.id} | "
+            f"Refund {refund_id or 'N/A'} | "
+            f"Status {refund_status or 'UNKNOWN'}"
+        )
+
         return response_data
+
 
 
 # --------------------------- CREATE PAYSTACK CHECKOUT SESSION ---------------------------

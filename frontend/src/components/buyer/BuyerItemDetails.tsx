@@ -1232,6 +1232,7 @@ const handleBack =
           p-2
           text-[rgb(0,64,128)]
           transition-colors
+          cursor-pointer
           hover:bg-[#eaf2f8]
         "
       >
@@ -1345,6 +1346,7 @@ const handleBack =
               font-medium
               text-white
               transition-colors
+              cursor-pointer
               hover:bg-[rgb(17,49,82)]
             "
           >
@@ -1397,6 +1399,7 @@ const handleBack =
               py-2
               text-white
               transition-colors
+              cursor-pointer
               hover:bg-[rgb(2,30,58)]
             "
           >
@@ -1453,6 +1456,7 @@ const handleBack =
                     py-1.5
                     text-white
                     transition-colors
+                    cursor-pointer
                     hover:bg-[rgb(17,49,82)]
                   "
                 >
@@ -1471,6 +1475,7 @@ const handleBack =
                     py-1.5
                     text-white
                     transition-colors
+                    cursor-pointer
                     hover:bg-[rgb(17,49,82)]
                   "
                 >
@@ -1539,6 +1544,7 @@ const handleBack =
                     py-1.5
                     text-white
                     transition-colors
+                    cursor-pointer
                     hover:bg-[rgb(17,49,82)]
                   "
                 >
@@ -1559,6 +1565,7 @@ const handleBack =
                     py-1.5
                     text-white
                     transition-colors
+                    cursor-pointer
                     hover:bg-[rgb(17,49,82)]
                   "
                 >
@@ -1671,6 +1678,7 @@ const handleBack =
                         py-1
                         text-[#333]
                         transition-colors
+                        cursor-pointer
                         disabled:cursor-not-allowed
                       "
                       aria-label="Like comment"
@@ -1716,6 +1724,7 @@ const handleBack =
                         py-1
                         text-[#333]
                         transition-colors
+                        cursor-pointer
                         disabled:cursor-not-allowed
                       "
                       aria-label="Dislike comment"

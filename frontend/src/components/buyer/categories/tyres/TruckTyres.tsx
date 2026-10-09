@@ -508,6 +508,7 @@ const TruckTyres = (): ReactElement => {
          text-lg
          font-bold
          transition-colors
+         cursor-pointer
          hover:bg-[#eaf2f8]
       "
     >
@@ -530,6 +531,7 @@ const TruckTyres = (): ReactElement => {
                   p-2
                   text-[rgb(0,64,128)]
                   transition-colors
+                  cursor-pointer
                   hover:bg-[#eaf2f8]
                 "
               >
@@ -589,6 +591,7 @@ const TruckTyres = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -673,6 +676,7 @@ const TruckTyres = (): ReactElement => {
                             text-left
                             text-[14px]
                             transition-colors
+                            cursor-pointer
                             hover:bg-[#f0f6ff]
                             max-[480px]:text-base
                             ${
@@ -720,6 +724,7 @@ const TruckTyres = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -807,7 +812,9 @@ const TruckTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
+                        cursor-pointer
                         max-[480px]:text-base
                         ${
                           price === "low"
@@ -833,6 +840,7 @@ const TruckTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -859,6 +867,7 @@ const TruckTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -984,6 +993,7 @@ const TruckTyres = (): ReactElement => {
                         font-bold
                         text-white
                         transition-colors
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1031,6 +1041,7 @@ const TruckTyres = (): ReactElement => {
                     text-sm
                     transition-colors
                     hover:bg-[#f0f0f0]
+                    cursor-pointer
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
@@ -1091,6 +1102,7 @@ const TruckTyres = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50

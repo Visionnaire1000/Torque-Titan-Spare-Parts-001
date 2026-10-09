@@ -52,13 +52,9 @@ const SkeletonCard = (): ReactElement => (
     "
   >
     <div className="mb-[10px] h-[140px] w-full rounded-[10px] bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[80%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[60%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
-
     <div className="mt-[10px] h-8 w-full rounded-lg bg-[#e0e0e0]" />
   </div>
 );
@@ -578,6 +574,26 @@ const SedanRims = (): ReactElement => {
         max-[480px]:pb-5
       "
     >
+      <Link
+        to="/"
+        aria-label="Back to home"
+        className="
+         inline-flex
+         items-center
+         justify-center
+         rounded-md
+         p-2
+         text-[rgb(0,64,128)]
+         text-lg
+         font-bold
+         transition-colors
+         cursor-pointer
+         hover:bg-[#eaf2f8]
+      "
+    >
+        Home
+      </Link>
+
       {/* Filters */}
       {!error && (
         <>
@@ -599,6 +615,7 @@ const SedanRims = (): ReactElement => {
                   p-2
                   text-[rgb(0,64,128)]
                   transition-colors
+                  cursor-pointer
                   hover:bg-[#eaf2f8]
                 "
               >
@@ -660,6 +677,7 @@ const SedanRims = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -754,6 +772,7 @@ const SedanRims = (): ReactElement => {
                             text-left
                             text-[14px]
                             transition-colors
+                            cursor-pointer
                             hover:bg-[#f0f6ff]
                             max-[480px]:text-base
                             ${
@@ -803,6 +822,7 @@ const SedanRims = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -900,6 +920,7 @@ const SedanRims = (): ReactElement => {
                             text-left
                             text-[14px]
                             transition-colors
+                            cursor-pointer
                             hover:bg-[#f0f6ff]
                             max-[480px]:text-base
                             ${
@@ -952,6 +973,7 @@ const SedanRims = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -1047,6 +1069,7 @@ const SedanRims = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -1073,6 +1096,7 @@ const SedanRims = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -1099,6 +1123,7 @@ const SedanRims = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -1245,6 +1270,7 @@ const SedanRims = (): ReactElement => {
                         font-bold
                         text-white
                         transition-colors
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1314,6 +1340,7 @@ const SedanRims = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1393,6 +1420,7 @@ const SedanRims = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50

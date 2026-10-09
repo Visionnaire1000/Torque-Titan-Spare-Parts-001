@@ -564,6 +564,26 @@ const SUVFilters = (): ReactElement => {
         max-[480px]:max-w-[480px]
       "
     >
+      <Link
+        to="/"
+        aria-label="Back to home"
+        className="
+          inline-flex
+          items-center
+          justify-center
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          text-lg
+          font-bold
+          transition-colors
+          cursor-pointer
+          hover:bg-[#eaf2f8]
+        "
+          >
+           Home
+        </Link>
+      
       {/* Top Left Back Arrow */}
       {!error &&
         (brand !== "" ||
@@ -589,6 +609,7 @@ const SUVFilters = (): ReactElement => {
                 p-2
                 text-[rgb(0,64,128)]
                 transition-colors
+                cursor-pointer
                 hover:bg-[#eaf2f8]
               "
             >
@@ -650,6 +671,7 @@ const SUVFilters = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -747,6 +769,7 @@ const SUVFilters = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:px-2
                         max-[480px]:py-2
@@ -895,6 +918,7 @@ const SUVFilters = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:px-2
                         max-[480px]:py-2
@@ -944,6 +968,7 @@ const SUVFilters = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -1045,6 +1070,7 @@ const SUVFilters = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1073,6 +1099,7 @@ const SUVFilters = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1101,6 +1128,7 @@ const SUVFilters = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1227,6 +1255,7 @@ const SUVFilters = (): ReactElement => {
                         text-white
                         transition-colors
                         duration-200
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >

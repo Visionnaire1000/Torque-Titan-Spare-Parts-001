@@ -822,6 +822,7 @@ const ProfileCircle = ({
                   border-gray-200
                   text-gray-600
                   transition
+                  cursor-pointer
                   hover:bg-gray-50
                   hover:text-[#004080]
                 "
@@ -863,6 +864,7 @@ const ProfileCircle = ({
             font-semibold
             text-white
             transition
+            cursor-pointer
             hover:bg-[#003366]
             max-[480px]:w-full
           "
@@ -993,6 +995,7 @@ const ProfileCircle = ({
                               text-left
                               transition-all
                               duration-200
+                              cursor-pointer
                               hover:-translate-y-[1px]
                               hover:border-[#004080]
                               hover:shadow-md
@@ -1080,6 +1083,7 @@ const ProfileCircle = ({
                               text-left
                               transition-all
                               duration-200
+                              cursor-pointer
                               hover:-translate-y-[1px]
                               hover:border-[#004080]
                               hover:shadow-md

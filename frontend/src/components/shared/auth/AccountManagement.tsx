@@ -593,6 +593,7 @@ const AccountManagement = (): React.JSX.Element => {
                   text-white
                   transition-colors
                   duration-200
+                  cursor-pointer
                   hover:bg-[rgb(0,58,115)]
                   disabled:cursor-not-allowed
                   disabled:bg-gray-300
@@ -620,6 +621,7 @@ const AccountManagement = (): React.JSX.Element => {
                   font-semibold
                   text-white
                   transition-colors
+                  cursor-pointer
                   duration-200
                   hover:bg-[rgb(0,58,115)]
                 "
@@ -645,6 +647,7 @@ const AccountManagement = (): React.JSX.Element => {
                     text-white
                     transition-colors
                     duration-200
+                    cursor-pointer
                     hover:bg-[rgb(0,58,115)]
                     disabled:cursor-not-allowed
                     disabled:bg-gray-300
@@ -670,6 +673,7 @@ const AccountManagement = (): React.JSX.Element => {
                     text-gray-900
                     transition-colors
                     duration-200
+                    cursor-pointer
                     hover:bg-gray-300
                     disabled:cursor-not-allowed
                   "
@@ -807,6 +811,7 @@ const AccountManagement = (): React.JSX.Element => {
                   text-white
                   transition-colors
                   duration-200
+                  cursor-pointer
                   hover:bg-[rgb(0,58,115)]
                 "
               >
@@ -835,6 +840,7 @@ const AccountManagement = (): React.JSX.Element => {
                   text-white
                   transition-colors
                   duration-200
+                  cursor-pointer
                   hover:bg-[rgb(0,58,115)]
                   disabled:cursor-not-allowed
                   disabled:bg-gray-300
@@ -938,6 +944,7 @@ const AccountManagement = (): React.JSX.Element => {
                     text-white
                     transition-colors
                     duration-200
+                    cursor-pointer
                     hover:bg-[#115293]
                     disabled:cursor-not-allowed
                     disabled:opacity-60
@@ -956,7 +963,6 @@ const AccountManagement = (): React.JSX.Element => {
                   changePasswordOtp.length !== 6
                 }
                 className="
-                  cursor-pointer
                   rounded-[10px]
                   bg-[rgb(0,64,128)]
                   px-4
@@ -966,6 +972,7 @@ const AccountManagement = (): React.JSX.Element => {
                   text-white
                   transition-colors
                   duration-200
+                  cursor-pointer
                   hover:bg-[rgb(0,58,115)]
                   disabled:cursor-not-allowed
                   disabled:bg-gray-300
@@ -1028,6 +1035,7 @@ const AccountManagement = (): React.JSX.Element => {
               text-white
               transition-colors
               duration-200
+              cursor-pointer
               hover:bg-[#b91c1c]
             "
           >
@@ -1089,6 +1097,7 @@ const AccountManagement = (): React.JSX.Element => {
                       transition-colors
                       duration-200
                       hover:bg-[#b91c1c]
+                      cursor-pointer
                       disabled:cursor-not-allowed
                       disabled:bg-gray-300
                     "
@@ -1113,6 +1122,7 @@ const AccountManagement = (): React.JSX.Element => {
                       text-gray-900
                       transition-colors
                       duration-200
+                      cursor-pointer
                       hover:bg-gray-300
                     "
                   >
@@ -1202,6 +1212,7 @@ const AccountManagement = (): React.JSX.Element => {
                       transition-colors
                       duration-200
                       hover:bg-[#115293]
+                      cursor-pointer
                       disabled:cursor-not-allowed
                       disabled:opacity-60
                     "
@@ -1232,6 +1243,7 @@ const AccountManagement = (): React.JSX.Element => {
                       transition-colors
                       duration-200
                       hover:bg-[#b91c1c]
+                      cursor-pointer
                       disabled:cursor-not-allowed
                       disabled:bg-gray-300
                     "
@@ -1255,6 +1267,7 @@ const AccountManagement = (): React.JSX.Element => {
                       font-semibold
                       text-gray-900
                       transition-colors
+                      cursor-pointer
                       duration-200
                       hover:bg-gray-300
                     "

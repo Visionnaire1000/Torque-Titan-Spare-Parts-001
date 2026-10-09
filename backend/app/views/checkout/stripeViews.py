@@ -163,7 +163,7 @@ def refund_stripe_order(order):
 
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
-    stripe.Refund.create(
+    refund = stripe.Refund.create(
         payment_intent=order.payment_reference,
         amount=int(
             (
@@ -177,6 +177,17 @@ def refund_stripe_order(order):
         },
         idempotency_key=f"order-cancellation-{order.id}",
     )
+
+    refund_status = refund.status
+
+    print(
+        f"STRIPE REFUND: "
+        f"Order {order.id} | "
+        f"Refund {refund.id} | "
+        f"Status {refund_status}"
+    )
+
+    return refund
 
 
 # --------------------------- CREATE STRIPE CHECKOUT SESSION ---------------------------

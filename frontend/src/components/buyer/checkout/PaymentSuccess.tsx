@@ -26,6 +26,7 @@ const PaymentSuccess = () => {
     const paypalOrderId = searchParams.get("token");
     const paymentMethod = searchParams.get("method");
 
+    // -------------- PAYPAL --------------
     const handlePayment = async () => {
       if (paypalOrderId) {
         setProcessing(true);
@@ -56,10 +57,6 @@ const PaymentSuccess = () => {
           await loadCart();
 
           setPaymentSuccess(true);
-
-          toast.success("Payment Successful.", {
-            autoClose: 3000,
-          });
         } catch (error) {
           console.error(
             "PayPal capture error:",
@@ -78,6 +75,7 @@ const PaymentSuccess = () => {
         return;
       }
 
+      // ------------- PAYSTACK -------------
       if (paymentMethod === "paystack") {
         setProcessing(true);
 
@@ -86,9 +84,6 @@ const PaymentSuccess = () => {
 
           setPaymentSuccess(true);
 
-          toast.success("Payment Successful.", {
-            autoClose: 3000,
-          });
         } catch (error) {
           console.error(
             "Paystack payment success error:",
@@ -96,7 +91,7 @@ const PaymentSuccess = () => {
           );
 
           toast.error(
-            "There was a problem completing your payment."
+            "There was a problem completing your Mobile payment."
           );
         } finally {
           setProcessing(false);
@@ -105,6 +100,7 @@ const PaymentSuccess = () => {
         return;
       }
 
+      // --------------- STRIPE -------------
       try {
         setProcessing(true);
 

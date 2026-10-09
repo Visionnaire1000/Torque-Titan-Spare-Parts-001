@@ -582,31 +582,58 @@ const BusBatteries = (): ReactElement => {
         max-[480px]:max-w-[480px]
       "
     >
-      {/* ---------------- Back To Available Parts ---------------- */}
+      <Link
+        to="/"
+        aria-label="Back to home"
+        className="
+         inline-flex
+         items-center
+         justify-center
+         rounded-md
+         p-2
+         text-[rgb(0,64,128)]
+         text-lg
+         font-bold
+         transition-colors
+         cursor-pointer
+         hover:bg-[#eaf2f8]
+      "
+    >
+      Home
+    </Link>
+    
+      {/* Top Left Back Arrow */}
       {!error &&
         (brand !== "" ||
           colour !== "" ||
           price !== "") && (
-          <button
-            type="button"
-            onClick={
-              handleBackToAvailableParts
-            }
-            aria-label="Back to available parts"
+          <div
             className="
-              mb-3
-              inline-flex
-              items-center
-              justify-center
-              rounded-md
-              p-2
-              text-[rgb(0,64,128)]
-              transition-colors
-              hover:bg-[#eaf2f8]
+              mb-[10px]
+              flex
+              w-full
+              justify-start
             "
           >
-            <ArrowLeft size={30} />
-          </button>
+            <button
+              type="button"
+              onClick={handleBackToAvailableParts}
+              aria-label="Back to available parts"
+              className="
+                inline-flex
+                items-center
+                justify-center
+                rounded-md
+                p-2
+                text-[rgb(0,64,128)]
+                transition-colors
+                cursor-pointer
+                hover:bg-[#eaf2f8]
+              "
+            >
+              <ArrowLeft size={30} />
+            </button>
+          </div>
         )}
 
       {/* ---------------- Filters ---------------- */}
@@ -664,6 +691,7 @@ const BusBatteries = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -764,6 +792,7 @@ const BusBatteries = (): ReactElement => {
                           text-left
                           text-[14px]
                           transition-colors
+                          cursor-pointer
                           hover:bg-[#f0f6ff]
                           max-[480px]:px-2
                           max-[480px]:py-2
@@ -816,6 +845,7 @@ const BusBatteries = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -922,6 +952,7 @@ const BusBatteries = (): ReactElement => {
                           text-[14px]
                           transition-colors
                           hover:bg-[#f0f6ff]
+                          cursor-pointer
                           max-[480px]:px-2
                           max-[480px]:py-2
                           max-[480px]:text-xs
@@ -976,6 +1007,7 @@ const BusBatteries = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -1077,6 +1109,7 @@ const BusBatteries = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1105,6 +1138,7 @@ const BusBatteries = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1133,6 +1167,7 @@ const BusBatteries = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:px-2
                       max-[480px]:py-2
@@ -1275,6 +1310,7 @@ const BusBatteries = (): ReactElement => {
                         text-white
                         transition-colors
                         duration-200
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1350,7 +1386,6 @@ const BusBatteries = (): ReactElement => {
                     )
                   }
                   className="
-                    cursor-pointer
                     rounded
                     border
                     border-gray-300
@@ -1360,6 +1395,7 @@ const BusBatteries = (): ReactElement => {
                     text-sm
                     transition-colors
                     hover:bg-gray-100
+                    cursor-pointer
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
@@ -1448,7 +1484,6 @@ const BusBatteries = (): ReactElement => {
                     )
                   }
                   className="
-                    cursor-pointer
                     rounded
                     border
                     border-gray-300
@@ -1457,6 +1492,7 @@ const BusBatteries = (): ReactElement => {
                     py-1.5
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-gray-100
                     disabled:cursor-not-allowed
                     disabled:opacity-50

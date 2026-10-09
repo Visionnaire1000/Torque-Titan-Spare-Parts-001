@@ -1,5 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
+from datetime import timedelta
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -28,6 +30,9 @@ from app.models import (
     SpareParts,
     Reviews,
 )
+
+
+from utils.tasks import ( send_account_unlocked_email_task, )
 
 
 # --------------------------- DECIMAL HELPERS ----------------------------------------------
@@ -242,7 +247,7 @@ class CreateAdminView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-      
+
 class ListAdminsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -277,23 +282,22 @@ class ListAdminsView(APIView):
             )
         )
 
-        admins_list = [
-            {
-                "id": str(
-                    admin.id
-                ),
-                "email": admin.email,
-                "display_name": (
-                    admin.display_name
-                ),
-                "role": admin.role,
-                "is_active": admin.is_active,
-                "initial_password_expired": (
-                    admin.has_expired_initial_password()
-                ),
-            }
-            for admin in admins
-        ]
+        admins_list = []
+
+        for admin in admins:
+            admins_list.append(
+                {
+                    "id": str(admin.id),
+                    "email": admin.email,
+                    "display_name": admin.display_name,
+                    "role": admin.role,
+                    "is_active": admin.is_active,
+                    "initial_password_expired": (
+                        admin.has_expired_initial_password()
+                    ),
+                    "is_locked": not admin.is_active,
+                }
+            )
 
         return Response(
             {
@@ -301,7 +305,7 @@ class ListAdminsView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-    
+
 
 class UnlockAdminAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -309,7 +313,6 @@ class UnlockAdminAccountView(APIView):
     def post(self, request, admin_id):
         current_user = request.user
 
-        # --------------------------- SUPER ADMIN CHECK ---------------------------
         if current_user.role != "super_admin":
             return Response(
                 {
@@ -321,7 +324,6 @@ class UnlockAdminAccountView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # --------------------------- FIND ADMIN ---------------------------
         admin_user = Users.objects.filter(
             pk=admin_id,
             role__in=[
@@ -340,7 +342,6 @@ class UnlockAdminAccountView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # --------------------------- PREVENT SELF UNLOCK ---------------------------
         if admin_user.id == current_user.id:
             return Response(
                 {
@@ -352,23 +353,26 @@ class UnlockAdminAccountView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- UNLOCK ACCOUNT ---------------------------
         admin_user.is_active = True
-        admin_user.otp_attempts = 0
-        admin_user.otp_locked_until = None
 
-        # -------------- RESET INITIAL PASSWORD EXPIRY -----------------
         if not admin_user.initial_password_changed:
-            admin_user.set_initial_admin_password_expiry()
+            admin_user.initial_password_expires = (
+                timezone.now()
+                + timedelta(
+                    hours=Users.INITIAL_PASSWORD_EXPIRY_HOURS
+                )
+            )
 
         admin_user.save(
             update_fields=[
                 "is_active",
-                "otp_attempts",
-                "otp_locked_until",
-                "initial_password_changed",
                 "initial_password_expires",
             ]
+        )
+
+        send_account_unlocked_email_task.delay(
+            admin_user.email,
+            admin_user.role,
         )
 
         return Response(
@@ -378,18 +382,18 @@ class UnlockAdminAccountView(APIView):
                     f"{admin_user.email} "
                     "unlocked successfully"
                 ),
-                "id": str(
-                    admin_user.id
-                ),
+                "id": str(admin_user.id),
                 "email": admin_user.email,
                 "role": admin_user.role,
                 "is_active": admin_user.is_active,
                 "initial_password_expired": (
                     admin_user.has_expired_initial_password()
                 ),
+                "is_locked": not admin_user.is_active,
             },
             status=status.HTTP_200_OK,
         )
+
 
 class DeleteAdminView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1587,6 +1591,7 @@ class AdminOrdersView(APIView):
         )
     
 
+
 # --------------------------- REVENUE DATA ANALYTICS ----------------------------------------------
 class RevenueAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1640,30 +1645,21 @@ class RevenueAnalyticsView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # PARAMETERS
         period = (
             request.query_params
-            .get(
-                "period",
-                "monthly",
-            )
+            .get("period", "monthly")
             .lower()
             .strip()
         )
 
-        vehicle_type = (
-            request.query_params.get(
-                "vehicle_type"
-            )
+        vehicle_type = request.query_params.get(
+            "vehicle_type"
         )
 
-        category = (
-            request.query_params.get(
-                "category"
-            )
+        category = request.query_params.get(
+            "category"
         )
 
-        # VALIDATION
         if period not in self.VALID_PERIODS:
             return Response(
                 {
@@ -1677,16 +1673,9 @@ class RevenueAnalyticsView(APIView):
             )
 
         if vehicle_type:
-            vehicle_type = (
-                vehicle_type
-                .lower()
-                .strip()
-            )
+            vehicle_type = vehicle_type.lower().strip()
 
-            if (
-                vehicle_type
-                not in self.VALID_VEHICLE_TYPES
-            ):
+            if vehicle_type not in self.VALID_VEHICLE_TYPES:
                 return Response(
                     {
                         "error": (
@@ -1699,26 +1688,16 @@ class RevenueAnalyticsView(APIView):
                 )
 
         if category:
-            category = (
-                category
-                .lower()
-                .strip()
-            )
+            category = category.lower().strip()
 
-            if (
-                category
-                not in self.VALID_CATEGORIES
-            ):
+            if category not in self.VALID_CATEGORIES:
                 return Response(
                     {
-                        "error": (
-                            "Invalid category."
-                        )
+                        "error": "Invalid category."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # BASE ORDER ITEMS
         order_items = (
             OrderItems.objects
             .select_related(
@@ -1733,56 +1712,56 @@ class RevenueAnalyticsView(APIView):
             )
         )
 
-        # VEHICLE TYPE FILTER
         if vehicle_type:
-            order_items = (
-                order_items.filter(
-                    sparepart__vehicle_type__iexact=(
-                        vehicle_type
-                    )
-                )
+            order_items = order_items.filter(
+                sparepart__vehicle_type__iexact=vehicle_type
             )
 
-        # CATEGORY FILTER
         if category:
-            order_items = (
-                order_items.filter(
-                    sparepart__category__iexact=(
-                        category
-                    )
-                )
+            order_items = order_items.filter(
+                sparepart__category__iexact=category
             )
 
-        # SUMMARY
-        summary_data = (
-            order_items.aggregate(
-                parts_sold=Sum(
-                    "quantity"
-                ),
-                revenue=Sum(
-                    "subtotal"
-                ),
+        today = timezone.localdate()
+
+        if period == "daily":
+            period_start_date = today
+
+        elif period == "weekly":
+            period_start_date = (
+                today - timezone.timedelta(days=today.weekday())
             )
+
+        elif period == "monthly":
+            period_start_date = today.replace(day=1)
+
+        else:
+            period_start_date = today.replace(
+                month=1,
+                day=1,
+            )
+
+        period_order_items = order_items.filter(
+            order__created_at__date__gte=period_start_date,
+            order__created_at__date__lte=today,
+        )
+
+        summary_data = order_items.aggregate(
+            parts_sold=Sum("quantity"),
+            revenue=Sum("subtotal"),
         )
 
         parts_sold = int(
-            summary_data[
-                "parts_sold"
-            ]
-            or 0
+            summary_data["parts_sold"] or 0
         )
 
         revenue = money_to_float(
-            summary_data[
-                "revenue"
-            ]
+            summary_data["revenue"]
         )
 
         orders_count = (
             order_items
-            .values(
-                "order_id"
-            )
+            .values("order_id")
             .distinct()
             .count()
         )
@@ -1811,88 +1790,50 @@ class RevenueAnalyticsView(APIView):
         timeline = (
             order_items
             .annotate(
-                period_date=(
-                    truncated_date
-                )
+                period_date=truncated_date
             )
-            .values(
-                "period_date"
-            )
+            .values("period_date")
             .annotate(
-                parts_sold=Sum(
-                    "quantity"
-                ),
-                revenue=Sum(
-                    "subtotal"
-                ),
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
             )
-            .order_by(
-                "period_date"
-            )
+            .order_by("period_date")
         )
 
         timeline_data = []
 
         for item in timeline:
-            period_date = (
-                item[
-                    "period_date"
-                ]
-            )
+            period_date = item["period_date"]
 
-            if period == "daily":
+            if period in ["daily", "weekly"]:
                 period_label = (
-                    period_date.strftime(
-                        "%Y-%m-%d"
-                    )
-                    if period_date
-                    else ""
-                )
-
-            elif period == "weekly":
-                period_label = (
-                    period_date.strftime(
-                        "%Y-%m-%d"
-                    )
+                    period_date.strftime("%Y-%m-%d")
                     if period_date
                     else ""
                 )
 
             elif period == "monthly":
                 period_label = (
-                    period_date.strftime(
-                        "%Y-%m"
-                    )
+                    period_date.strftime("%Y-%m")
                     if period_date
                     else ""
                 )
 
             else:
                 period_label = (
-                    period_date.strftime(
-                        "%Y"
-                    )
+                    period_date.strftime("%Y")
                     if period_date
                     else ""
                 )
 
             timeline_data.append(
                 {
-                    "period": (
-                        period_label
-                    ),
+                    "period": period_label,
                     "parts_sold": int(
-                        item[
-                            "parts_sold"
-                        ]
-                        or 0
+                        item["parts_sold"] or 0
                     ),
-                    "revenue": (
-                        money_to_float(
-                            item[
-                                "revenue"
-                            ]
-                        )
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
@@ -1900,20 +1841,12 @@ class RevenueAnalyticsView(APIView):
         # VEHICLE TYPE BREAKDOWN
         vehicle_types = (
             order_items
-            .values(
-                "sparepart__vehicle_type"
-            )
+            .values("sparepart__vehicle_type")
             .annotate(
-                parts_sold=Sum(
-                    "quantity"
-                ),
-                revenue=Sum(
-                    "subtotal"
-                ),
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
             )
-            .order_by(
-                "-revenue"
-            )
+            .order_by("-revenue")
         )
 
         vehicle_type_data = []
@@ -1922,23 +1855,14 @@ class RevenueAnalyticsView(APIView):
             vehicle_type_data.append(
                 {
                     "vehicle_type": (
-                        item[
-                            "sparepart__vehicle_type"
-                        ]
+                        item["sparepart__vehicle_type"]
                         or ""
                     ),
                     "parts_sold": int(
-                        item[
-                            "parts_sold"
-                        ]
-                        or 0
+                        item["parts_sold"] or 0
                     ),
-                    "revenue": (
-                        money_to_float(
-                            item[
-                                "revenue"
-                            ]
-                        )
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
@@ -1946,20 +1870,12 @@ class RevenueAnalyticsView(APIView):
         # CATEGORY BREAKDOWN
         categories = (
             order_items
-            .values(
-                "sparepart__category"
-            )
+            .values("sparepart__category")
             .annotate(
-                parts_sold=Sum(
-                    "quantity"
-                ),
-                revenue=Sum(
-                    "subtotal"
-                ),
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
             )
-            .order_by(
-                "-revenue"
-            )
+            .order_by("-revenue")
         )
 
         category_data = []
@@ -1968,83 +1884,123 @@ class RevenueAnalyticsView(APIView):
             category_data.append(
                 {
                     "category": (
-                        item[
-                            "sparepart__category"
-                        ]
+                        item["sparepart__category"]
                         or ""
                     ),
                     "parts_sold": int(
-                        item[
-                            "parts_sold"
-                        ]
-                        or 0
+                        item["parts_sold"] or 0
                     ),
-                    "revenue": (
-                        money_to_float(
-                            item[
-                                "revenue"
-                            ]
-                        )
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
 
-        # BRAND BREAKDOWN
-        brands = (
-            order_items
-            .values(
-                "sparepart__vehicle_type",
-                "sparepart__category",
-                "sparepart__brand",
+        # BRAND BREAKDOWN HELPER
+        def get_brand_data(queryset):
+            brands = (
+                queryset
+                .values(
+                    "sparepart__vehicle_type",
+                    "sparepart__category",
+                    "sparepart__brand",
+                )
+                .annotate(
+                    parts_sold=Sum("quantity"),
+                    revenue=Sum("subtotal"),
+                )
+                .order_by("-revenue")
             )
-            .annotate(
-                parts_sold=Sum(
-                    "quantity"
-                ),
-                revenue=Sum(
-                    "subtotal"
-                ),
-            )
-            .order_by(
-                "-revenue"
-            )
-        )
 
-        brand_data = []
-
-        for item in brands:
-            brand_data.append(
+            return [
                 {
                     "vehicle_type": (
-                        item[
-                            "sparepart__vehicle_type"
-                        ]
+                        item["sparepart__vehicle_type"]
                         or ""
                     ),
                     "category": (
-                        item[
-                            "sparepart__category"
-                        ]
+                        item["sparepart__category"]
                         or ""
                     ),
                     "brand": (
-                        item[
-                            "sparepart__brand"
-                        ]
+                        item["sparepart__brand"]
                         or ""
                     ),
                     "parts_sold": int(
-                        item[
-                            "parts_sold"
-                        ]
-                        or 0
+                        item["parts_sold"] or 0
                     ),
-                    "revenue": (
-                        money_to_float(
-                            item[
-                                "revenue"
-                            ]
-                        )
+                    "revenue": money_to_float(
+                        item["revenue"]
+                    ),
+                }
+                for item in brands
+            ]
+
+        # ALL-TIME BRAND SALES
+        all_time_brand_data = get_brand_data(
+            order_items
+        )
+
+        # SELECTED-PERIOD BRAND SALES
+        brand_data = get_brand_data(
+            period_order_items
+        )
+
+        # BRAND SALES BY EACH TIMELINE PERIOD
+        # Groups sales by date interval and brand.
+        brand_timeline = (
+            order_items
+            .annotate(
+                period_date=truncated_date
+            )
+            .values(
+                "period_date",
+                "sparepart__brand",
+            )
+            .annotate(
+                parts_sold=Sum("quantity"),
+                revenue=Sum("subtotal"),
+            )
+            .order_by(
+                "period_date",
+                "-revenue",
+            )
+        )
+
+        brand_timeline_data = []
+
+        for item in brand_timeline:
+            period_date = item["period_date"]
+
+            if not period_date:
+                continue
+
+            if period in ["daily", "weekly"]:
+                period_label = period_date.strftime(
+                    "%Y-%m-%d"
+                )
+
+            elif period == "monthly":
+                period_label = period_date.strftime(
+                    "%Y-%m"
+                )
+
+            else:
+                period_label = period_date.strftime(
+                    "%Y"
+                )
+
+            brand_timeline_data.append(
+                {
+                    "period": period_label,
+                    "brand": (
+                        item["sparepart__brand"] or ""
+                    ),
+                    "parts_sold": int(
+                        item["parts_sold"] or 0
+                    ),
+                    "revenue": money_to_float(
+                        item["revenue"]
                     ),
                 }
             )
@@ -2053,32 +2009,20 @@ class RevenueAnalyticsView(APIView):
             {
                 "filters": {
                     "period": period,
-                    "vehicle_type": (
-                        vehicle_type
-                    ),
+                    "vehicle_type": vehicle_type,
                     "category": category,
                 },
                 "summary": {
-                    "parts_sold": (
-                        parts_sold
-                    ),
+                    "parts_sold": parts_sold,
                     "revenue": revenue,
-                    "orders": (
-                        orders_count
-                    ),
+                    "orders": orders_count,
                 },
-                "timeline": (
-                    timeline_data
-                ),
-                "vehicle_types": (
-                    vehicle_type_data
-                ),
-                "categories": (
-                    category_data
-                ),
-                "brands": (
-                    brand_data
-                ),
+                "timeline": timeline_data,
+                "vehicle_types": vehicle_type_data,
+                "categories": category_data,
+                "brands": brand_data,
+                "all_time_brands": all_time_brand_data,
+                "brand_timeline": brand_timeline_data,
             },
             status=status.HTTP_200_OK,
         )

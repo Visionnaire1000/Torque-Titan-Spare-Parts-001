@@ -1,13 +1,12 @@
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronUp, ChevronDown, PackageOpen, RefreshCw } from "lucide-react";
+import { ChevronUp, ChevronDown, PackageOpen, RefreshCw, Loader2 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
 
 
-/* ---------------- Interfaces ---------------- */
 interface SparePart {
   id: string;
   brand: string;
@@ -55,7 +54,6 @@ interface BuyerOrdersLocationState {
 }
 
 
-/* ---------------- Skeleton Loader ---------------- */
 const SkeletonOrderCard: React.FC = () => (
   <div className="relative mb-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-4">
     <div className="mb-4 flex items-center justify-between">
@@ -72,10 +70,7 @@ const SkeletonOrderCard: React.FC = () => (
 
     <div className="mt-4 border-t border-gray-200 pt-4">
       {[1, 2].map((i) => (
-        <div
-          key={i}
-          className="mt-3 flex gap-3"
-        >
+        <div key={i} className="mt-3 flex gap-3">
           <div className="h-[70px] w-[70px] animate-pulse rounded-lg bg-gray-200" />
 
           <div className="flex-1">
@@ -91,7 +86,6 @@ const SkeletonOrderCard: React.FC = () => (
 );
 
 
-/* ---------------- Error State ---------------- */
 const ErrorState: React.FC<ErrorStateProps> = ({
   onRetry,
 }) => (
@@ -116,28 +110,22 @@ const ErrorState: React.FC<ErrorStateProps> = ({
 );
 
 
-/* ---------------- Component ---------------- */
 const BuyerOrders: React.FC = () => {
   const { authFetch } = useAuth();
 
   const location = useLocation();
 
-  const [orders, setOrders] =
-    useState<Order[]>([]);
-
-  const [loading, setLoading] =
-    useState<boolean>(true);
-
-  const [error, setError] =
-    useState<string>("");
-
-  const [activeTab, setActiveTab] =
-    useState<string>("pending");
-
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<string>("pending");
   const [expandedOrderId, setExpandedOrderId] =
     useState<string | null>(null);
 
   const [orderIdToCancel, setOrderIdToCancel] =
+    useState<string | null>(null);
+
+  const [cancellingOrderId, setCancellingOrderId] =
     useState<string | null>(null);
 
   const [currentTime, setCurrentTime] =
@@ -180,24 +168,18 @@ const BuyerOrders: React.FC = () => {
       .timeZone;
 
 
-  /* ---------------- Cancellation Timer ---------------- */
   useEffect(() => {
     const interval =
       window.setInterval(() => {
-        setCurrentTime(
-          Date.now(),
-        );
+        setCurrentTime(Date.now());
       }, 1000);
 
     return () => {
-      window.clearInterval(
-        interval,
-      );
+      window.clearInterval(interval);
     };
   }, []);
 
 
-  /* ---------------- Disable Browser Scroll Restoration ---------------- */
   useEffect(() => {
     const previousScrollRestoration =
       window.history.scrollRestoration;
@@ -212,8 +194,6 @@ const BuyerOrders: React.FC = () => {
   }, []);
 
 
-  /* ---------------- Prepare Navigation Restore State ---------------- */
-
   useEffect(() => {
     const state =
       location.state as
@@ -225,22 +205,17 @@ const BuyerOrders: React.FC = () => {
     }
 
     const hasScrollRestore =
-      typeof state.restoreScrollY ===
-      "number";
+      typeof state.restoreScrollY === "number";
 
     const hasExpandedOrder =
-      typeof state.expandedOrderId ===
-      "string";
+      typeof state.expandedOrderId === "string";
 
     if (
       hasScrollRestore ||
       hasExpandedOrder
     ) {
-      initialRestoreRef.current =
-        true;
-
-      isRestoringRef.current =
-        true;
+      initialRestoreRef.current = true;
+      isRestoringRef.current = true;
     }
 
     if (hasScrollRestore) {
@@ -255,7 +230,6 @@ const BuyerOrders: React.FC = () => {
   }, [location.state]);
 
 
-  /* ---------------- Restore Expanded Order ---------------- */
   useEffect(() => {
     if (!initialRestoreRef.current) {
       return;
@@ -290,18 +264,13 @@ const BuyerOrders: React.FC = () => {
         "cancelled",
       ].includes(restoredStatus)
     ) {
-      setActiveTab(
-        restoredStatus,
-      );
+      setActiveTab(restoredStatus);
     }
 
-    setExpandedOrderId(
-      orderId,
-    );
+    setExpandedOrderId(orderId);
   }, [orders]);
 
 
-  /* ---------------- Restore Scroll Position ---------------- */
   useLayoutEffect(() => {
     if (
       !initialRestoreRef.current ||
@@ -325,21 +294,15 @@ const BuyerOrders: React.FC = () => {
 
     if (
       restoreOrderId &&
-      expandedOrderId !==
-        restoreOrderId
+      expandedOrderId !== restoreOrderId
     ) {
       return;
     }
 
     if (restoreScrollY === null) {
-      initialRestoreRef.current =
-        false;
-
-      isRestoringRef.current =
-        false;
-
-      restoreExpandedOrderRef.current =
-        null;
+      initialRestoreRef.current = false;
+      isRestoringRef.current = false;
+      restoreExpandedOrderRef.current = null;
 
       return;
     }
@@ -390,36 +353,24 @@ const BuyerOrders: React.FC = () => {
               behavior: "auto",
             });
 
-            initialRestoreRef.current =
-              false;
-
-            isRestoringRef.current =
-              false;
-
-            restoreScrollYRef.current =
-              null;
-
-            restoreExpandedOrderRef.current =
-              null;
+            initialRestoreRef.current = false;
+            isRestoringRef.current = false;
+            restoreScrollYRef.current = null;
+            restoreExpandedOrderRef.current = null;
           });
         });
       });
     };
 
     const images =
-      Array.from(
-        document.images,
-      );
+      Array.from(document.images);
 
     const pendingImages =
       images.filter(
-        (image) =>
-          !image.complete,
+        (image) => !image.complete,
       );
 
-    if (
-      pendingImages.length === 0
-    ) {
+    if (pendingImages.length === 0) {
       restoreScroll();
     } else {
       let remaining =
@@ -434,25 +385,19 @@ const BuyerOrders: React.FC = () => {
           }
         };
 
-      pendingImages.forEach(
-        (image) => {
-          image.addEventListener(
-            "load",
-            handleImageLoad,
-            {
-              once: true,
-            },
-          );
+      pendingImages.forEach((image) => {
+        image.addEventListener(
+          "load",
+          handleImageLoad,
+          { once: true },
+        );
 
-          image.addEventListener(
-            "error",
-            handleImageLoad,
-            {
-              once: true,
-            },
-          );
-        },
-      );
+        image.addEventListener(
+          "error",
+          handleImageLoad,
+          { once: true },
+        );
+      });
 
       const fallbackTimer =
         window.setTimeout(() => {
@@ -466,19 +411,17 @@ const BuyerOrders: React.FC = () => {
           fallbackTimer,
         );
 
-        pendingImages.forEach(
-          (image) => {
-            image.removeEventListener(
-              "load",
-              handleImageLoad,
-            );
+        pendingImages.forEach((image) => {
+          image.removeEventListener(
+            "load",
+            handleImageLoad,
+          );
 
-            image.removeEventListener(
-              "error",
-              handleImageLoad,
-            );
-          },
-        );
+          image.removeEventListener(
+            "error",
+            handleImageLoad,
+          );
+        });
       };
     }
 
@@ -492,7 +435,6 @@ const BuyerOrders: React.FC = () => {
   ]);
 
 
-  /* ---------------- Format Order Time ---------------- */
   const formatOrderTime = (
     dateString:
       | string
@@ -504,9 +446,7 @@ const BuyerOrders: React.FC = () => {
     }
 
     const value =
-      String(
-        dateString,
-      ).trim();
+      String(dateString).trim();
 
     if (!value) {
       return "";
@@ -516,24 +456,14 @@ const BuyerOrders: React.FC = () => {
 
     if (
       value.endsWith("Z") ||
-      /[+-]\d{2}:?\d{2}$/.test(
-        value,
-      )
+      /[+-]\d{2}:?\d{2}$/.test(value)
     ) {
-      utcDate =
-        new Date(value);
+      utcDate = new Date(value);
     } else {
-      utcDate =
-        new Date(
-          `${value}Z`,
-        );
+      utcDate = new Date(`${value}Z`);
     }
 
-    if (
-      Number.isNaN(
-        utcDate.getTime(),
-      )
-    ) {
+    if (Number.isNaN(utcDate.getTime())) {
       console.error(
         "Invalid order date:",
         dateString,
@@ -558,14 +488,11 @@ const BuyerOrders: React.FC = () => {
   };
 
 
-  /* ---------------- Cancellation Time ---------------- */
   const getOrderCreatedAt = (
     dateString: string,
   ): number => {
     const value =
-      String(
-        dateString,
-      ).trim();
+      String(dateString).trim();
 
     if (!value) {
       return NaN;
@@ -573,9 +500,7 @@ const BuyerOrders: React.FC = () => {
 
     const date =
       value.endsWith("Z") ||
-      /[+-]\d{2}:?\d{2}$/.test(
-        value,
-      )
+      /[+-]\d{2}:?\d{2}$/.test(value)
         ? new Date(value)
         : new Date(`${value}Z`);
 
@@ -583,13 +508,11 @@ const BuyerOrders: React.FC = () => {
   };
 
 
-  /* ---------------- Check Cancellation Availability ---------------- */
   const canCancelOrder = (
     order: Order,
   ): boolean => {
     if (
-      order.status.toLowerCase() !==
-      "pending"
+      order.status.toLowerCase() !== "pending"
     ) {
       return false;
     }
@@ -599,11 +522,7 @@ const BuyerOrders: React.FC = () => {
         order.created_at,
       );
 
-    if (
-      !Number.isFinite(
-        createdAt,
-      )
-    ) {
+    if (!Number.isFinite(createdAt)) {
       return false;
     }
 
@@ -611,14 +530,10 @@ const BuyerOrders: React.FC = () => {
       createdAt +
       60 * 60 * 1000;
 
-    return (
-      currentTime <
-      cancellationDeadline
-    );
+    return currentTime < cancellationDeadline;
   };
 
 
-  /* ---------------- Image URL ---------------- */
   const getImageUrl = (
     image:
       | string
@@ -637,24 +552,14 @@ const BuyerOrders: React.FC = () => {
     }
 
     if (
-      trimmedImage.startsWith(
-        "http://",
-      ) ||
-      trimmedImage.startsWith(
-        "https://",
-      ) ||
-      trimmedImage.startsWith(
-        "data:",
-      )
+      trimmedImage.startsWith("http://") ||
+      trimmedImage.startsWith("https://") ||
+      trimmedImage.startsWith("data:")
     ) {
       return trimmedImage;
     }
 
-    if (
-      trimmedImage.startsWith(
-        "/",
-      )
-    ) {
+    if (trimmedImage.startsWith("/")) {
       return `${config.API_BASE_URL}${trimmedImage}`;
     }
 
@@ -662,9 +567,8 @@ const BuyerOrders: React.FC = () => {
   };
 
 
-  /* ---------------- Fetch Orders ---------------- */
   const fetchOrders =
-    async (): Promise<void> => {
+    async (): Promise<Order[] | null> => {
       setLoading(true);
       setError("");
 
@@ -697,26 +601,22 @@ const BuyerOrders: React.FC = () => {
           );
 
         if (hasChanged) {
-          setOrders(
-            newOrders,
-          );
+          setOrders(newOrders);
 
           prevOrdersRef.current =
             newOrders;
 
           localStorage.setItem(
             "buyer_orders_cache",
-            JSON.stringify(
-              newOrders,
-            ),
+            JSON.stringify(newOrders),
           );
 
           window.dispatchEvent(
-            new Event(
-              "ordersUpdated",
-            ),
+            new Event("ordersUpdated"),
           );
         }
+
+        return newOrders;
       } catch (err) {
         const message =
           err instanceof Error
@@ -725,38 +625,39 @@ const BuyerOrders: React.FC = () => {
 
         setError(message);
 
-        toast.error(
-          message,
-        );
+        toast.error(message);
+
+        return null;
       } finally {
         setLoading(false);
       }
     };
 
 
-  /* ---------------- Cancel Order ---------------- */
   const cancelOrder = (
     orderId: string,
   ): void => {
-    setOrderIdToCancel(
-      orderId,
-    );
+    if (cancellingOrderId) {
+      return;
+    }
+
+    setOrderIdToCancel(orderId);
   };
 
 
-  /* ---------------- Confirm Cancel Order ---------------- */
   const confirmCancelOrder =
     async (): Promise<void> => {
-      if (!orderIdToCancel) {
+      if (
+        !orderIdToCancel ||
+        cancellingOrderId
+      ) {
         return;
       }
 
       const orderId =
         orderIdToCancel;
 
-      setOrderIdToCancel(
-        null,
-      );
+      setCancellingOrderId(orderId);
 
       try {
         const res =
@@ -777,8 +678,7 @@ const BuyerOrders: React.FC = () => {
         const data: {
           error?: string;
           message?: string;
-        } =
-          await res.json();
+        } = await res.json();
 
         if (!res.ok) {
           throw new Error(
@@ -787,32 +687,47 @@ const BuyerOrders: React.FC = () => {
           );
         }
 
+        const refreshedOrders =
+          await fetchOrders();
+
+        const cancelledOrder =
+          refreshedOrders?.find(
+            (order) =>
+              order.id === orderId,
+          );
+
+        if (
+          cancelledOrder?.status.toLowerCase() !==
+          "cancelled"
+        ) {
+          throw new Error(
+            "Cancellation is still being processed. Please wait a moment and try again.",
+          );
+        }
+
+        setOrderIdToCancel(null);
+
         toast.success(
           data.message ??
-            "Order cancelled",
+            "Order cancelled successfully",
         );
-
-        await fetchOrders();
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
             : "Failed to cancel order";
 
-        toast.error(
-          message,
-        );
+        toast.error(message);
+      } finally {
+        setCancellingOrderId(null);
       }
     };
 
 
-  /* ---------------- Tab Click ---------------- */
   const handleTabClick = (
     tab: string,
   ): void => {
-    if (
-      isRestoringRef.current
-    ) {
+    if (isRestoringRef.current) {
       return;
     }
 
@@ -821,34 +736,26 @@ const BuyerOrders: React.FC = () => {
     const ordersInTab =
       orders.filter(
         (order) =>
-          order.status.toLowerCase() ===
-          tab,
+          order.status.toLowerCase() === tab,
       );
 
-    const updatedSeen: SeenOrders =
-      {
-        ...seenOrderIds,
-        [tab]:
-          ordersInTab.map(
-            (order) =>
-              order.id,
-          ),
-      };
+    const updatedSeen: SeenOrders = {
+      ...seenOrderIds,
+      [tab]:
+        ordersInTab.map(
+          (order) => order.id,
+        ),
+    };
 
-    setSeenOrderIds(
-      updatedSeen,
-    );
+    setSeenOrderIds(updatedSeen);
 
     localStorage.setItem(
       "buyer_seen_order_ids",
-      JSON.stringify(
-        updatedSeen,
-      ),
+      JSON.stringify(updatedSeen),
     );
   };
 
 
-  /* ---------------- Mark Orders Seen ---------------- */
   useEffect(() => {
     if (!orders.length) {
       return;
@@ -865,33 +772,24 @@ const BuyerOrders: React.FC = () => {
       (currentSeen) => {
         const seenSet =
           new Set(
-            currentSeen[
-              activeTab
-            ] ?? [],
+            currentSeen[activeTab] ?? [],
           );
 
         ordersInTab.forEach(
           (order) => {
-            seenSet.add(
-              order.id,
-            );
+            seenSet.add(order.id);
           },
         );
 
-        const updatedSeen: SeenOrders =
-          {
-            ...currentSeen,
-            [activeTab]:
-              Array.from(
-                seenSet,
-              ),
-          };
+        const updatedSeen: SeenOrders = {
+          ...currentSeen,
+          [activeTab]:
+            Array.from(seenSet),
+        };
 
         localStorage.setItem(
           "buyer_seen_order_ids",
-          JSON.stringify(
-            updatedSeen,
-          ),
+          JSON.stringify(updatedSeen),
         );
 
         return updatedSeen;
@@ -899,9 +797,7 @@ const BuyerOrders: React.FC = () => {
     );
 
     window.dispatchEvent(
-      new Event(
-        "ordersUpdated",
-      ),
+      new Event("ordersUpdated"),
     );
   }, [
     activeTab,
@@ -909,26 +805,19 @@ const BuyerOrders: React.FC = () => {
   ]);
 
 
-  /* ---------------- Initial Fetch + Polling ---------------- */
   useEffect(() => {
     void fetchOrders();
 
     const interval =
-      setInterval(
-        () => {
-          void fetchOrders();
-        },
-        30000,
-      );
+      setInterval(() => {
+        void fetchOrders();
+      }, 30000);
 
     return () =>
-      clearInterval(
-        interval,
-      );
+      clearInterval(interval);
   }, []);
 
 
-  /* ---------------- Group Orders ---------------- */
   const groupedOrders:
     Record<string, Order[]> =
     orders.reduce(
@@ -943,27 +832,19 @@ const BuyerOrders: React.FC = () => {
           acc[status] = [];
         }
 
-        acc[status].push(
-          order,
-        );
+        acc[status].push(order);
 
         return acc;
       },
-      {} as Record<
-        string,
-        Order[]
-      >,
+      {} as Record<string, Order[]>,
     );
 
 
-  /* ---------------- Sort Orders ---------------- */
   Object.keys(
     groupedOrders,
   ).forEach(
     (status) => {
-      groupedOrders[
-        status
-      ].sort(
+      groupedOrders[status].sort(
         (a, b) => {
           const dateA =
             a.created_at
@@ -980,14 +861,10 @@ const BuyerOrders: React.FC = () => {
               : 0;
 
           return (
-            (Number.isFinite(
-              dateB,
-            )
+            (Number.isFinite(dateB)
               ? dateB
               : 0) -
-            (Number.isFinite(
-              dateA,
-            )
+            (Number.isFinite(dateA)
               ? dateA
               : 0)
           );
@@ -997,7 +874,6 @@ const BuyerOrders: React.FC = () => {
   );
 
 
-  /* ---------------- Tabs ---------------- */
   const tabs: string[] = [
     "pending",
     "shipped",
@@ -1006,32 +882,24 @@ const BuyerOrders: React.FC = () => {
   ];
 
 
-  /* ---------------- Badge Count ---------------- */
   const getBadgeCount = (
     tab: string,
   ): number => {
     const ordersInTab =
-      groupedOrders[
-        tab
-      ] ?? [];
+      groupedOrders[tab] ?? [];
 
     const seenIds =
       new Set(
-        seenOrderIds[
-          tab
-        ] ?? [],
+        seenOrderIds[tab] ?? [],
       );
 
     return ordersInTab.filter(
       (order) =>
-        !seenIds.has(
-          order.id,
-        ),
+        !seenIds.has(order.id),
     ).length;
   };
 
 
-  /* ---------------- Payment Method ---------------- */
   const getPaymentMethodLabel = (
     paymentMethod:
       | string
@@ -1061,34 +929,26 @@ const BuyerOrders: React.FC = () => {
   };
 
 
-  /* ---------------- Loading ---------------- */
   if (loading) {
     return (
       <div className="mx-auto mt-2 max-w-[900px] px-5 min-[481px]:ml-[140px]">
         <div className="mb-4 flex gap-3">
-          {tabs.map(
-            (_, i) => (
-              <div
-                key={i}
-                className="h-8 w-[90px] animate-pulse rounded-full bg-gray-200"
-              />
-            ),
-          )}
+          {tabs.map((_, i) => (
+            <div
+              key={i}
+              className="h-8 w-[90px] animate-pulse rounded-full bg-gray-200"
+            />
+          ))}
         </div>
 
-        {[1, 2, 3].map(
-          (i) => (
-            <SkeletonOrderCard
-              key={i}
-            />
-          ),
-        )}
+        {[1, 2, 3].map((i) => (
+          <SkeletonOrderCard key={i} />
+        ))}
       </div>
     );
   }
 
 
-  /* ---------------- Error ---------------- */
   if (error) {
     return (
       <ErrorState
@@ -1098,7 +958,6 @@ const BuyerOrders: React.FC = () => {
   }
 
 
-  /* ---------------- Empty ---------------- */
   if (!orders.length) {
     return (
       <div className="mt-22 flex min-h-[60vh] items-center justify-center">
@@ -1129,7 +988,6 @@ const BuyerOrders: React.FC = () => {
   }
 
 
-  /* ---------------- Main Render ---------------- */
   return (
     <div
       className="
@@ -1150,7 +1008,7 @@ const BuyerOrders: React.FC = () => {
         theme="colored"
       />
 
-      {/* ---------- Cancel Order Dialog ---------- */}
+
       {orderIdToCancel && (
         <div
           className="
@@ -1178,68 +1036,89 @@ const BuyerOrders: React.FC = () => {
               sm:p-7
             "
           >
-            <h2
-              id="cancel-order-title"
-              className="
-                text-lg
-                font-semibold
-                text-gray-900
-                sm:text-xl
-              "
-            >
-              Are you sure you want to cancel this order?
-            </h2>
+            {cancellingOrderId ? (
+              <div className="flex flex-col items-center text-center">
+                <Loader2
+                  size={38}
+                  className="animate-spin text-red-600"
+                />
 
-            <p className="mt-2 text-sm text-gray-500">
-              This action will cancel the order and cannot be undone.
-            </p>
+                <h2 className="mt-4 text-lg font-semibold text-gray-900 sm:text-xl">
+                  Cancelling Order
+                </h2>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() =>
-                  setOrderIdToCancel(null)
-                }
-                className="
-                  rounded-md
-                  bg-gray-200
-                  px-4
-                  py-2
-                  text-sm
-                  font-semibold
-                  text-gray-800
-                  transition
-                  hover:bg-gray-300
-                "
-              >
-                No
-              </button>
+                <p className="mt-2 text-sm text-gray-500">
+                  Please wait while we process your cancellation.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h2
+                  id="cancel-order-title"
+                  className="
+                    text-lg
+                    font-semibold
+                    text-gray-900
+                    sm:text-xl
+                  "
+                >
+                  Are you sure you want to cancel this order?
+                </h2>
 
-              <button
-                type="button"
-                onClick={confirmCancelOrder}
-                className="
-                  rounded-md
-                  bg-red-600
-                  px-4
-                  py-2
-                  text-sm
-                  font-semibold
-                  text-white
-                  shadow-sm
-                  transition
-                  hover:bg-red-700
-                  hover:shadow-md
-                "
-              >
-                Yes, Cancel
-              </button>
-            </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  This action will cancel the order and cannot be undone.
+                </p>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOrderIdToCancel(null)
+                    }
+                    className="
+                      rounded-md
+                      bg-gray-200
+                      px-4
+                      py-2
+                      text-sm
+                      font-semibold
+                      text-gray-800
+                      transition
+                      cursor-pointer
+                      hover:bg-gray-300
+                    "
+                  >
+                    No
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={confirmCancelOrder}
+                    className="
+                      rounded-md
+                      bg-red-600
+                      px-4
+                      py-2
+                      text-sm
+                      font-semibold
+                      text-white
+                      shadow-sm
+                      transition
+                      cursor-pointer
+                      hover:bg-red-700
+                      hover:shadow-md
+                    "
+                  >
+                    Yes, Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* ---------- Tabs ---------- */}
+
       <div
         className="
           mb-5
@@ -1251,105 +1130,87 @@ const BuyerOrders: React.FC = () => {
           scrollbar-hide
         "
       >
-        {tabs.map(
-          (tab) => {
-            const count =
-              getBadgeCount(
-                tab,
-              );
+        {tabs.map((tab) => {
+          const count =
+            getBadgeCount(tab);
 
-            return (
-              <button
-                type="button"
-                key={tab}
-                onClick={() =>
-                  handleTabClick(
-                    tab,
-                  )
+          return (
+            <button
+              type="button"
+              key={tab}
+              onClick={() =>
+                handleTabClick(tab)
+              }
+              className={`
+                relative
+                min-w-[120px]
+                flex-1
+                flex-shrink-0
+                border-b-[3px]
+                px-3
+                py-3
+                text-sm
+                font-bold
+                transition-all
+                duration-300
+                sm:text-base
+                hover:text-[#004080]
+                ${
+                  activeTab === tab
+                    ? "border-[#004080] text-[#004080]"
+                    : "border-transparent text-black"
                 }
-                className={`
-                  relative
-                  min-w-[120px]
-                  flex-1
-                  flex-shrink-0
-                  border-b-[3px]
-                  px-3
-                  py-3
-                  text-sm
-                  font-bold
-                  transition-all
-                  duration-300
-                  sm:text-base
-                  hover:text-[#004080]
-                  ${
-                    activeTab ===
-                    tab
-                      ? "border-[#004080] text-[#004080]"
-                      : "border-transparent text-black"
-                  }
-                `}
-              >
-                {tab
-                  .charAt(
-                    0,
-                  )
-                  .toUpperCase() +
-                  tab.slice(
-                    1,
-                  )}
+              `}
+            >
+              {tab.charAt(0).toUpperCase() +
+                tab.slice(1)}
 
-                {count > 0 && (
-                  <span
-                    className="
-                      absolute
-                      -right-[44px]
-                      top-0
-                      inline-flex
-                      h-[18px]
-                      min-w-[18px]
-                      items-center
-                      justify-center
-                      rounded-full
-                      bg-gradient-to-br
-                      from-red-500
-                      to-red-600
-                      px-1.5
-                      text-[11px]
-                      font-semibold
-                      text-white
-                      shadow-md
-                      shadow-red-500/30
-                      animate-pulse
-                      max-[480px]:right-0
-                      sm:right-4
-                      lg:right-6
-                    "
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          },
-        )}
+              {count > 0 && (
+                <span
+                  className="
+                    absolute
+                    -right-[44px]
+                    top-0
+                    inline-flex
+                    h-[18px]
+                    min-w-[18px]
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-gradient-to-br
+                    from-red-500
+                    to-red-600
+                    px-1.5
+                    text-[11px]
+                    font-semibold
+                    text-white
+                    shadow-md
+                    shadow-red-500/30
+                    animate-pulse
+                    max-[480px]:right-0
+                    sm:right-4
+                    lg:right-6
+                  "
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
 
-      {/* ---------- Orders ---------- */}
       <div className="space-y-4">
-        {groupedOrders[
-          activeTab
-        ]?.length ? (
-          groupedOrders[
-            activeTab
-          ].map(
-            (
-              order: Order,
-            ) => {
+        {groupedOrders[activeTab]?.length ? (
+          groupedOrders[activeTab].map(
+            (order: Order) => {
               const cancellationAvailable =
-                canCancelOrder(
-                  order,
-                );
+                canCancelOrder(order);
+
+              const isCancelling =
+                cancellingOrderId ===
+                order.id;
 
               return (
                 <div
@@ -1366,16 +1227,17 @@ const BuyerOrders: React.FC = () => {
                     hover:shadow-lg
                   "
                 >
-                  {/* ---------- Header ---------- */}
                   <div
-                    onClick={() =>
-                      setExpandedOrderId(
-                        expandedOrderId ===
-                          order.id
-                          ? null
-                          : order.id,
-                      )
-                    }
+                    onClick={() => {
+                      if (!isCancelling) {
+                        setExpandedOrderId(
+                          expandedOrderId ===
+                            order.id
+                            ? null
+                            : order.id,
+                        );
+                      }
+                    }}
                     className="
                       mb-3
                       flex
@@ -1398,19 +1260,14 @@ const BuyerOrders: React.FC = () => {
                     <span className="cursor-pointer">
                       {expandedOrderId ===
                       order.id ? (
-                        <ChevronUp
-                          size={18}
-                        />
+                        <ChevronUp size={18} />
                       ) : (
-                        <ChevronDown
-                          size={18}
-                        />
+                        <ChevronDown size={18} />
                       )}
                     </span>
                   </div>
 
 
-                  {/* ---------- Order Info ---------- */}
                   <div className="space-y-2 text-[15px]">
                     <div>
                       <span className="font-semibold">
@@ -1446,8 +1303,7 @@ const BuyerOrders: React.FC = () => {
                       <span className="font-semibold">
                         Shipping Address:
                       </span>{" "}
-                      {order.address ||
-                        "N/A"}
+                      {order.address || "N/A"}
                     </div>
 
                     <div>
@@ -1465,25 +1321,27 @@ const BuyerOrders: React.FC = () => {
                   </div>
 
 
-                  {/* ---------- Cancel Button ---------- */}
                   {order.status.toLowerCase() ===
                     "pending" && (
                     <button
                       type="button"
                       disabled={
-                        !cancellationAvailable
+                        !cancellationAvailable ||
+                        cancellingOrderId !== null
                       }
                       onClick={() => {
                         if (
-                          cancellationAvailable
+                          cancellationAvailable &&
+                          !cancellingOrderId
                         ) {
-                          cancelOrder(
-                            order.id,
-                          );
+                          cancelOrder(order.id);
                         }
                       }}
                       className={`
                         mt-4
+                        flex
+                        items-center
+                        gap-2
                         rounded-md
                         px-4
                         py-2
@@ -1491,37 +1349,41 @@ const BuyerOrders: React.FC = () => {
                         font-medium
                         text-white
                         transition
+                        cursor-pointer
                         ${
-                          cancellationAvailable
+                          cancellationAvailable &&
+                          !cancellingOrderId
                             ? "bg-red-600 hover:bg-red-700"
                             : "cursor-not-allowed bg-gray-400 opacity-60"
                         }
                       `}
                     >
-                      {cancellationAvailable
-                        ? "Cancel Order"
-                        : "Cancellation Period Expired"}
+                      {isCancelling ? (
+                        <>
+                          <Loader2
+                            size={16}
+                            className="animate-spin"
+                          />
+                          Cancelling...
+                        </>
+                      ) : cancellationAvailable ? (
+                        "Cancel Order"
+                      ) : (
+                        "Cancellation Period Expired"
+                      )}
                     </button>
                   )}
 
 
-                  {/* ---------- Expanded Items ---------- */}
                   {expandedOrderId ===
                     order.id &&
-                    Array.isArray(
-                      order.items,
-                    ) &&
-                    order.items.length >
-                      0 && (
+                    Array.isArray(order.items) &&
+                    order.items.length > 0 && (
                       <div className="mt-4 border-t border-gray-200 pt-4">
                         {order.items.map(
-                          (
-                            item: OrderItem,
-                          ) => (
+                          (item: OrderItem) => (
                             <div
-                              key={
-                                item.id
-                              }
+                              key={item.id}
                               className="
                                 mb-4
                                 flex
@@ -1534,7 +1396,6 @@ const BuyerOrders: React.FC = () => {
                                 sm:flex-row
                               "
                             >
-                              {/* ---------- ITEM IMAGE ---------- */}
                               <Link
                                 to={`/items/${item.sparepart.id}`}
                                 state={{
@@ -1549,14 +1410,10 @@ const BuyerOrders: React.FC = () => {
                               >
                                 <img
                                   src={getImageUrl(
-                                    item
-                                      .sparepart
-                                      .image,
+                                    item.sparepart.image,
                                   )}
                                   alt={
-                                    item
-                                      .sparepart
-                                      .brand ||
+                                    item.sparepart.brand ||
                                     "Spare part"
                                   }
                                   className="
@@ -1565,9 +1422,7 @@ const BuyerOrders: React.FC = () => {
                                     rounded-md
                                     object-cover
                                   "
-                                  onError={(
-                                    event,
-                                  ) => {
+                                  onError={(event) => {
                                     const target =
                                       event.currentTarget;
 
@@ -1585,25 +1440,17 @@ const BuyerOrders: React.FC = () => {
                                 />
                               </Link>
 
-
-                              {/* ---------- ITEM INFORMATION ---------- */}
                               <div className="flex-1 text-center sm:text-left">
                                 <strong className="block text-base">
                                   {
-                                    item
-                                      .sparepart
-                                      .brand
+                                    item.sparepart.brand
                                   }{" "}
                                   {
-                                    item
-                                      .sparepart
-                                      .category
+                                    item.sparepart.category
                                   }{" "}
                                   for{" "}
                                   {
-                                    item
-                                      .sparepart
-                                      .vehicle_type
+                                    item.sparepart.vehicle_type
                                   }
                                 </strong>
 
@@ -1611,9 +1458,7 @@ const BuyerOrders: React.FC = () => {
                                   <span className="font-semibold">
                                     Quantity:
                                   </span>{" "}
-                                  {
-                                    item.quantity
-                                  }
+                                  {item.quantity}
                                 </p>
 
                                 <p className="mt-1">
@@ -1667,20 +1512,16 @@ const BuyerOrders: React.FC = () => {
             </h3>
 
             <p className="mt-2 max-w-md text-sm text-gray-500">
-              {activeTab ===
-                "pending" &&
+              {activeTab === "pending" &&
                 "You have no pending orders right now."}
 
-              {activeTab ===
-                "shipped" &&
+              {activeTab === "shipped" &&
                 "Nothing has been shipped yet."}
 
-              {activeTab ===
-                "delivered" &&
+              {activeTab === "delivered" &&
                 "No delivered orders yet."}
 
-              {activeTab ===
-                "cancelled" &&
+              {activeTab === "cancelled" &&
                 "No cancelled orders."}
             </p>
           </div>

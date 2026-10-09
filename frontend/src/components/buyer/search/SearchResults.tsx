@@ -435,7 +435,7 @@ const SearchResults = () => {
                     text-white
                     transition-colors
                     duration-200
-                    hover:bg-[rgb(0,90,180)]
+                    hover:bg-[rgb(4,37,71)]
                   "
                 >
                   Add To Cart

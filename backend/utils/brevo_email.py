@@ -87,6 +87,80 @@ def send_admin_credentials_email(
     return True
 
 
+def send_account_locked_email(
+    to_email: str,
+    role: str,
+):
+    role_display = (
+        "Super Admin"
+        if role == "super_admin"
+        else "Admin"
+    )
+
+    subject = "Your Torque Titan Spares Admin Account Has Been Locked"
+
+    message = (
+        f"Your Torque Titan Spares {role_display} account has been locked.\n\n"
+        "Your initial password was not changed within the required "
+        "12-hour period after your account was created.\n\n"
+        "For security reasons, access to your account has been restricted.\n\n"
+        "Please contact an authorized administrator to request that "
+        "your account be unlocked.\n\n"
+        "Once your account has been unlocked, log in and change your "
+        "initial password immediately."
+    )
+
+    print(
+        "\n"
+        "========================================\n"
+        "ADMIN ACCOUNT LOCKED EMAIL\n"
+        "========================================\n"
+        f"To: {to_email}\n"
+        f"Subject: {subject}\n"
+        "\n"
+        f"{message}\n"
+        "========================================\n"
+    )
+
+    return True
+
+
+def send_account_unlocked_email(
+    to_email: str,
+    role: str,
+):
+    role_display = (
+        "Super Admin"
+        if role == "super_admin"
+        else "Admin"
+    )
+
+    subject = "Your Torque Titan Spares Admin Account Has Been Unlocked"
+
+    message = (
+        f"Your Torque Titan Spares {role_display} account has been unlocked.\n\n"
+        "You can now log in to your account again.\n\n"
+        "For security reasons, please change your initial password "
+        "immediately if you have not already done so.\n\n"
+        "If you did not request or expect this change, please contact "
+        "your system administrator."
+    )
+
+    print(
+        "\n"
+        "========================================\n"
+        "ADMIN ACCOUNT UNLOCKED EMAIL\n"
+        "========================================\n"
+        f"To: {to_email}\n"
+        f"Subject: {subject}\n"
+        "\n"
+        f"{message}\n"
+        "========================================\n"
+    )
+
+    return True
+
+
 def send_order_confirmation_email(
     to_email: str,
     order_id: str,
@@ -95,7 +169,8 @@ def send_order_confirmation_email(
 ):
     payment_method_display = {
         "stripe": "Stripe",
-        "paystack": "Paystack",
+        "mpesa": "M-PESA",
+        "airtel": "Airtel Money",
         "paypal": "PayPal",
     }.get(
         str(payment_method).lower(),
@@ -135,26 +210,46 @@ def send_order_cancellation_email(
     total_price: str,
     payment_method: str,
 ):
+    payment_method_lower = str(payment_method).lower()
+
     payment_method_display = {
         "stripe": "Stripe",
-        "paystack": "Paystack",
+        "mpesa": "M-PESA",
+        "airtel": "Airtel Money",
         "paypal": "PayPal",
     }.get(
-        str(payment_method).lower(),
+        payment_method_lower,
         str(payment_method).title(),
     )
 
     subject = "Your Order Has Been Cancelled"
 
-    message = (
-        "Your Torque Titan Spares order has been successfully cancelled.\n\n"
-        f"Order ID: {order_id}\n"
-        "Order Status: Cancelled\n"
-        f"Payment Method: {payment_method_display}\n"
-        f"Order Total: KES {total_price}\n\n"
-        "Your order cancellation has been confirmed.\n"
-        "Thank you for shopping with Torque Titan Spares."
-    )
+    if payment_method_lower in [
+        "mpesa",
+        "airtel",
+    ]:
+        message = (
+            "Your Torque Titan Spares order has been successfully cancelled.\n\n"
+            f"Order ID: {order_id}\n"
+            "Order Status: Cancelled\n"
+            f"Payment Method: {payment_method_display}\n"
+            f"Order Total: KES {total_price}\n\n"
+            "Your refund has been initiated and is currently being processed "
+            "by Paystack. The refund will be completed once Paystack finishes "
+            "processing it.\n\n"
+            "Thank you for shopping with Torque Titan Spares."
+        )
+
+    else:
+        message = (
+            "Your Torque Titan Spares order has been successfully cancelled.\n\n"
+            f"Order ID: {order_id}\n"
+            "Order Status: Cancelled\n"
+            f"Payment Method: {payment_method_display}\n"
+            f"Order Total: KES {total_price}\n\n"
+            "Your refund has been issued.\n"
+            "Thank you for shopping with Torque Titan Spares."
+        )
 
     print(
         "\n"

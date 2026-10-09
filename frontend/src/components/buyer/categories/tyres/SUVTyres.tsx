@@ -507,6 +507,7 @@ const SUVTyres = (): ReactElement => {
          text-lg
          font-bold
          transition-colors
+         cursor-pointer
          hover:bg-[#eaf2f8]
       "
      >
@@ -529,6 +530,7 @@ const SUVTyres = (): ReactElement => {
                   p-2
                   text-[rgb(0,64,128)]
                   transition-colors
+                  cursor-pointer
                   hover:bg-[#eaf2f8]
                 "
               >
@@ -588,6 +590,7 @@ const SUVTyres = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -672,6 +675,7 @@ const SUVTyres = (): ReactElement => {
                             text-left
                             text-[14px]
                             transition-colors
+                            cursor-pointer
                             hover:bg-[#f0f6ff]
                             max-[480px]:text-base
                             ${
@@ -719,6 +723,7 @@ const SUVTyres = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -806,6 +811,7 @@ const SUVTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -832,6 +838,7 @@ const SUVTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -858,6 +865,7 @@ const SUVTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -979,6 +987,7 @@ const SUVTyres = (): ReactElement => {
                         font-bold
                         text-white
                         transition-colors
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1026,6 +1035,7 @@ const SUVTyres = (): ReactElement => {
                     text-sm
                     transition-colors
                     hover:bg-[#f0f0f0]
+                    cursor-pointer
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
@@ -1086,6 +1096,7 @@ const SUVTyres = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
-import { ArrowLeft, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, ChevronUp, ChevronDown, Trash2 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
+
 
 /* ---------------- Types ---------------- */
 type AdminRole = "admin" | "super_admin";
@@ -16,6 +17,7 @@ interface Admin {
   role: AdminRole;
   is_active: boolean;
   initial_password_expired: boolean;
+  is_locked: boolean;
 }
 
 interface AdminsResponse {
@@ -46,6 +48,7 @@ const AdminManagement = (): React.JSX.Element => {
   const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
   const [deleteDropdownOpen, setDeleteDropdownOpen] = useState(false);
   const [unlockDropdownOpen, setUnlockDropdownOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const roleDropdownRef = useRef<HTMLDivElement>(null);
   const deleteDropdownRef = useRef<HTMLDivElement>(null);
@@ -70,9 +73,7 @@ const AdminManagement = (): React.JSX.Element => {
       const data: AdminsResponse = await res.json();
 
       if (!res.ok) {
-        throw new Error(
-          data.error || "Failed to fetch admins"
-        );
+        throw new Error(data.error || "Failed to fetch admins");
       }
 
       setAdmins(data.admins ?? []);
@@ -129,10 +130,7 @@ const AdminManagement = (): React.JSX.Element => {
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
       document.removeEventListener(
@@ -211,9 +209,7 @@ const AdminManagement = (): React.JSX.Element => {
       setEmailError("");
       setShowPassword(false);
 
-      toast.success(
-        "Admin account created successfully"
-      );
+      toast.success("Admin account created successfully");
 
       await fetchAdmins();
     } catch (error) {
@@ -228,13 +224,8 @@ const AdminManagement = (): React.JSX.Element => {
   };
 
   /* ---------------- Delete Admin ---------------- */
-  const deleteAdmin = async (
-    e: React.SyntheticEvent<HTMLFormElement>
-  ): Promise<void> => {
-    e.preventDefault();
-
-    if (!selectedId) {
-      toast.warn("Please select an admin");
+  const deleteAdmin = async (): Promise<void> => {
+    if (!selectedId || deleteLoading) {
       return;
     }
 
@@ -258,6 +249,7 @@ const AdminManagement = (): React.JSX.Element => {
 
       setSelectedId("");
       setDeleteDropdownOpen(false);
+      setDeleteDialogOpen(false);
 
       toast.success("Admin deleted successfully");
 
@@ -322,7 +314,7 @@ const AdminManagement = (): React.JSX.Element => {
 
   /* ---------------- Locked Admins ---------------- */
   const lockedAdmins = admins.filter(
-    (admin) => !admin.is_active
+    (admin) => admin.is_locked
   );
 
   /* ---------------- Access Control ---------------- */
@@ -339,19 +331,15 @@ const AdminManagement = (): React.JSX.Element => {
     return (
       <div
         className="
-          mx-auto
-          mt-[90px]
-          mb-[80px]
-          max-w-[520px]
-          rounded-2xl
-          bg-white
-          p-6
+          mx-auto mt-[90px] mb-[80px] max-w-[520px]
+          rounded-2xl bg-white p-6
           shadow-[0_10px_30px_rgba(0,0,0,0.08)]
         "
       >
         <ToastContainer
           position="top-right"
           autoClose={3000}
+          theme="colored"
         />
 
         <div className="relative mb-5 flex items-center justify-center">
@@ -363,14 +351,9 @@ const AdminManagement = (): React.JSX.Element => {
               setUnlockDropdownOpen(false);
             }}
             className="
-              absolute
-              left-0
-              rounded-lg
-              p-2
-              text-gray-600
-              transition
-              hover:bg-gray-100
-              hover:text-gray-900
+              absolute left-0 rounded-lg p-2
+              text-gray-600 transition
+              hover:bg-gray-100 hover:text-gray-900
             "
             aria-label="Back"
           >
@@ -390,15 +373,8 @@ const AdminManagement = (): React.JSX.Element => {
           {lockedAdmins.length === 0 ? (
             <div
               className="
-                rounded-lg
-                border
-                border-gray-200
-                bg-white
-                px-3
-                py-4
-                text-center
-                text-sm
-                text-gray-500
+                rounded-lg border border-gray-200 bg-white
+                px-3 py-4 text-center text-sm text-gray-500
               "
             >
               No locked accounts
@@ -412,42 +388,31 @@ const AdminManagement = (): React.JSX.Element => {
                 <button
                   type="button"
                   onClick={() =>
-                    setUnlockDropdownOpen(
-                      (open) => !open
-                    )
+                    setUnlockDropdownOpen((open) => !open)
                   }
                   className="
-                    flex
-                    w-full
-                    items-center
-                    justify-between
-                    rounded-lg
-                    border
-                    border-gray-300
-                    bg-white
-                    px-3
-                    py-2.5
-                    text-left
-                    text-sm
-                    transition-colors
-                    hover:border-[#0077ff]
-                    focus:border-[rgb(0,64,128)]
-                    focus:outline-none
-                    focus:ring-2
-                    focus:ring-blue-100
+                    flex w-full items-center justify-between
+                    rounded-lg border border-gray-300 bg-white
+                    px-3 py-2.5 text-left text-sm
+                    transition-colors hover:border-[#0077ff]
+                    focus:border-[rgb(0,64,128)] cursor-pointer
+                    focus:outline-none focus:ring-2 focus:ring-blue-100
                   "
                 >
                   <span
                     className={
-                      selectedAdmin
+                      lockedAdmins.some(
+                        (admin) => admin.id === selectedId
+                      )
                         ? "truncate text-gray-800"
                         : "truncate text-gray-500"
                     }
                   >
-                    {selectedAdmin
-                      ? `${selectedAdmin.email} (${
-                          selectedAdmin.role ===
-                          "super_admin"
+                    {lockedAdmins.some(
+                      (admin) => admin.id === selectedId
+                    )
+                      ? `${selectedAdmin?.email} (${
+                          selectedAdmin?.role === "super_admin"
                             ? "Super Admin"
                             : "Admin"
                         })`
@@ -470,19 +435,10 @@ const AdminManagement = (): React.JSX.Element => {
                 {unlockDropdownOpen && (
                   <div
                     className="
-                      absolute
-                      left-0
-                      top-full
-                      z-50
-                      mt-1
-                      max-h-60
-                      w-full
-                      overflow-y-auto
-                      rounded-lg
-                      border
-                      border-gray-300
-                      bg-white
-                      shadow-lg
+                      absolute left-0 top-full z-50 mt-1
+                      max-h-60 w-full overflow-y-auto
+                      rounded-lg border border-gray-300
+                      bg-white shadow-lg 
                     "
                   >
                     <button
@@ -492,14 +448,8 @@ const AdminManagement = (): React.JSX.Element => {
                         setUnlockDropdownOpen(false);
                       }}
                       className="
-                        block
-                        w-full
-                        px-3
-                        py-2.5
-                        text-left
-                        text-sm
-                        text-gray-500
-                        transition-colors
+                        block w-full px-3 py-2.5 text-left
+                        text-sm text-gray-500 transition-colors
                         hover:bg-[#f0f6ff]
                       "
                     >
@@ -507,8 +457,7 @@ const AdminManagement = (): React.JSX.Element => {
                     </button>
 
                     {lockedAdmins.map((admin) => {
-                      const isSelected =
-                        selectedId === admin.id;
+                      const isSelected = selectedId === admin.id;
 
                       return (
                         <button
@@ -519,14 +468,8 @@ const AdminManagement = (): React.JSX.Element => {
                             setUnlockDropdownOpen(false);
                           }}
                           className={`
-                            block
-                            w-full
-                            px-3
-                            py-2.5
-                            text-left
-                            text-sm
-                            transition-colors
-                            hover:bg-[#f0f6ff]
+                            block w-full px-3 py-2.5 text-left cursor-pointer
+                            text-sm transition-colors hover:bg-[#f0f6ff]
                             ${
                               isSelected
                                 ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -555,27 +498,15 @@ const AdminManagement = (): React.JSX.Element => {
                 onClick={() => {
                   void unlockAdmin();
                 }}
-                disabled={
-                  unlockLoading || !selectedId
-                }
+                disabled={unlockLoading || !selectedId}
                 className="
-                  w-full
-                  rounded-lg
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-2.5
-                  text-sm
-                  font-medium
-                  text-white
-                  transition
-                  hover:opacity-90
-                  disabled:cursor-not-allowed
-                  disabled:opacity-60
+                  w-full rounded-lg bg-[rgb(0,64,128)]
+                  px-4 py-2.5 text-sm font-medium text-white
+                  transition hover:opacity-90
+                  disabled:cursor-not-allowed disabled:opacity-60
                 "
               >
-                {unlockLoading
-                  ? "Unlocking..."
-                  : "Unlock"}
+                {unlockLoading ? "Unlocking..." : "Unlock"}
               </button>
             </>
           )}
@@ -588,13 +519,8 @@ const AdminManagement = (): React.JSX.Element => {
   return (
     <div
       className="
-        mx-auto
-        mt-[90px]
-        mb-[80px]
-        max-w-[520px]
-        rounded-2xl
-        bg-white
-        p-6
+        mx-auto mt-[90px] mb-[240px] max-w-[520px]
+        rounded-2xl bg-white p-6 
         shadow-[0_10px_30px_rgba(0,0,0,0.08)]
       "
     >
@@ -621,38 +547,18 @@ const AdminManagement = (): React.JSX.Element => {
             <button
               type="button"
               onClick={() =>
-                setRoleDropdownOpen(
-                  (open) => !open
-                )
+                setRoleDropdownOpen((open) => !open)
               }
               className="
-                flex
-                w-full
-                items-center
-                justify-between
-                rounded-lg
-                border
-                border-gray-300
-                bg-white
-                px-3
-                py-2.5
-                text-left
-                text-sm
-                transition-colors
-                hover:border-[#0077ff]
-                focus:border-[rgb(0,64,128)]
-                focus:outline-none
-                focus:ring-2
-                focus:ring-blue-100
+                flex w-full items-center justify-between
+                rounded-lg border border-gray-300 bg-white
+                px-3 py-2.5 text-left text-sm
+                transition-colors hover:border-[#0077ff]
+                focus:border-[rgb(0,64,128)] cursor-pointer
+                focus:outline-none focus:ring-2 focus:ring-blue-100
               "
             >
-              <span
-                className={
-                  role
-                    ? "text-gray-800"
-                    : "text-gray-500"
-                }
-              >
+              <span className={role ? "text-gray-800" : "text-gray-500"}>
                 {role === "admin"
                   ? "Admin"
                   : role === "super_admin"
@@ -676,18 +582,9 @@ const AdminManagement = (): React.JSX.Element => {
             {roleDropdownOpen && (
               <div
                 className="
-                  absolute
-                  left-0
-                  top-full
-                  z-50
-                  mt-1
-                  w-full
-                  overflow-hidden
-                  rounded-lg
-                  border
-                  border-gray-300
-                  bg-white
-                  shadow-lg
+                  absolute left-0 top-full z-50 mt-1 w-full
+                  overflow-hidden rounded-lg border border-gray-300
+                  bg-white shadow-lg
                 "
               >
                 <button
@@ -697,14 +594,8 @@ const AdminManagement = (): React.JSX.Element => {
                     setRoleDropdownOpen(false);
                   }}
                   className={`
-                    block
-                    w-full
-                    px-3
-                    py-2.5
-                    text-left
-                    text-sm
-                    transition-colors
-                    hover:bg-[#f0f6ff]
+                    block w-full px-3 py-2.5 text-left text-sm
+                    transition-colors hover:bg-[#f0f6ff] 
                     ${
                       role === ""
                         ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -722,14 +613,8 @@ const AdminManagement = (): React.JSX.Element => {
                     setRoleDropdownOpen(false);
                   }}
                   className={`
-                    block
-                    w-full
-                    px-3
-                    py-2.5
-                    text-left
-                    text-sm
-                    transition-colors
-                    hover:bg-[#f0f6ff]
+                    block w-full px-3 py-2.5 text-left text-sm
+                    transition-colors hover:bg-[#f0f6ff] cursor-pointer
                     ${
                       role === "admin"
                         ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -747,14 +632,8 @@ const AdminManagement = (): React.JSX.Element => {
                     setRoleDropdownOpen(false);
                   }}
                   className={`
-                    block
-                    w-full
-                    px-3
-                    py-2.5
-                    text-left
-                    text-sm
-                    transition-colors
-                    hover:bg-[#f0f6ff]
+                    block w-full px-3 py-2.5 text-left text-sm
+                    transition-colors hover:bg-[#f0f6ff] cursor-pointer
                     ${
                       role === "super_admin"
                         ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -775,19 +654,10 @@ const AdminManagement = (): React.JSX.Element => {
             onChange={handleEmailChange}
             required
             className="
-              mb-2
-              w-full
-              rounded-lg
-              border
-              border-gray-300
-              px-3
-              py-2.5
-              text-sm
-              transition
+              mb-2 w-full rounded-lg border border-gray-300
+              px-3 py-2.5 text-sm transition
               focus:border-[rgb(0,64,128)]
-              focus:outline-none
-              focus:ring-2
-              focus:ring-blue-100
+              focus:outline-none focus:ring-2 focus:ring-blue-100
             "
           />
 
@@ -799,50 +669,32 @@ const AdminManagement = (): React.JSX.Element => {
 
           <div className="relative mb-3">
             <input
-              type={
-                showPassword
-                  ? "text"
-                  : "password"
-              }
+              type={showPassword ? "text" : "password"}
               placeholder="Password"
               value={password}
               onChange={handlePasswordChange}
               required
               className="
-                w-full
-                rounded-lg
-                border
-                border-gray-300
-                px-3
-                py-2.5
-                pr-12
-                text-sm
-                transition
+                w-full rounded-lg border border-gray-300
+                px-3 py-2.5 pr-12 text-sm transition
                 focus:border-[rgb(0,64,128)]
-                focus:outline-none
-                focus:ring-2
-                focus:ring-blue-100
+                focus:outline-none focus:ring-2 focus:ring-blue-100
               "
             />
 
             <button
               type="button"
               onClick={() =>
-                setShowPassword(
-                  (prev) => !prev
-                )
+                setShowPassword((prev) => !prev)
               }
               className="
-                absolute
-                right-3
-                top-1/2
-                -translate-y-1/2
-                rounded
-                p-1
-                text-gray-500
-                hover:bg-gray-100
-                hover:text-gray-700
+                absolute right-3 top-1/2 -translate-y-1/2
+                rounded p-1 text-gray-500
+                hover:bg-gray-100 hover:text-gray-700
               "
+              aria-label={
+                showPassword ? "Hide password" : "Show password"
+              }
             >
               {showPassword ? (
                 <EyeOff size={18} />
@@ -854,27 +706,15 @@ const AdminManagement = (): React.JSX.Element => {
 
           <button
             type="submit"
-            disabled={
-              loading || Boolean(emailError)
-            }
+            disabled={loading || Boolean(emailError)}
             className="
-              w-full
-              rounded-lg
-              bg-[rgb(0,64,128)]
-              px-4
-              py-2.5
-              text-sm
-              font-medium
-              text-white
-              transition
-              hover:opacity-90
-              disabled:cursor-not-allowed
-              disabled:opacity-60
+              w-full rounded-lg bg-[rgb(0,64,128)]
+              px-4 py-2.5 text-sm font-medium text-white
+              transition hover:opacity-90 cursor-pointer
+              disabled:cursor-not-allowed disabled:opacity-60
             "
           >
-            {loading
-              ? "Creating..."
-              : "Create"}
+            {loading ? "Creating..." : "Create"}
           </button>
         </form>
       </section>
@@ -894,16 +734,9 @@ const AdminManagement = (): React.JSX.Element => {
             void fetchAdmins();
           }}
           className="
-            w-full
-            rounded-lg
-            bg-[rgb(0,64,128)]
-            px-4
-            py-2.5
-            text-sm
-            font-medium
-            text-white
-            transition
-            hover:opacity-90
+            w-full rounded-lg bg-[rgb(0,64,128)]
+            px-4 py-2.5 text-sm font-medium text-white
+            transition hover:opacity-90 cursor-pointer
           "
         >
           Manage Locked Accounts
@@ -918,7 +751,14 @@ const AdminManagement = (): React.JSX.Element => {
 
         <form
           onSubmit={(e) => {
-            void deleteAdmin(e);
+            e.preventDefault();
+
+            if (!selectedId) {
+              toast.warn("Please select an admin");
+              return;
+            }
+
+            setDeleteDialogOpen(true);
           }}
           className="relative"
         >
@@ -929,29 +769,15 @@ const AdminManagement = (): React.JSX.Element => {
             <button
               type="button"
               onClick={() =>
-                setDeleteDropdownOpen(
-                  (open) => !open
-                )
+                setDeleteDropdownOpen((open) => !open)
               }
               className="
-                flex
-                w-full
-                items-center
-                justify-between
-                rounded-lg
-                border
-                border-gray-300
-                bg-white
-                px-3
-                py-2.5
-                text-left
-                text-sm
-                transition-colors
-                hover:border-[#0077ff]
-                focus:border-[rgb(0,64,128)]
-                focus:outline-none
-                focus:ring-2
-                focus:ring-blue-100
+                flex w-full items-center justify-between
+                rounded-lg border border-gray-300 bg-white
+                px-3 py-2.5 text-left text-sm
+                transition-colors hover:border-[#0077ff]
+                focus:border-[rgb(0,64,128)] cursor-pointer
+                focus:outline-none focus:ring-2 focus:ring-blue-100
               "
             >
               <span
@@ -963,8 +789,7 @@ const AdminManagement = (): React.JSX.Element => {
               >
                 {selectedAdmin
                   ? `${selectedAdmin.email} (${
-                      selectedAdmin.role ===
-                      "super_admin"
+                      selectedAdmin.role === "super_admin"
                         ? "Super Admin"
                         : "Admin"
                     })`
@@ -987,30 +812,14 @@ const AdminManagement = (): React.JSX.Element => {
             {deleteDropdownOpen && (
               <div
                 className="
-                  absolute
-                  left-0
-                  top-full
-                  z-50
-                  mt-1
-                  max-h-60
-                  w-full
-                  overflow-y-auto
-                  rounded-lg
-                  border
-                  border-gray-300
-                  bg-white
-                  shadow-lg
+                  absolute left-0 top-full z-50 mt-1
+                  max-h-60 w-full overflow-y-auto
+                  rounded-lg border border-gray-300
+                  bg-white shadow-lg
                 "
               >
                 {admins.length === 0 ? (
-                  <div
-                    className="
-                      px-3
-                      py-2.5
-                      text-sm
-                      text-gray-500
-                    "
-                  >
+                  <div className="px-3 py-2.5 text-sm text-gray-500">
                     No accounts available
                   </div>
                 ) : (
@@ -1022,14 +831,8 @@ const AdminManagement = (): React.JSX.Element => {
                         setDeleteDropdownOpen(false);
                       }}
                       className={`
-                        block
-                        w-full
-                        px-3
-                        py-2.5
-                        text-left
-                        text-sm
-                        transition-colors
-                        hover:bg-[#f0f6ff]
+                        block w-full px-3 py-2.5 text-left
+                        text-sm transition-colors hover:bg-[#f0f6ff]
                         ${
                           selectedId === ""
                             ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -1041,8 +844,7 @@ const AdminManagement = (): React.JSX.Element => {
                     </button>
 
                     {admins.map((admin) => {
-                      const isSelected =
-                        selectedId === admin.id;
+                      const isSelected = selectedId === admin.id;
 
                       return (
                         <button
@@ -1053,14 +855,8 @@ const AdminManagement = (): React.JSX.Element => {
                             setDeleteDropdownOpen(false);
                           }}
                           className={`
-                            block
-                            w-full
-                            px-3
-                            py-2.5
-                            text-left
-                            text-sm
-                            transition-colors
-                            hover:bg-[#f0f6ff]
+                            block w-full px-3 py-2.5 text-left cursor-pointer
+                            text-sm transition-colors hover:bg-[#f0f6ff]  
                             ${
                               isSelected
                                 ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -1088,30 +884,130 @@ const AdminManagement = (): React.JSX.Element => {
 
           <button
             type="submit"
-            disabled={
-              deleteLoading || !selectedId
-            }
+            disabled={deleteLoading || !selectedId}
             className="
-              w-full
-              rounded-lg
-              bg-red-600
-              px-4
-              py-2.5
-              text-sm
-              font-medium
-              text-white
-              transition
-              hover:bg-red-700
-              disabled:cursor-not-allowed
-              disabled:opacity-60
+              w-full rounded-lg bg-red-600 
+              px-4 py-2.5 text-sm font-medium text-white
+              transition hover:bg-red-700 cursor-pointer
+              disabled:cursor-not-allowed disabled:opacity-60
             "
           >
-            {deleteLoading
-              ? "Deleting..."
-              : "Delete"}
+            Delete
           </button>
         </form>
       </section>
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      {deleteDialogOpen && (
+        <div
+          className="
+            fixed inset-0 z-[100]
+            flex items-center justify-center
+            bg-black/50 p-4
+          "
+          onMouseDown={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              !deleteLoading
+            ) {
+              setDeleteDialogOpen(false);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-dialog-title"
+            className="
+              w-full max-w-[320px] rounded-2xl
+              bg-white p-6 shadow-2xl
+            "
+          >
+            <div className="mb-4 flex items-center gap-3">
+              <div
+                className="
+                  flex h-11 w-11 shrink-0 items-center
+                  justify-center rounded-full
+                  bg-red-100 text-red-600
+                "
+              >
+                <Trash2 size={22} />
+              </div>
+
+              <h3
+                id="delete-dialog-title"
+                className="text-lg font-bold text-gray-900"
+              >
+                Delete Admin Account?
+              </h3>
+            </div>
+
+            <p className="mb-3 text-sm leading-6 text-gray-600">
+              Are you sure you want to permanently delete this account?
+            </p>
+
+            {selectedAdmin && (
+              <div className="mb-4 rounded-lg bg-gray-50 p-3">
+                <p className="break-all text-sm font-semibold text-gray-800">
+                  {selectedAdmin.email}
+                </p>
+
+                <p className="mt-1 text-xs text-gray-500">
+                  {selectedAdmin.role === "super_admin"
+                    ? "Super Admin"
+                    : "Admin"}
+                </p>
+              </div>
+            )}
+
+            <p className="mb-5 text-sm font-medium text-red-600">
+              This action cannot be undone.
+            </p>
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => setDeleteDialogOpen(false)}
+                className="
+                  rounded-lg border border-gray-300
+                  px-4 py-2.5 text-sm font-medium text-gray-700
+                  transition hover:bg-gray-100 cursor-pointer
+                  disabled:cursor-not-allowed disabled:opacity-60
+                "
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={deleteLoading || !selectedId}
+                onClick={() => {
+                  void deleteAdmin();
+                }}
+                className="
+                  flex items-center justify-center gap-2
+                  rounded-lg bg-red-600 px-4 py-2.5
+                  text-sm font-medium text-white
+                  transition hover:bg-red-700 cursor-pointer
+                  disabled:cursor-not-allowed disabled:opacity-60
+                "
+              >
+                {deleteLoading && (
+                  <span
+                    className="
+                      h-4 w-4 animate-spin rounded-full 
+                      border-2 border-white/40 border-t-white
+                    "
+                  />
+                )}
+
+                {deleteLoading ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ToastContainer
         position="top-right"

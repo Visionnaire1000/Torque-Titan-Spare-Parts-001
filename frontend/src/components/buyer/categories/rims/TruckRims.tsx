@@ -597,6 +597,26 @@ const TruckRims = (): ReactElement => {
         max-[480px]:pb-5
       "
     >
+      <Link
+        to="/"
+        aria-label="Back to home"
+        className="
+         inline-flex
+         items-center
+         justify-center
+         rounded-md
+         p-2
+         text-[rgb(0,64,128)]
+         text-lg
+         font-bold
+         transition-colors
+         cursor-pointer
+         hover:bg-[#eaf2f8]
+      "
+    >
+      Home
+    </Link>
+      
       {/* Top Left Back Arrow */}
       {!error &&
         (brand !== "" ||
@@ -622,6 +642,7 @@ const TruckRims = (): ReactElement => {
                 p-2
                 text-[rgb(0,64,128)]
                 transition-colors
+                cursor-pointer
                 hover:bg-[#eaf2f8]
               "
             >
@@ -683,6 +704,7 @@ const TruckRims = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -775,6 +797,7 @@ const TruckRims = (): ReactElement => {
                         text-[14px]
                         transition-colors
                         hover:bg-[#f0f6ff]
+                        cursor-pointer
                         max-[480px]:text-base
                         ${
                           brand === itemBrand
@@ -820,6 +843,7 @@ const TruckRims = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -914,6 +938,7 @@ const TruckRims = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -961,6 +986,7 @@ const TruckRims = (): ReactElement => {
                   text-left
                   text-[14px]
                   transition-colors
+                  cursor-pointer
                   hover:border-[#0077ff]
                   focus:border-[#0077ff]
                   focus:outline-none
@@ -1056,6 +1082,8 @@ const TruckRims = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:text-base
                       ${
@@ -1082,6 +1110,7 @@ const TruckRims = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:text-base
                       ${
@@ -1108,6 +1137,7 @@ const TruckRims = (): ReactElement => {
                       text-left
                       text-[14px]
                       transition-colors
+                      cursor-pointer
                       hover:bg-[#f0f6ff]
                       max-[480px]:text-base
                       ${
@@ -1160,6 +1190,7 @@ const TruckRims = (): ReactElement => {
                     shadow-[0_4px_10px_rgba(0,0,0,0.1)]
                     transition-all
                     duration-200
+                    cursor-pointer
                     hover:-translate-y-1
                     hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
                     max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
@@ -1248,6 +1279,7 @@ const TruckRims = (): ReactElement => {
                         font-bold
                         text-white
                         transition-colors
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1322,6 +1354,7 @@ const TruckRims = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1400,6 +1433,7 @@ const TruckRims = (): ReactElement => {
                     text-sm
                     transition-colors
                     hover:bg-[#f0f0f0]
+                    cursor-pointer
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "

@@ -177,7 +177,7 @@ def refund_paypal_order(order):
         get_paypal_access_token()
     )
 
-    return paypal_request(
+    refund_response = paypal_request(
         method="POST",
         path=(
             "/v2/payments/captures/"
@@ -190,6 +190,23 @@ def refund_paypal_order(order):
             f"refund-{order.id}"
         ),
     )
+
+    refund_id = refund_response.get(
+        "id"
+    )
+
+    refund_status = refund_response.get(
+        "status"
+    )
+
+    print(
+        f"PAYPAL REFUND: "
+        f"Order {order.id} | "
+        f"Refund {refund_id or 'N/A'} | "
+        f"Status {refund_status or 'UNKNOWN'}"
+    )
+
+    return refund_response
 
 
 def calculate_paypal_items(
@@ -1019,16 +1036,9 @@ class CreatePayPalSessionView(APIView):
                             "NO_SHIPPING"
                         ),
                         "user_action": "PAY_NOW",
-                        "return_url": getattr(
-                            settings,
-                            "PAYPAL_SUCCESS_URL",
-                            "http://localhost:5173/payment-success",
-                        ),
-                        "cancel_url": getattr(
-                            settings,
-                            "PAYPAL_CANCEL_URL",
-                            "http://localhost:5173/payment-cancel",
-                        ),
+                        "return_url": settings.PAYPAL_SUCCESS_URL,
+                        "cancel_url": settings.PAYPAL_CANCEL_URL,
+                       
                     },
                 }
 

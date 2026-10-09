@@ -49,13 +49,9 @@ const SkeletonCard = (): ReactElement => (
     "
   >
     <div className="mb-[10px] h-[140px] w-full rounded-[10px] bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[80%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[60%] rounded-md bg-[#e0e0e0]" />
-
     <div className="my-2 h-3 w-[40%] rounded-md bg-[#e0e0e0]" />
-
     <div className="mt-[10px] h-8 w-full rounded-lg bg-[#e0e0e0]" />
   </div>
 );
@@ -556,6 +552,7 @@ const SedanTyres = (): ReactElement => {
          text-lg
          font-bold
          transition-colors
+         cursor-pointer
          hover:bg-[#eaf2f8]
       "
     >
@@ -583,6 +580,7 @@ const SedanTyres = (): ReactElement => {
                   p-2
                   text-[rgb(0,64,128)]
                   transition-colors
+                  cursor-pointer
                   hover:bg-[#eaf2f8]
                 "
               >
@@ -643,6 +641,7 @@ const SedanTyres = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -730,6 +729,7 @@ const SedanTyres = (): ReactElement => {
                             text-[14px]
                             transition-colors
                             hover:bg-[#f0f6ff]
+                            cursor-pointer
                             max-[480px]:text-base
                             ${
                               brand ===
@@ -778,6 +778,7 @@ const SedanTyres = (): ReactElement => {
                     text-left
                     text-[14px]
                     transition-colors
+                    cursor-pointer
                     hover:border-[#0077ff]
                     focus:border-[#0077ff]
                     focus:outline-none
@@ -866,6 +867,7 @@ const SedanTyres = (): ReactElement => {
                         text-[14px]
                         transition-colors
                         hover:bg-[#f0f6ff]
+                        cursor-pointer
                         max-[480px]:text-base
                         ${
                           price === "low"
@@ -891,6 +893,7 @@ const SedanTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -917,6 +920,7 @@ const SedanTyres = (): ReactElement => {
                         text-left
                         text-[14px]
                         transition-colors
+                        cursor-pointer
                         hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
@@ -1053,6 +1057,7 @@ const SedanTyres = (): ReactElement => {
                         font-bold
                         text-white
                         transition-colors
+                        cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
@@ -1106,6 +1111,7 @@ const SedanTyres = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50
@@ -1182,6 +1188,7 @@ const SedanTyres = (): ReactElement => {
                     py-[6px]
                     text-sm
                     transition-colors
+                    cursor-pointer
                     hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50

@@ -167,86 +167,84 @@ const CartProvider = ({
     void loadCart();
   }, [loadCart]);
 
-  const addItem = async (
-    item: SparePart,
-    qty: number = 1
-  ): Promise<void> => {
-    if (!user) {
-      toast.error(
-        "Please log in to add items to your cart"
-      );
+  
+const addItem = async (
+  item: SparePart,
+  qty: number = 1
+): Promise<void> => {
+  if (!user) {
+    toast.error(
+      "Please log in to add items to your cart"
+    );
+    return;
+  }
 
-      return;
-    }
+  if (!Number.isInteger(qty) || qty < 1) {
+    toast.error(
+      "Quantity must be greater than zero"
+    );
+    return;
+  }
 
-    if (
-      !Number.isInteger(qty) ||
-      qty < 1
-    ) {
-      toast.error(
-        "Quantity must be greater than zero"
-      );
+  const alreadyInCart = items.some(
+    (cartItem) => cartItem.sparepart_id === item.id
+  );
 
-      return;
-    }
+  if (alreadyInCart) {
+    toast.info("Item already in cart");
+    return;
+  }
+
+  try {
+    const response = await authFetch(
+      `${config.API_BASE_URL}/cart/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sparepart_id: item.id,
+          quantity: qty,
+        }),
+      }
+    );
+
+    let data: BackendCartItem | CartResponse = {};
 
     try {
-      const response = await authFetch(
-        `${config.API_BASE_URL}/cart/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            sparepart_id: item.id,
-            quantity: qty,
-          }),
-        }
-      );
-
-      let data:
+      data = (await response.json()) as
         | BackendCartItem
-        | CartResponse = {};
-
-      try {
-        data =
-          (await response.json()) as
-            | BackendCartItem
-            | CartResponse;
-      } catch {
-        data = {};
-      }
-
-      if (!response.ok) {
-        toast.error(
-          "message" in data && data.message
-            ? data.message
-            : "error" in data && data.error
-              ? data.error
-              : "Failed to add item to cart"
-        );
-
-        return;
-      }
-
-      await loadCart();
-
-      toast.success(
-        `${item.brand} ${item.category} for ${item.vehicle_type} added to cart`
-      );
-    } catch (error) {
-      console.error(
-        "Failed to add item to cart:",
-        error
-      );
-
-      toast.error(
-        "Failed to add item to cart"
-      );
+        | CartResponse;
+    } catch {
+      data = {};
     }
-  };
+
+    if (!response.ok) {
+      toast.error(
+        "message" in data && data.message
+          ? data.message
+          : "error" in data && data.error
+            ? data.error
+            : "Failed to add item to cart"
+      );
+      return;
+    }
+
+    await loadCart();
+
+    toast.success(
+      `${item.brand} ${item.category} for ${item.vehicle_type} added to cart`
+    );
+  } catch (error) {
+    console.error(
+      "Failed to add item to cart:",
+      error
+    );
+
+    toast.error("Failed to add item to cart");
+  }
+ };
 
   const removeItem = async (
     id: string
