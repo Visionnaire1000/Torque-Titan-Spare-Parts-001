@@ -352,7 +352,7 @@ const AdminManagement = (): React.JSX.Element => {
             }}
             className="
               absolute left-0 rounded-lg p-2
-              text-gray-600 transition
+              text-gray-600 transition cursor-pointer
               hover:bg-gray-100 hover:text-gray-900
             "
             aria-label="Back"
@@ -502,7 +502,7 @@ const AdminManagement = (): React.JSX.Element => {
                 className="
                   w-full rounded-lg bg-[rgb(0,64,128)]
                   px-4 py-2.5 text-sm font-medium text-white
-                  transition hover:opacity-90
+                  transition hover:opacity-90 cursor-pointer
                   disabled:cursor-not-allowed disabled:opacity-60
                 "
               >

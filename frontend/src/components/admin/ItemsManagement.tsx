@@ -1326,6 +1326,7 @@ const ItemsManagement = (): ReactElement => {
                       transition
                       hover:bg-gray-100
                       hover:text-[#004080]
+                      cursor-pointer
                       disabled:cursor-not-allowed
                       disabled:opacity-50
                     "
@@ -1500,7 +1501,7 @@ const ItemsManagement = (): ReactElement => {
                           deleting ||
                           !hasEditChanges
                         }
-                        className="flex-1 rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex-1 rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition cursor-pointer hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {saving ? "Updating..." : "Update"}
                       </button>
@@ -1509,7 +1510,7 @@ const ItemsManagement = (): ReactElement => {
                         type="button"
                         onClick={openDeleteDialog}
                         disabled={saving || deleting}
-                        className="flex-1 rounded-[10px] bg-red-600 py-[10px] font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex-1 rounded-[10px] bg-red-600 py-[10px] font-medium text-white transition cursor-pointer hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {deleting ? "Deleting..." : "Delete"}
                       </button>
@@ -1518,7 +1519,7 @@ const ItemsManagement = (): ReactElement => {
                         type="button"
                         onClick={goBackToSearchResults}
                         disabled={saving || deleting}
-                        className="flex-1 rounded-[10px] border border-gray-300 bg-white py-[10px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex-1 rounded-[10px] border border-gray-300 bg-white py-[10px] font-medium text-gray-700 transition cursor-pointer hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Cancel
                       </button>
@@ -1529,7 +1530,7 @@ const ItemsManagement = (): ReactElement => {
                       disabled={
                         saving || !isCreateFormComplete
                       }
-                      className="flex-1 rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex-1 rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition cursor-pointer hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving ? "Creating..." : "Create"}
                     </button>
@@ -1572,7 +1573,7 @@ const ItemsManagement = (): ReactElement => {
                 type="button"
                 onClick={closeDeleteDialog}
                 disabled={deleting}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition cursor-pointer hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Close delete dialog"
               >
                 <X size={18} />
@@ -1584,7 +1585,7 @@ const ItemsManagement = (): ReactElement => {
                 type="button"
                 onClick={closeDeleteDialog}
                 disabled={deleting}
-                className="rounded-[10px] border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-[10px] border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition cursor-pointer hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1593,7 +1594,7 @@ const ItemsManagement = (): ReactElement => {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition cursor-pointer hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={16} />
 

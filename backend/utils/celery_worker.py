@@ -30,6 +30,7 @@ celery.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
+    imports=("utils.tasks",),
     beat_schedule={
         "lock-expired-initial-admin-accounts": {
             "task": "utils.tasks.lock_expired_initial_admin_accounts",
@@ -38,6 +39,4 @@ celery.conf.update(
     },
 )
 
-celery.autodiscover_tasks(
-    ["utils"],
-)
+celery.autodiscover_tasks(["utils"])

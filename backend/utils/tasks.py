@@ -1,6 +1,9 @@
 from utils.celery_worker import celery
+from utils.cloudflare import delete_image_from_r2
 
 from django.utils import timezone
+
+import logging
 
 from app.models import Users
 
@@ -19,6 +22,8 @@ from utils.brevo_email import (
 @celery.task(
     name="utils.tasks.send_email_task"
 )
+
+#------------------------------------- EMAILS -----------------------------------
 def send_email_task(
     user_email: str,
     otp_code: str,
@@ -172,3 +177,47 @@ def lock_expired_initial_admin_accounts():
         locked_count += 1
 
     return locked_count
+
+
+
+# ------------------------------------ CLOUDFLARE ---------------------------------
+logger = logging.getLogger(__name__)
+
+
+@celery.task(
+    bind=True,
+    name="utils.tasks.cleanup_r2_image",
+    max_retries=8,
+    default_retry_delay=60,
+)
+def cleanup_r2_image(self, image_url):
+    if not image_url:
+        return
+
+    try:
+        deleted = delete_image_from_r2(image_url)
+
+        if not deleted:
+            logger.info(
+                "Skipped external or unsupported image URL."
+            )
+            return
+
+        logger.info(
+            "R2 image deleted successfully."
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "R2 image deletion failed. Retry %s of %s.",
+            self.request.retries,
+            self.max_retries,
+        )
+
+        raise self.retry(
+            exc=exc,
+            countdown=min(
+                60 * (2 ** self.request.retries),
+                3600,
+            ),
+        )

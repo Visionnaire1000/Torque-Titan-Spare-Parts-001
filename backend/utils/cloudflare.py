@@ -1,5 +1,6 @@
 import os
 import uuid
+from urllib.parse import unquote, urlparse
 
 import boto3
 from django.conf import settings
@@ -16,34 +17,58 @@ def get_r2_client():
     )
 
 
+def get_r2_object_key(image_url):
+    if not image_url:
+        return None
+
+    public_url = settings.R2_PUBLIC_URL.rstrip("/")
+    parsed_public = urlparse(public_url)
+    parsed_image = urlparse(str(image_url).strip())
+
+    if (
+        parsed_image.scheme not in ("http", "https")
+        or parsed_image.netloc.lower() != parsed_public.netloc.lower()
+    ):
+        return None
+
+    public_path = unquote(parsed_public.path).rstrip("/")
+    image_path = unquote(parsed_image.path)
+
+    if public_path:
+        if not image_path.startswith(public_path + "/"):
+            return None
+
+        image_path = image_path[len(public_path):]
+
+    object_key = image_path.lstrip("/")
+
+    if (
+        not object_key.startswith("spareparts/")
+        or any(part in ("", ".", "..") for part in object_key.split("/"))
+    ):
+        return None
+
+    return object_key
+
+
+def is_r2_image_url(image_url):
+    return get_r2_object_key(image_url) is not None
+
+
 # ------------------------------ UPLOAD IMAGE ------------------------------------------
 def upload_image_to_r2(image_file):
-    """
-    Upload an image file to Cloudflare R2
-    and return the public image URL.
-    """
-
     if not image_file:
         return None
 
-    # ---------------- FILE TYPE ----------------
-    if not image_file.content_type.startswith("image/"):
-        raise ValueError(
-            "Only image files are allowed."
-        )
+    content_type = getattr(image_file, "content_type", None)
 
-    # ---------------- FILE SIZE ----------------
-    max_size = 5 * 1024 * 1024  # 5 MB
+    if not content_type or not content_type.startswith("image/"):
+        raise ValueError("Only image files are allowed.")
 
-    if image_file.size > max_size:
-        raise ValueError(
-            "Image must be 5 MB or smaller."
-        )
+    if image_file.size > 5 * 1024 * 1024:
+        raise ValueError("Image must be 5 MB or smaller.")
 
-    # ---------------- FILE EXTENSION ----------------
-    extension = os.path.splitext(
-        image_file.name or ""
-    )[1].lower()
+    extension = os.path.splitext(image_file.name or "")[1].lower()
 
     allowed_extensions = [
         ".jpg",
@@ -59,34 +84,29 @@ def upload_image_to_r2(image_file):
             "Use JPG, JPEG, PNG, WEBP, or GIF."
         )
 
-    # ---------------- UNIQUE FILE NAME ----------------
-    file_name = (
-        f"{uuid.uuid4()}"
-        f"{extension}"
-    )
+    object_key = f"spareparts/{uuid.uuid4()}{extension}"
 
-    object_key = (
-        f"spareparts/{file_name}"
-    )
-
-    # ---------------- UPLOAD TO R2 ----------------
-    client = get_r2_client()
-
-    client.upload_fileobj(
+    get_r2_client().upload_fileobj(
         image_file,
         settings.R2_BUCKET_NAME,
         object_key,
-        ExtraArgs={
-            "ContentType": image_file.content_type,
-        },
+        ExtraArgs={"ContentType": content_type},
     )
 
-    # ---------------- PUBLIC URL ----------------
-    public_url = (
-        settings.R2_PUBLIC_URL.rstrip("/")
+    return f"{settings.R2_PUBLIC_URL.rstrip('/')}/{object_key}"
+
+
+# ------------------------------ DELETE IMAGE ------------------------------------------
+def delete_image_from_r2(image_url):
+    object_key = get_r2_object_key(image_url)
+
+    if object_key is None:
+        return False
+
+    get_r2_client().delete_object(
+        Bucket=settings.R2_BUCKET_NAME,
+        Key=object_key,
     )
 
-    return (
-        f"{public_url}/"
-        f"{object_key}"
-    )
+    return True
+

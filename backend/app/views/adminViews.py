@@ -21,7 +21,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import serializers, status
 
-from utils.cloudflare import upload_image_to_r2
+from utils.cloudflare import upload_image_to_r2, is_r2_image_url 
+from utils.tasks import cleanup_r2_image, send_account_unlocked_email_task
 
 from app.models import (
     Users,
@@ -31,8 +32,10 @@ from app.models import (
     Reviews,
 )
 
+import logging
 
-from utils.tasks import ( send_account_unlocked_email_task, )
+
+logger = logging.getLogger(__name__)
 
 
 # --------------------------- DECIMAL HELPERS ----------------------------------------------
@@ -490,6 +493,17 @@ class AdminSparePartsView(APIView):
         ):
             return None
 
+    def _schedule_r2_image_cleanup(self, image_url):
+        if not image_url or not is_r2_image_url(image_url):
+            return
+
+        try:
+            cleanup_r2_image.delay(image_url)
+        except Exception:
+            logger.exception(
+                "Failed to schedule Cloudflare R2 image cleanup."
+            )
+
     # ---------------- CREATE ----------------
     def post(self, request):
         if not self._check_admin(request):
@@ -501,6 +515,7 @@ class AdminSparePartsView(APIView):
             )
 
         data = request.data
+        image_url = None
 
         try:
             # ---------------- REQUIRED FIELDS ----------------
@@ -565,9 +580,7 @@ class AdminSparePartsView(APIView):
             # ---------------- IMAGE UPLOAD ----------------
             image_file = request.FILES.get("image")
 
-            image_url = upload_image_to_r2(
-                image_file
-            )
+            image_url = upload_image_to_r2(image_file)
 
             # ---------------- CREATE ----------------
             spare = SpareParts.objects.create(
@@ -583,20 +596,16 @@ class AdminSparePartsView(APIView):
 
             return Response(
                 {
-                    "message": (
-                        "Spare part created "
-                        "successfully"
-                    ),
-                    "sparepart": (
-                        SparePartsSerializer(
-                            spare
-                        ).data
-                    ),
+                    "message": "Spare part created successfully",
+                    "sparepart": SparePartsSerializer(spare).data,
                 },
                 status=status.HTTP_201_CREATED,
             )
 
         except ValueError as exc:
+            if image_url:
+                self._schedule_r2_image_cleanup(image_url)
+
             return Response(
                 {
                     "error": str(exc)
@@ -605,6 +614,11 @@ class AdminSparePartsView(APIView):
             )
 
         except Exception as exc:
+            if image_url:
+                self._schedule_r2_image_cleanup(image_url)
+
+            logger.exception("Failed to create spare part.")
+
             return Response(
                 {
                     "error": str(exc)
@@ -628,6 +642,9 @@ class AdminSparePartsView(APIView):
         )
 
         data = request.data
+
+        old_image_url = spare.image
+        new_image_url = None
 
         try:
             changes_detected = False
@@ -655,6 +672,7 @@ class AdminSparePartsView(APIView):
 
                 if new_value != current_value:
                     changes_detected = True
+
                     setattr(
                         spare,
                         field,
@@ -696,6 +714,7 @@ class AdminSparePartsView(APIView):
 
                 if value != current_value:
                     changes_detected = True
+
                     setattr(
                         spare,
                         field,
@@ -706,13 +725,12 @@ class AdminSparePartsView(APIView):
             image_file = request.FILES.get("image")
 
             if image_file:
-                changes_detected = True
-
-                image_url = upload_image_to_r2(
+                new_image_url = upload_image_to_r2(
                     image_file
                 )
 
-                spare.image = image_url
+                spare.image = new_image_url
+                changes_detected = True
 
             # ---------------- NO CHANGES ----------------
             if not changes_detected:
@@ -730,22 +748,22 @@ class AdminSparePartsView(APIView):
             # ---------------- SAVE ----------------
             spare.save()
 
+            # Deletes the old image only after the database update succeeds.
+            if new_image_url and old_image_url != new_image_url:
+                self._schedule_r2_image_cleanup(old_image_url)
+
             return Response(
                 {
-                    "message": (
-                        "Spare part updated "
-                        "successfully"
-                    ),
-                    "sparepart": (
-                        SparePartsSerializer(
-                            spare
-                        ).data
-                    ),
+                    "message": "Spare part updated successfully",
+                    "sparepart": SparePartsSerializer(spare).data,
                 },
                 status=status.HTTP_200_OK,
             )
 
         except ValueError as exc:
+            if new_image_url:
+                self._schedule_r2_image_cleanup(new_image_url)
+
             return Response(
                 {
                     "error": str(exc)
@@ -754,6 +772,14 @@ class AdminSparePartsView(APIView):
             )
 
         except Exception as exc:
+            if new_image_url:
+                self._schedule_r2_image_cleanup(new_image_url)
+
+            logger.exception(
+                "Failed to update spare part %s.",
+                spare_id,
+            )
+
             return Response(
                 {
                     "error": str(exc)
@@ -776,20 +802,27 @@ class AdminSparePartsView(APIView):
             id=spare_id,
         )
 
+        image_url = spare.image
+
         try:
             spare.delete()
 
+            # Images hosted by other CDNs are not deleted.
+            self._schedule_r2_image_cleanup(image_url)
+
             return Response(
                 {
-                    "message": (
-                        "Spare part deleted "
-                        "successfully"
-                    )
+                    "message": "Spare part deleted successfully"
                 },
                 status=status.HTTP_200_OK,
             )
 
         except Exception as exc:
+            logger.exception(
+                "Failed to delete spare part %s.",
+                spare_id,
+            )
+
             return Response(
                 {
                     "error": str(exc)
