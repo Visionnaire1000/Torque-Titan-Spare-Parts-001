@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import config from "../../../config";
+
 
 interface Address {
   street: string;
@@ -20,6 +22,7 @@ interface AddressResponse extends Address {
 
 const BuyerAddress = (): React.JSX.Element => {
   const { user, authFetch } = useAuth();
+  const { t } = useTranslation();
 
   const [address, setAddress] = useState<Address>({
     street: "",
@@ -68,7 +71,7 @@ const BuyerAddress = (): React.JSX.Element => {
           toast.error(
             typeof data.error === "string"
               ? data.error
-              : data.message || "Failed to load your address"
+              : data.message || t("buyerAddress.loadFailed")
           );
 
           return;
@@ -88,14 +91,14 @@ const BuyerAddress = (): React.JSX.Element => {
           error
         );
 
-        toast.error("Failed to load your address");
+        toast.error(t("buyerAddress.loadFailed"));
       } finally {
         setLoading(false);
       }
     };
 
     void loadAddress();
-  }, [user, authFetch]);
+  }, [user, authFetch, t]);
 
   const handleAddressChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -112,7 +115,7 @@ const BuyerAddress = (): React.JSX.Element => {
     error: string | Record<string, string[]> | undefined
   ): string => {
     if (!error) {
-      return "Failed to save address";
+      return t("buyerAddress.saveFailed");
     }
 
     if (typeof error === "string") {
@@ -122,7 +125,7 @@ const BuyerAddress = (): React.JSX.Element => {
     const firstField = Object.keys(error)[0];
 
     if (!firstField) {
-      return "Failed to save address";
+      return t("buyerAddress.saveFailed");
     }
 
     const messages = error[firstField];
@@ -131,7 +134,7 @@ const BuyerAddress = (): React.JSX.Element => {
       return messages[0];
     }
 
-    return "Invalid address information";
+    return t("buyerAddress.invalidAddress");
   };
 
   const handleSubmit = async (
@@ -140,7 +143,7 @@ const BuyerAddress = (): React.JSX.Element => {
     e.preventDefault();
 
     if (!user) {
-      toast.error("User not logged in");
+      toast.error(t("buyerAddress.notLoggedIn"));
       return;
     }
 
@@ -157,7 +160,7 @@ const BuyerAddress = (): React.JSX.Element => {
       !trimmedAddress.country
     ) {
       toast.error(
-        "Please fill all required address fields"
+        t("buyerAddress.requiredFields")
       );
 
       return;
@@ -186,7 +189,7 @@ const BuyerAddress = (): React.JSX.Element => {
         toast.error(
           getErrorMessage(data.error) ||
             data.message ||
-            "Failed to save address"
+            t("buyerAddress.saveFailed")
         );
 
         return;
@@ -207,8 +210,8 @@ const BuyerAddress = (): React.JSX.Element => {
 
       toast.success(
         addressExists
-          ? "Address updated successfully!"
-          : "Address saved successfully!"
+          ? t("buyerAddress.updateSuccess")
+          : t("buyerAddress.saveSuccess")
       );
     } catch (error) {
       console.error(
@@ -216,14 +219,14 @@ const BuyerAddress = (): React.JSX.Element => {
         error
       );
 
-      toast.error("Failed to save address");
+      toast.error(t("buyerAddress.saveFailed"));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="w-full flex justify-center px-4">
+    <div className="w-full flex justify-center px-4 mt-12">
       <div
         className="
           w-full
@@ -247,13 +250,13 @@ const BuyerAddress = (): React.JSX.Element => {
               text-[1.8rem]
             "
           >
-            Shipping Address
+            {t("buyerAddress.title")}
           </h2>
 
           {loading ? (
             <div
               className="animate-pulse"
-              aria-label="Loading address"
+              aria-label={t("buyerAddress.loading")}
             >
               <div
                 className="
@@ -309,7 +312,7 @@ const BuyerAddress = (): React.JSX.Element => {
               <input
                 type="text"
                 name="street"
-                placeholder="Street"
+                placeholder={t("buyerAddress.street")}
                 value={address.street}
                 onChange={handleAddressChange}
                 required
@@ -336,7 +339,7 @@ const BuyerAddress = (): React.JSX.Element => {
               <input
                 type="text"
                 name="city"
-                placeholder="City"
+                placeholder={t("buyerAddress.city")}
                 value={address.city}
                 onChange={handleAddressChange}
                 required
@@ -363,7 +366,7 @@ const BuyerAddress = (): React.JSX.Element => {
               <input
                 type="text"
                 name="postal_code"
-                placeholder="Postal Code"
+                placeholder={t("buyerAddress.postalCode")}
                 value={address.postal_code}
                 onChange={handleAddressChange}
                 disabled={saving}
@@ -389,7 +392,7 @@ const BuyerAddress = (): React.JSX.Element => {
               <input
                 type="text"
                 name="country"
-                placeholder="Country"
+                placeholder={t("buyerAddress.country")}
                 value={address.country}
                 onChange={handleAddressChange}
                 required
@@ -432,10 +435,10 @@ const BuyerAddress = (): React.JSX.Element => {
                 "
               >
                 {saving
-                  ? "Saving..."
+                  ? t("buyerAddress.saving")
                   : addressExists
-                    ? "Update Address"
-                    : "Save Address"}
+                    ? t("buyerAddress.updateAddress")
+                    : t("buyerAddress.saveAddress")}
               </button>
             </>
           )}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 import { ArrowLeft, Eye, EyeOff, ChevronUp, ChevronDown, Trash2 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
@@ -32,6 +33,7 @@ interface ApiResponse {
 
 /* ---------------- Component ---------------- */
 const AdminManagement = (): React.JSX.Element => {
+  const { t } = useTranslation();
   const { user, authFetch } = useAuth();
 
   const [admins, setAdmins] = useState<Admin[]>([]);
@@ -73,7 +75,9 @@ const AdminManagement = (): React.JSX.Element => {
       const data: AdminsResponse = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to fetch admins");
+        throw new Error(
+          data.error || t("adminManagement.fetchFailed")
+        );
       }
 
       setAdmins(data.admins ?? []);
@@ -81,10 +85,10 @@ const AdminManagement = (): React.JSX.Element => {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Something went wrong."
+          : t("adminManagement.somethingWentWrong")
       );
     }
-  }, [authFetch]);
+  }, [authFetch, t]);
 
   /* ---------------- Initial Fetch ---------------- */
   useEffect(() => {
@@ -150,7 +154,7 @@ const AdminManagement = (): React.JSX.Element => {
 
     setEmailError(
       value && !emailPattern.test(value)
-        ? "Enter a valid email address"
+        ? t("adminManagement.validEmail")
         : ""
     );
   };
@@ -173,7 +177,7 @@ const AdminManagement = (): React.JSX.Element => {
     }
 
     if (!role) {
-      toast.warn("Please select an account role");
+      toast.warn(t("adminManagement.selectRoleWarning"));
       return;
     }
 
@@ -199,7 +203,7 @@ const AdminManagement = (): React.JSX.Element => {
 
       if (!res.ok) {
         throw new Error(
-          data.error || "Failed to create account"
+          data.error || t("adminManagement.createFailed")
         );
       }
 
@@ -209,14 +213,14 @@ const AdminManagement = (): React.JSX.Element => {
       setEmailError("");
       setShowPassword(false);
 
-      toast.success("Admin account created successfully");
+      toast.success(t("adminManagement.createSuccess"));
 
       await fetchAdmins();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Something went wrong."
+          : t("adminManagement.somethingWentWrong")
       );
     } finally {
       setLoading(false);
@@ -243,7 +247,7 @@ const AdminManagement = (): React.JSX.Element => {
 
       if (!res.ok) {
         throw new Error(
-          data.error || "Failed to delete admin"
+          data.error || t("adminManagement.deleteFailed")
         );
       }
 
@@ -251,14 +255,14 @@ const AdminManagement = (): React.JSX.Element => {
       setDeleteDropdownOpen(false);
       setDeleteDialogOpen(false);
 
-      toast.success("Admin deleted successfully");
+      toast.success(t("adminManagement.deleteSuccess"));
 
       await fetchAdmins();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Something went wrong."
+          : t("adminManagement.somethingWentWrong")
       );
     } finally {
       setDeleteLoading(false);
@@ -268,7 +272,7 @@ const AdminManagement = (): React.JSX.Element => {
   /* ---------------- Unlock Admin ---------------- */
   const unlockAdmin = async (): Promise<void> => {
     if (!selectedId) {
-      toast.warn("Please select a locked account");
+      toast.warn(t("adminManagement.selectLockedWarning"));
       return;
     }
 
@@ -286,21 +290,21 @@ const AdminManagement = (): React.JSX.Element => {
 
       if (!res.ok) {
         throw new Error(
-          data.error || "Failed to unlock account"
+          data.error || t("adminManagement.unlockFailed")
         );
       }
 
       setSelectedId("");
       setUnlockDropdownOpen(false);
 
-      toast.success("Account unlocked successfully");
+      toast.success(t("adminManagement.unlockSuccess"));
 
       await fetchAdmins();
     } catch (error) {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Something went wrong."
+          : t("adminManagement.somethingWentWrong")
       );
     } finally {
       setUnlockLoading(false);
@@ -321,7 +325,7 @@ const AdminManagement = (): React.JSX.Element => {
   if (user?.role !== "super_admin") {
     return (
       <p className="py-10 text-center text-lg font-medium">
-        Access denied
+        {t("adminManagement.accessDenied")}
       </p>
     );
   }
@@ -355,19 +359,19 @@ const AdminManagement = (): React.JSX.Element => {
               text-gray-600 transition cursor-pointer
               hover:bg-gray-100 hover:text-gray-900
             "
-            aria-label="Back"
+            aria-label={t("adminManagement.back")}
           >
             <ArrowLeft size={20} />
           </button>
 
           <h2 className="text-[22px] font-bold">
-            Unlock Account
+            {t("adminManagement.unlockAccount")}
           </h2>
         </div>
 
         <section className="rounded-xl bg-gray-50 p-4">
           <h3 className="mb-3 text-base font-semibold text-gray-800">
-            Locked Accounts
+            {t("adminManagement.lockedAccounts")}
           </h3>
 
           {lockedAdmins.length === 0 ? (
@@ -377,7 +381,7 @@ const AdminManagement = (): React.JSX.Element => {
                 px-3 py-4 text-center text-sm text-gray-500
               "
             >
-              No locked accounts
+              {t("adminManagement.noLockedAccounts")}
             </div>
           ) : (
             <>
@@ -413,10 +417,10 @@ const AdminManagement = (): React.JSX.Element => {
                     )
                       ? `${selectedAdmin?.email} (${
                           selectedAdmin?.role === "super_admin"
-                            ? "Super Admin"
-                            : "Admin"
+                            ? t("adminManagement.superAdmin")
+                            : t("adminManagement.admin")
                         })`
-                      : "Select locked account"}
+                      : t("adminManagement.selectLockedAccount")}
                   </span>
 
                   {unlockDropdownOpen ? (
@@ -438,7 +442,7 @@ const AdminManagement = (): React.JSX.Element => {
                       absolute left-0 top-full z-50 mt-1
                       max-h-60 w-full overflow-y-auto
                       rounded-lg border border-gray-300
-                      bg-white shadow-lg 
+                      bg-white shadow-lg
                     "
                   >
                     <button
@@ -453,7 +457,7 @@ const AdminManagement = (): React.JSX.Element => {
                         hover:bg-[#f0f6ff]
                       "
                     >
-                      Select locked account
+                      {t("adminManagement.selectLockedAccount")}
                     </button>
 
                     {lockedAdmins.map((admin) => {
@@ -483,8 +487,8 @@ const AdminManagement = (): React.JSX.Element => {
 
                           <span className="block text-xs text-gray-500">
                             {admin.role === "super_admin"
-                              ? "Super Admin"
-                              : "Admin"}
+                              ? t("adminManagement.superAdmin")
+                              : t("adminManagement.admin")}
                           </span>
                         </button>
                       );
@@ -506,7 +510,9 @@ const AdminManagement = (): React.JSX.Element => {
                   disabled:cursor-not-allowed disabled:opacity-60
                 "
               >
-                {unlockLoading ? "Unlocking..." : "Unlock"}
+                {unlockLoading
+                  ? t("adminManagement.unlocking")
+                  : t("adminManagement.unlock")}
               </button>
             </>
           )}
@@ -520,18 +526,18 @@ const AdminManagement = (): React.JSX.Element => {
     <div
       className="
         mx-auto mt-[90px] mb-[240px] max-w-[520px]
-        rounded-2xl bg-white p-6 
+        rounded-2xl bg-white p-6
         shadow-[0_10px_30px_rgba(0,0,0,0.08)]
       "
     >
       <h2 className="mb-5 text-center text-[22px] font-bold">
-        Admin Management
+        {t("adminManagement.title")}
       </h2>
 
       {/* CREATE ACCOUNT */}
       <section className="mb-6 rounded-xl bg-gray-50 p-4">
         <h3 className="mb-3 text-base font-semibold text-gray-800">
-          Create Account
+          {t("adminManagement.createAccount")}
         </h3>
 
         <form
@@ -560,10 +566,10 @@ const AdminManagement = (): React.JSX.Element => {
             >
               <span className={role ? "text-gray-800" : "text-gray-500"}>
                 {role === "admin"
-                  ? "Admin"
+                  ? t("adminManagement.admin")
                   : role === "super_admin"
-                  ? "Super Admin"
-                  : "Select account role"}
+                    ? t("adminManagement.superAdmin")
+                    : t("adminManagement.selectAccountRole")}
               </span>
 
               {roleDropdownOpen ? (
@@ -595,7 +601,7 @@ const AdminManagement = (): React.JSX.Element => {
                   }}
                   className={`
                     block w-full px-3 py-2.5 text-left text-sm
-                    transition-colors hover:bg-[#f0f6ff] 
+                    transition-colors hover:bg-[#f0f6ff]
                     ${
                       role === ""
                         ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -603,7 +609,7 @@ const AdminManagement = (): React.JSX.Element => {
                     }
                   `}
                 >
-                  Select account role
+                  {t("adminManagement.selectAccountRole")}
                 </button>
 
                 <button
@@ -622,7 +628,7 @@ const AdminManagement = (): React.JSX.Element => {
                     }
                   `}
                 >
-                  Admin
+                  {t("adminManagement.admin")}
                 </button>
 
                 <button
@@ -641,7 +647,7 @@ const AdminManagement = (): React.JSX.Element => {
                     }
                   `}
                 >
-                  Super Admin
+                  {t("adminManagement.superAdmin")}
                 </button>
               </div>
             )}
@@ -649,7 +655,7 @@ const AdminManagement = (): React.JSX.Element => {
 
           <input
             type="email"
-            placeholder="Email"
+            placeholder={t("adminManagement.email")}
             value={email}
             onChange={handleEmailChange}
             required
@@ -670,7 +676,7 @@ const AdminManagement = (): React.JSX.Element => {
           <div className="relative mb-3">
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Password"
+              placeholder={t("adminManagement.password")}
               value={password}
               onChange={handlePasswordChange}
               required
@@ -693,7 +699,9 @@ const AdminManagement = (): React.JSX.Element => {
                 hover:bg-gray-100 hover:text-gray-700
               "
               aria-label={
-                showPassword ? "Hide password" : "Show password"
+                showPassword
+                  ? t("adminManagement.hidePassword")
+                  : t("adminManagement.showPassword")
               }
             >
               {showPassword ? (
@@ -714,7 +722,9 @@ const AdminManagement = (): React.JSX.Element => {
               disabled:cursor-not-allowed disabled:opacity-60
             "
           >
-            {loading ? "Creating..." : "Create"}
+            {loading
+              ? t("adminManagement.creating")
+              : t("adminManagement.create")}
           </button>
         </form>
       </section>
@@ -722,7 +732,7 @@ const AdminManagement = (): React.JSX.Element => {
       {/* UNLOCK ACCOUNT */}
       <section className="mb-6 rounded-xl bg-gray-50 p-4">
         <h3 className="mb-3 text-base font-semibold text-gray-800">
-          Unlock Account
+          {t("adminManagement.unlockAccount")}
         </h3>
 
         <button
@@ -739,14 +749,14 @@ const AdminManagement = (): React.JSX.Element => {
             transition hover:opacity-90 cursor-pointer
           "
         >
-          Manage Locked Accounts
+          {t("adminManagement.manageLockedAccounts")}
         </button>
       </section>
 
       {/* DELETE ACCOUNT */}
       <section className="rounded-xl bg-gray-50 p-4">
         <h3 className="mb-3 text-base font-semibold text-gray-800">
-          Delete Account
+          {t("adminManagement.deleteAccount")}
         </h3>
 
         <form
@@ -754,7 +764,7 @@ const AdminManagement = (): React.JSX.Element => {
             e.preventDefault();
 
             if (!selectedId) {
-              toast.warn("Please select an admin");
+              toast.warn(t("adminManagement.selectAdminWarning"));
               return;
             }
 
@@ -790,10 +800,10 @@ const AdminManagement = (): React.JSX.Element => {
                 {selectedAdmin
                   ? `${selectedAdmin.email} (${
                       selectedAdmin.role === "super_admin"
-                        ? "Super Admin"
-                        : "Admin"
+                        ? t("adminManagement.superAdmin")
+                        : t("adminManagement.admin")
                     })`
-                  : "Select account"}
+                  : t("adminManagement.selectAccount")}
               </span>
 
               {deleteDropdownOpen ? (
@@ -820,7 +830,7 @@ const AdminManagement = (): React.JSX.Element => {
               >
                 {admins.length === 0 ? (
                   <div className="px-3 py-2.5 text-sm text-gray-500">
-                    No accounts available
+                    {t("adminManagement.noAccounts")}
                   </div>
                 ) : (
                   <>
@@ -840,7 +850,7 @@ const AdminManagement = (): React.JSX.Element => {
                         }
                       `}
                     >
-                      Select account
+                      {t("adminManagement.selectAccount")}
                     </button>
 
                     {admins.map((admin) => {
@@ -856,7 +866,7 @@ const AdminManagement = (): React.JSX.Element => {
                           }}
                           className={`
                             block w-full px-3 py-2.5 text-left cursor-pointer
-                            text-sm transition-colors hover:bg-[#f0f6ff]  
+                            text-sm transition-colors hover:bg-[#f0f6ff]
                             ${
                               isSelected
                                 ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -870,8 +880,8 @@ const AdminManagement = (): React.JSX.Element => {
 
                           <span className="block text-xs text-gray-500">
                             {admin.role === "super_admin"
-                              ? "Super Admin"
-                              : "Admin"}
+                              ? t("adminManagement.superAdmin")
+                              : t("adminManagement.admin")}
                           </span>
                         </button>
                       );
@@ -886,13 +896,13 @@ const AdminManagement = (): React.JSX.Element => {
             type="submit"
             disabled={deleteLoading || !selectedId}
             className="
-              w-full rounded-lg bg-red-600 
+              w-full rounded-lg bg-red-600
               px-4 py-2.5 text-sm font-medium text-white
               transition hover:bg-red-700 cursor-pointer
               disabled:cursor-not-allowed disabled:opacity-60
             "
           >
-            Delete
+            {t("adminManagement.delete")}
           </button>
         </form>
       </section>
@@ -938,12 +948,12 @@ const AdminManagement = (): React.JSX.Element => {
                 id="delete-dialog-title"
                 className="text-lg font-bold text-gray-900"
               >
-                Delete Admin Account?
+                {t("adminManagement.deleteTitle")}
               </h3>
             </div>
 
             <p className="mb-3 text-sm leading-6 text-gray-600">
-              Are you sure you want to permanently delete this account?
+              {t("adminManagement.deleteConfirmation")}
             </p>
 
             {selectedAdmin && (
@@ -954,14 +964,14 @@ const AdminManagement = (): React.JSX.Element => {
 
                 <p className="mt-1 text-xs text-gray-500">
                   {selectedAdmin.role === "super_admin"
-                    ? "Super Admin"
-                    : "Admin"}
+                    ? t("adminManagement.superAdmin")
+                    : t("adminManagement.admin")}
                 </p>
               </div>
             )}
 
             <p className="mb-5 text-sm font-medium text-red-600">
-              This action cannot be undone.
+              {t("adminManagement.deleteWarning")}
             </p>
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -976,7 +986,7 @@ const AdminManagement = (): React.JSX.Element => {
                   disabled:cursor-not-allowed disabled:opacity-60
                 "
               >
-                Cancel
+                {t("adminManagement.cancel")}
               </button>
 
               <button
@@ -996,13 +1006,15 @@ const AdminManagement = (): React.JSX.Element => {
                 {deleteLoading && (
                   <span
                     className="
-                      h-4 w-4 animate-spin rounded-full 
+                      h-4 w-4 animate-spin rounded-full
                       border-2 border-white/40 border-t-white
                     "
                   />
                 )}
 
-                {deleteLoading ? "Deleting..." : "Confirm Delete"}
+                {deleteLoading
+                  ? t("adminManagement.deleting")
+                  : t("adminManagement.confirmDelete")}
               </button>
             </div>
           </div>

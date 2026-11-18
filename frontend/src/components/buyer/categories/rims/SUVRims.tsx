@@ -1,5 +1,6 @@
-import { useEffect,useState, useRef, type MouseEvent, type ReactElement } from "react";
+import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
@@ -62,47 +63,82 @@ const SkeletonCard = (): ReactElement => (
 /* ---------------- Error State ---------------- */
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-[10px] text-2xl font-semibold">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 text-[#666]">
-      Unable to load spare parts. Please check your connection and try again.
-    </p>
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-[10px] text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      type="button"
-      className="
-        mb-[30px]
-        inline-flex
-        cursor-pointer
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111]
-        px-5
-        py-[10px]
-        text-white
-        transition
-        hover:opacity-85
-      "
-      onClick={() => void onRetry()}
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-500"
-      />
-      Retry
-    </button>
-  </div>
-);
+      <p className="mb-5 text-[#666]">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
+
+      <button
+        type="button"
+        className="
+          mb-[30px]
+          inline-flex
+          cursor-pointer
+          items-center
+          gap-2
+          rounded-md
+          bg-[#111]
+          px-5
+          py-[10px]
+          text-white
+          transition
+          hover:opacity-85
+        "
+        onClick={() => void onRetry()}
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-500"
+        />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const SUVRims = (): ReactElement => {
+  const { t } = useTranslation();
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  const translateCategory = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    tyre: "tyre",
+    tyres: "tyre",
+    rim: "rim",
+    rims: "rim",
+    battery: "battery",
+    batteries: "battery",
+    filter: "filter",
+    filters: "filter",
+    "oil filter": "filter",
+    "oil filters": "filter",
+    sedan: "sedan",
+    saloon: "sedan",
+    suv: "suv",
+    truck: "truck",
+    lorry: "truck",
+    bus: "bus",
+  };
+
+  const key = aliases[normalized] ?? normalized;
+  const translationKey = `productCategories.${key}`;
+  const translated = t(translationKey);
+
+  return translated === translationKey ? value : translated;
+ };
 
   const restoreState =
     location.state as RestoreState | null;
@@ -189,6 +225,32 @@ const SUVRims = (): ReactElement => {
     "black",
     "gold",
   ];
+
+  /* ---------------- Translation Helpers ---------------- */
+  const getColourLabel = (value: string): string =>
+    t(`categoriesCommon.colours.${value}`);
+
+  const getPriceLabel = (value: string): string => {
+    if (value === "low") {
+      return t("categoriesCommon.priceLow", {
+        threshold: "25k",
+      });
+    }
+
+    if (value === "medium") {
+      return t("categoriesCommon.priceMedium", {
+        range: "25k–35k",
+      });
+    }
+
+    if (value === "high") {
+      return t("categoriesCommon.priceHigh", {
+        threshold: "35k",
+      });
+    }
+
+    return t("categoriesCommon.allPrices");
+  };
 
   /* ---------------- Restore Listing State ---------------- */
   useEffect(() => {
@@ -569,23 +631,23 @@ const SUVRims = (): ReactElement => {
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
-         inline-flex
-         items-center
-         justify-center
-         rounded-md
-         p-2
-         text-[rgb(0,64,128)]
-         text-lg
-         font-bold
-         transition-colors
-         cursor-pointer
-         hover:bg-[#eaf2f8]
-      "
-    >
-      Home
-    </Link>
+          inline-flex
+          items-center
+          justify-center
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          text-lg
+          font-bold
+          transition-colors
+          cursor-pointer
+          hover:bg-[#eaf2f8]
+        "
+      >
+        {t("buyerNavbar.home")}
+      </Link>
 
       {/* Back To Available Parts */}
       {!error &&
@@ -596,7 +658,7 @@ const SUVRims = (): ReactElement => {
             <button
               type="button"
               onClick={handleBackToAvailableParts}
-              aria-label="Back to available parts"
+              aria-label={t("categoriesCommon.backToAvailableParts")}
               className="
                 mt-4
                 inline-flex
@@ -678,7 +740,7 @@ const SUVRims = (): ReactElement => {
                 "
               >
                 <span className="truncate">
-                  {brand || "All Brands"}
+                  {brand || t("categoriesCommon.allBrands")}
                 </span>
 
                 {brandOpen ? (
@@ -733,7 +795,7 @@ const SUVRims = (): ReactElement => {
                       }
                     `}
                   >
-                    All Brands
+                    {t("categoriesCommon.allBrands")}
                   </button>
 
                   {availableBrands.map((itemBrand) => (
@@ -810,9 +872,8 @@ const SUVRims = (): ReactElement => {
               >
                 <span className="truncate">
                   {colour === ""
-                    ? "All Colours"
-                    : colour.charAt(0).toUpperCase() +
-                      colour.slice(1)}
+                    ? t("categoriesCommon.allColours")
+                    : getColourLabel(colour)}
                 </span>
 
                 {colourOpen ? (
@@ -867,7 +928,7 @@ const SUVRims = (): ReactElement => {
                       }
                     `}
                   >
-                    All Colours
+                    {t("categoriesCommon.allColours")}
                   </button>
 
                   {availableColours.map((itemColour) => (
@@ -896,8 +957,7 @@ const SUVRims = (): ReactElement => {
                         }
                       `}
                     >
-                      {itemColour.charAt(0).toUpperCase() +
-                        itemColour.slice(1)}
+                      {getColourLabel(itemColour)}
                     </button>
                   ))}
                 </div>
@@ -944,13 +1004,7 @@ const SUVRims = (): ReactElement => {
                 "
               >
                 <span className="truncate">
-                  {price === ""
-                    ? "All Prices"
-                    : price === "low"
-                      ? "Low (< 25k)"
-                      : price === "medium"
-                        ? "Medium (25k–35k)"
-                        : "High (> 35k)"}
+                  {getPriceLabel(price)}
                 </span>
 
                 {priceOpen ? (
@@ -1005,7 +1059,7 @@ const SUVRims = (): ReactElement => {
                       }
                     `}
                   >
-                    All Prices
+                    {t("categoriesCommon.allPrices")}
                   </button>
 
                   <button
@@ -1032,7 +1086,7 @@ const SUVRims = (): ReactElement => {
                       }
                     `}
                   >
-                    Low (&lt; 25k)
+                    {getPriceLabel("low")}
                   </button>
 
                   <button
@@ -1059,7 +1113,7 @@ const SUVRims = (): ReactElement => {
                       }
                     `}
                   >
-                    Medium (25k–35k)
+                    {getPriceLabel("medium")}
                   </button>
 
                   <button
@@ -1086,7 +1140,7 @@ const SUVRims = (): ReactElement => {
                       }
                     `}
                   >
-                    High (&gt; 35k)
+                    {getPriceLabel("high")}
                   </button>
                 </div>
               )}
@@ -1177,8 +1231,10 @@ const SUVRims = (): ReactElement => {
                         text-[#333]
                       "
                     >
-                      {item.brand} {item.category} for{" "}
-                      {item.vehicle_type}
+                      {item.brand}{" "}
+                      {translateCategory(item.category)}{" "}
+                      {t("common.for")}{" "}
+                      {translateCategory(item.vehicle_type)}
                     </h4>
 
                     <p
@@ -1227,7 +1283,7 @@ const SUVRims = (): ReactElement => {
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
@@ -1242,7 +1298,7 @@ const SUVRims = (): ReactElement => {
                   text-[#7f0d0d]
                 "
               >
-                No SUV rims found.
+                {t("suvRims.noItemsFound")}
               </p>
             )}
           </div>
@@ -1279,10 +1335,7 @@ const SUVRims = (): ReactElement => {
                   disabled={currentPage === 1}
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.max(
-                        page - 1,
-                        1
-                      )
+                      Math.max(page - 1, 1)
                     )
                   }
                   className="
@@ -1300,7 +1353,7 @@ const SUVRims = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
@@ -1361,10 +1414,7 @@ const SUVRims = (): ReactElement => {
                   }
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.min(
-                        page + 1,
-                        totalPages
-                      )
+                      Math.min(page + 1, totalPages)
                     )
                   }
                   className="
@@ -1382,7 +1432,7 @@ const SUVRims = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )

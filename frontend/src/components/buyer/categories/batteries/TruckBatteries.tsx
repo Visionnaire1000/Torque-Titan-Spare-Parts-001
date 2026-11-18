@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
@@ -82,46 +83,81 @@ const SkeletonCard = (): ReactElement => (
 /* ---------------- Error ---------------- */
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-3 text-2xl font-semibold">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 text-gray-600">
-      Unable to load spare parts. Please check your connection and try again.
-    </p>
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-3 text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      onClick={() => void onRetry()}
-      className="
-        inline-flex
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111]
-        px-5
-        py-2.5
-        text-white
-        transition-opacity
-        duration-200
-        hover:opacity-85
-      "
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300"
-      />
+      <p className="mb-5 text-gray-600">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
 
-      Retry
-    </button>
-  </div>
-);
+      <button
+        onClick={() => void onRetry()}
+        className="
+          inline-flex
+          items-center
+          gap-2
+          rounded-md
+          bg-[#111]
+          px-5
+          py-2.5
+          text-white
+          transition-opacity
+          duration-200
+          hover:opacity-85
+        "
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-300"
+        />
+
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const TruckBatteries = (): ReactElement => {
+  const { t } = useTranslation();
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  const translateCategory = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    tyre: "tyre",
+    tyres: "tyre",
+    rim: "rim",
+    rims: "rim",
+    battery: "battery",
+    batteries: "battery",
+    filter: "filter",
+    filters: "filter",
+    "oil filter": "filter",
+    "oil filters": "filter",
+    sedan: "sedan",
+    saloon: "sedan",
+    suv: "suv",
+    truck: "truck",
+    lorry: "truck",
+    bus: "bus",
+  };
+
+  const key = aliases[normalized] ?? normalized;
+  const translationKey = `productCategories.${key}`;
+  const translated = t(translationKey);
+
+  return translated === translationKey ? value : translated;
+ };
 
   const restoreState =
     location.state as RestoreState | null;
@@ -210,6 +246,9 @@ const TruckBatteries = (): ReactElement => {
     "white",
     "blue",
   ];
+
+  const getColourLabel = (value: string): string =>
+    t(`categoriesCommon.colours.${value}`);
 
   /* ---------------- Restore Listing State ---------------- */
   useEffect(() => {
@@ -585,25 +624,24 @@ const TruckBatteries = (): ReactElement => {
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
-         inline-flex
-         items-center
-         justify-center
-         rounded-md
-         p-2
-         text-[rgb(0,64,128)]
-         text-lg
-         font-bold
-         transition-colors
-         cursor-pointer
-         hover:bg-[#eaf2f8]
-      "
-    >
-      Home
-    </Link>
-    
-      {/* Top Left Back Arrow */}
+          inline-flex
+          items-center
+          justify-center
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          text-lg
+          font-bold
+          transition-colors
+          cursor-pointer
+          hover:bg-[#eaf2f8]
+        "
+      >
+        {t("buyerNavbar.home")}
+      </Link>
+
       {!error &&
         (brand !== "" ||
           colour !== "" ||
@@ -619,7 +657,7 @@ const TruckBatteries = (): ReactElement => {
             <button
               type="button"
               onClick={handleBackToAvailableParts}
-              aria-label="Back to available parts"
+              aria-label={t("categoriesCommon.backToAvailableParts")}
               className="
                 inline-flex
                 items-center
@@ -637,7 +675,6 @@ const TruckBatteries = (): ReactElement => {
           </div>
         )}
 
-      {/* ---------------- Filters ---------------- */}
       {!error && (
         <div
           className="
@@ -672,9 +709,7 @@ const TruckBatteries = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setBrandOpen(
-                    (open) => !open
-                  );
+                  setBrandOpen((open) => !open);
                   setColourOpen(false);
                   setPriceOpen(false);
                 }}
@@ -702,7 +737,7 @@ const TruckBatteries = (): ReactElement => {
                 "
               >
                 <span className="truncate">
-                  {brand || "All Brands"}
+                  {brand || t("categoriesCommon.allBrands")}
                 </span>
 
                 {brandOpen ? (
@@ -771,45 +806,40 @@ const TruckBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Brands
+                    {t("categoriesCommon.allBrands")}
                   </button>
 
-                  {availableBrands.map(
-                    (itemBrand) => (
-                      <button
-                        key={itemBrand}
-                        type="button"
-                        onClick={() => {
-                          setBrand(
-                            itemBrand
-                          );
-                          setBrandOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          cursor-pointer
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:px-2
-                          max-[480px]:py-2
-                          max-[480px]:text-xs
-                          ${
-                            brand ===
-                            itemBrand
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemBrand}
-                      </button>
-                    )
-                  )}
+                  {availableBrands.map((itemBrand) => (
+                    <button
+                      key={itemBrand}
+                      type="button"
+                      onClick={() => {
+                        setBrand(itemBrand);
+                        setBrandOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        cursor-pointer
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:px-2
+                        max-[480px]:py-2
+                        max-[480px]:text-xs
+                        ${
+                          brand === itemBrand
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemBrand}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -826,9 +856,7 @@ const TruckBatteries = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setColourOpen(
-                    (open) => !open
-                  );
+                  setColourOpen((open) => !open);
                   setBrandOpen(false);
                   setPriceOpen(false);
                 }}
@@ -857,11 +885,8 @@ const TruckBatteries = (): ReactElement => {
               >
                 <span className="truncate">
                   {colour === ""
-                    ? "All Colours"
-                    : colour
-                        .charAt(0)
-                        .toUpperCase() +
-                      colour.slice(1)}
+                    ? t("categoriesCommon.allColours")
+                    : getColourLabel(colour)}
                 </span>
 
                 {colourOpen ? (
@@ -930,48 +955,40 @@ const TruckBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Colours
+                    {t("categoriesCommon.allColours")}
                   </button>
 
-                  {availableColours.map(
-                    (itemColour) => (
-                      <button
-                        key={itemColour}
-                        type="button"
-                        onClick={() => {
-                          setColour(
-                            itemColour
-                          );
-                          setColourOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          cursor-pointer
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:px-2
-                          max-[480px]:py-2
-                          max-[480px]:text-xs
-                          ${
-                            colour ===
-                            itemColour
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemColour
-                          .charAt(0)
-                          .toUpperCase() +
-                          itemColour.slice(1)}
-                      </button>
-                    )
-                  )}
+                  {availableColours.map((itemColour) => (
+                    <button
+                      key={itemColour}
+                      type="button"
+                      onClick={() => {
+                        setColour(itemColour);
+                        setColourOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        cursor-pointer
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:px-2
+                        max-[480px]:py-2
+                        max-[480px]:text-xs
+                        ${
+                          colour === itemColour
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {getColourLabel(itemColour)}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -988,9 +1005,7 @@ const TruckBatteries = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => {
-                  setPriceOpen(
-                    (open) => !open
-                  );
+                  setPriceOpen((open) => !open);
                   setBrandOpen(false);
                   setColourOpen(false);
                 }}
@@ -1019,12 +1034,12 @@ const TruckBatteries = (): ReactElement => {
               >
                 <span className="truncate">
                   {price === ""
-                    ? "All Prices"
+                    ? t("categoriesCommon.allPrices")
                     : price === "low"
-                      ? "Low (< 26k)"
+                      ? t("categoriesCommon.priceLow", { threshold: "26k" })
                       : price === "medium"
-                        ? "Medium (26k–35k)"
-                        : "High (> 35k)"}
+                        ? t("categoriesCommon.priceMedium", { range: "26k–35k" })
+                        : t("categoriesCommon.priceHigh", { threshold: "35k" })}
                 </span>
 
                 {priceOpen ? (
@@ -1093,7 +1108,7 @@ const TruckBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Prices
+                    {t("categoriesCommon.allPrices")}
                   </button>
 
                   <button
@@ -1122,7 +1137,7 @@ const TruckBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    Low (&lt; 26k)
+                    {t("categoriesCommon.priceLow", { threshold: "26k" })}
                   </button>
 
                   <button
@@ -1151,7 +1166,7 @@ const TruckBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    Medium (26k–35k)
+                    {t("categoriesCommon.priceMedium", { range: "26k–35k" })}
                   </button>
 
                   <button
@@ -1180,7 +1195,7 @@ const TruckBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    High (&gt; 35k)
+                    {t("categoriesCommon.priceHigh", { threshold: "35k" })}
                   </button>
                 </div>
               )}
@@ -1191,9 +1206,7 @@ const TruckBatteries = (): ReactElement => {
 
       {/* ---------------- Error ---------------- */}
       {error ? (
-        <ErrorState
-          onRetry={fetchBatteries}
-        />
+        <ErrorState onRetry={fetchBatteries} />
       ) : (
         <>
           {/* ---------------- Products Grid ---------------- */}
@@ -1206,13 +1219,9 @@ const TruckBatteries = (): ReactElement => {
             "
           >
             {loading ? (
-              Array.from({ length: 8 }).map(
-                (_, index) => (
-                  <SkeletonCard
-                    key={index}
-                  />
-                )
-              )
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
             ) : items.length ? (
               items.map((item) => (
                 <div
@@ -1235,10 +1244,7 @@ const TruckBatteries = (): ReactElement => {
                   <Link
                     to={`/items/${item.id}`}
                     onClick={(event) =>
-                      handleItemClick(
-                        event,
-                        item.id
-                      )
+                      handleItemClick(event, item.id)
                     }
                     className="
                       flex
@@ -1273,21 +1279,19 @@ const TruckBatteries = (): ReactElement => {
                       "
                     >
                       {item.brand}{" "}
-                      {item.category} for{" "}
-                      {item.vehicle_type}
+                      {translateCategory(item.category)}{" "}
+                      {t("common.for")}{" "}
+                      {translateCategory(item.vehicle_type)}
                     </h4>
 
                     <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
                       KES{" "}
                       {item.buying_price.toLocaleString()}
 
-                      {item.discount_percentage >
-                        0 && (
+                      {item.discount_percentage > 0 && (
                         <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
                           (-
-                          {item.discount_percentage.toFixed(
-                            0
-                          )}
+                          {item.discount_percentage.toFixed(0)}
                           %)
                         </span>
                       )}
@@ -1295,10 +1299,7 @@ const TruckBatteries = (): ReactElement => {
 
                     <button
                       onClick={(event) =>
-                        handleAddToCart(
-                          item,
-                          event
-                        )
+                        handleAddToCart(item, event)
                       }
                       className="
                         rounded-md
@@ -1314,7 +1315,7 @@ const TruckBatteries = (): ReactElement => {
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
@@ -1329,7 +1330,7 @@ const TruckBatteries = (): ReactElement => {
                   text-[#7f0d0d]
                 "
               >
-                No truck batteries found.
+                {t("truckBatteries.noItemsFound")}
               </p>
             )}
           </div>
@@ -1344,20 +1345,18 @@ const TruckBatteries = (): ReactElement => {
                 gap-2
               "
             >
-              {[1, 2, 3, 4].map(
-                (item) => (
-                  <div
-                    key={item}
-                    className="
-                      h-8
-                      w-10
-                      animate-pulse
-                      rounded-md
-                      bg-gray-200
-                    "
-                  />
-                )
-              )}
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="
+                    h-8
+                    w-10
+                    animate-pulse
+                    rounded-md
+                    bg-gray-200
+                  "
+                />
+              ))}
             </div>
           ) : (
             totalPages > 1 && (
@@ -1372,16 +1371,10 @@ const TruckBatteries = (): ReactElement => {
                 "
               >
                 <button
-                  disabled={
-                    currentPage === 1
-                  }
+                  disabled={currentPage === 1}
                   onClick={() =>
-                    setCurrentPage(
-                      (page) =>
-                        Math.max(
-                          page - 1,
-                          1
-                        )
+                    setCurrentPage((page) =>
+                      Math.max(page - 1, 1)
                     )
                   }
                   className="
@@ -1393,13 +1386,13 @@ const TruckBatteries = (): ReactElement => {
                     py-1.5
                     text-sm
                     transition-colors
-                    cursor-pointer
                     hover:bg-gray-100
+                    cursor-pointer
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
@@ -1414,43 +1407,39 @@ const TruckBatteries = (): ReactElement => {
                   </span>
                 )}
 
-                {visiblePages.map(
-                  (page) => (
-                    <button
-                      key={page}
-                      onClick={() =>
-                        setCurrentPage(page)
-                      }
-                      className={
-                        page === currentPage
-                          ? `
-                            rounded
-                            border
-                            border-[#004080]
-                            bg-[#004080]
-                            px-3
-                            py-1.5
-                            text-sm
-                            font-semibold
-                            text-white
-                          `
-                          : `
-                            rounded
-                            border
-                            border-gray-300
-                            bg-white
-                            px-3
-                            py-1.5
-                            text-sm
-                            transition-colors
-                            hover:bg-gray-100
-                          `
-                      }
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
+                {visiblePages.map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={
+                      page === currentPage
+                        ? `
+                          rounded
+                          border
+                          border-[#004080]
+                          bg-[#004080]
+                          px-3
+                          py-1.5
+                          text-sm
+                          font-semibold
+                          text-white
+                        `
+                        : `
+                          rounded
+                          border
+                          border-gray-300
+                          bg-white
+                          px-3
+                          py-1.5
+                          text-sm
+                          transition-colors
+                          hover:bg-gray-100
+                        `
+                    }
+                  >
+                    {page}
+                  </button>
+                ))}
 
                 {visiblePages[
                   visiblePages.length - 1
@@ -1467,17 +1456,10 @@ const TruckBatteries = (): ReactElement => {
                 )}
 
                 <button
-                  disabled={
-                    currentPage ===
-                    totalPages
-                  }
+                  disabled={currentPage === totalPages}
                   onClick={() =>
-                    setCurrentPage(
-                      (page) =>
-                        Math.min(
-                          page + 1,
-                          totalPages
-                        )
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, totalPages)
                     )
                   }
                   className="
@@ -1495,7 +1477,7 @@ const TruckBatteries = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )

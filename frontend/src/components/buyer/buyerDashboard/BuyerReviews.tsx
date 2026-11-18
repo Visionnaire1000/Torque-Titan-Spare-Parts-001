@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef, type FC, type MouseEvent } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import config from "../../../config";
 import { RefreshCw, Star, ThumbsUp, ThumbsDown } from "lucide-react";
 
 
-/* ---------------- Interfaces ---------------- */
 interface Review {
   id: string;
   sparepart_id: string;
@@ -23,6 +23,9 @@ interface Review {
   user_display_name: string;
   rating: number;
   comment: string;
+  translated_comment?: string | null;
+  translation_pending?: boolean;
+  comment_language?: string;
   total_likes: number;
   total_dislikes: number;
   created_at: string;
@@ -32,8 +35,6 @@ interface ErrorStateProps {
   onRetry: () => void;
 }
 
-
-/* ----------------------------- PROFILE CIRCLE ------------------------- */
 const getProfileInitials = (
   displayName: string
 ): string => {
@@ -58,8 +59,7 @@ const getProfileInitials = (
 
   const lastInitial =
     parts[parts.length - 1]
-      .charAt(0)
-      .toUpperCase();
+      .charAt(0).toUpperCase();
 
   return `${firstInitial}${lastInitial}`;
 };
@@ -112,6 +112,8 @@ const ProfileCircle = ({
 }: {
   displayName: string;
 }) => {
+  const { t } = useTranslation();
+
   const initials =
     getProfileInitials(displayName);
 
@@ -133,14 +135,13 @@ const ProfileCircle = ({
         text-white
         ${color}
       `}
-      aria-label={`${displayName} profile`}
+      aria-label={`${displayName} ${t("buyerReviews.profile")}`}
     >
       {initials}
     </div>
   );
- };
+};
 
-/* ---------------- Skeleton Loader ---------------- */
 const SkeletonCard: FC = () => (
   <div
     className="
@@ -168,78 +169,83 @@ const SkeletonCard: FC = () => (
   </div>
 );
 
-/* ---------------- Error State ---------------- */
 const ErrorState: FC<ErrorStateProps> = ({
   onRetry,
-}) => (
-  <div
-    className="
-      flex
-      h-[60vh]
-      flex-col
-      items-center
-      justify-center
-      px-5
-      text-center
-    "
-  >
-    <h2 className="mb-2 text-2xl font-semibold text-gray-900">
-      Something went wrong
-    </h2>
+}) => {
+  const { t } = useTranslation();
 
-    <p
+  return (
+    <div
       className="
-        mb-5
-        max-w-[400px]
-        text-[15px]
-        text-gray-500
-      "
-    >
-      Unable to load reviews. Please check your
-      connection and try again.
-    </p>
-
-    <button
-      type="button"
-      onClick={onRetry}
-      className="
-        inline-flex
+        flex
+        h-[60vh]
+        flex-col
         items-center
-        gap-2
-        rounded-lg
-        bg-gray-900
-        px-4
-        py-2.5
-        text-white
-        transition
-        hover:bg-gray-800
+        justify-center
+        px-5
+        text-center
       "
     >
-      <RefreshCw size={18} />
-      Retry
-    </button>
-  </div>
-);
+      <h2 className="mb-2 text-2xl font-semibold text-gray-900">
+        {t("buyerReviews.somethingWentWrong")}
+      </h2>
 
-/* ---------------- Empty State ---------------- */
-const EmptyState: FC = () => (
-  <div
-    className="
-      mt-[90px]
-      py-10
-      text-center
-      text-base
-      font-medium
-      text-red-600
-    "
-  >
-    No reviews yet.
-  </div>
-);
+      <p
+        className="
+          mb-5
+          max-w-[400px]
+          text-[15px]
+          text-gray-500
+        "
+      >
+        {t("buyerReviews.loadFailed")}
+      </p>
 
-/* ---------------- Component ---------------- */
+      <button
+        type="button"
+        onClick={onRetry}
+        className="
+          inline-flex
+          items-center
+          gap-2
+          rounded-lg
+          bg-gray-900
+          px-4
+          py-2.5
+          text-white
+          transition
+          hover:bg-gray-800
+        "
+      >
+        <RefreshCw size={18} />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
+
+const EmptyState: FC = () => {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className="
+        mt-[90px]
+        py-10
+        text-center
+        text-base
+        font-medium
+        text-red-600
+      "
+    >
+      {t("buyerReviews.noReviews")}
+    </div>
+  );
+};
+
 const BuyerReviews: FC = () => {
   const { authFetch, user } = useAuth();
+  const { t, i18n } = useTranslation();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -272,7 +278,45 @@ const BuyerReviews: FC = () => {
   const reviewsRef =
     useRef<Review[]>([]);
 
-  /* ---------------- Helpers ---------------- */
+  const translateCategory = (value: string): string => {
+    const normalized = value.trim().toLowerCase();
+
+    const aliases: Record<string, string> = {
+      tyre: "tyre",
+      tyres: "tyre",
+      rim: "rim",
+      rims: "rim",
+      battery: "battery",
+      batteries: "battery",
+      filter: "filter",
+      filters: "filter",
+      "oil filter": "filter",
+      "oil filters": "filter",
+      sedan: "sedan",
+      saloon: "sedan",
+      suv: "suv",
+      truck: "truck",
+      lorry: "truck",
+      bus: "bus",
+    };
+
+    const key = aliases[normalized] ?? normalized;
+    const translationKey = `productCategories.${key}`;
+    const translated = t(translationKey);
+
+    return translated === translationKey ? value : translated;
+  };
+
+  const getDisplayName = (displayName?: string): string => {
+    const name = displayName?.trim();
+
+    if (!name || name.toLowerCase() === "user") {
+      return t("buyerReviews.user");
+    }
+
+    return name;
+  };
+
   const formatDate = (
     dateString: string
   ): string => {
@@ -305,15 +349,23 @@ const BuyerReviews: FC = () => {
     const previousMap = new Map(
       previous.map((review) => [
         review.id,
-        review.created_at,
+        [
+          review.created_at,
+          review.comment,
+          review.translated_comment,
+        ],
       ])
     );
 
     for (const review of newData) {
       if (
         !previousMap.has(review.id) ||
-        previousMap.get(review.id) !==
-          review.created_at
+        previousMap.get(review.id)?.[0] !==
+          review.created_at ||
+        previousMap.get(review.id)?.[1] !==
+          review.comment ||
+        previousMap.get(review.id)?.[2] !==
+          review.translated_comment
       ) {
         return true;
       }
@@ -322,7 +374,6 @@ const BuyerReviews: FC = () => {
     return false;
   };
 
-  /* ---------------- Fetch Reviews ---------------- */
   const fetchReviews = async (
     isInitial: boolean = false
   ): Promise<void> => {
@@ -341,8 +392,17 @@ const BuyerReviews: FC = () => {
     setError("");
 
     try {
+      const requestedLanguage =
+        i18n.language.split("-")[0];
+
+      const language = ["en", "fr", "sw"].includes(
+        requestedLanguage
+      )
+        ? requestedLanguage
+        : "en";
+
       const res = await authFetch(
-        `${config.API_BASE_URL}/buyer-reviews/`
+        `${config.API_BASE_URL}/buyer-reviews/?lang=${encodeURIComponent(language)}`
       );
 
       if (!res.ok) {
@@ -374,7 +434,7 @@ const BuyerReviews: FC = () => {
       const message =
         err instanceof Error
           ? err.message
-          : "Failed to fetch reviews";
+          : t("buyerReviews.fetchFailed");
 
       setError(message);
     } finally {
@@ -384,7 +444,6 @@ const BuyerReviews: FC = () => {
     }
   };
 
-  /* ---------------- Seen Reviews ---------------- */
   const markReviewsAsSeen = (
     data: Review[]
   ): void => {
@@ -424,7 +483,6 @@ const BuyerReviews: FC = () => {
     );
   };
 
-  /* ---------------- Effects ---------------- */
   useEffect(() => {
     void fetchReviews(true);
 
@@ -435,7 +493,7 @@ const BuyerReviews: FC = () => {
 
     return () =>
       window.clearInterval(interval);
-  }, [user]);
+  }, [user, i18n.language]);
 
   useEffect(() => {
     if (reviews.length) {
@@ -443,7 +501,6 @@ const BuyerReviews: FC = () => {
     }
   }, [reviews]);
 
-  /* ---------------- Restore Scroll Position ---------------- */
   useEffect(() => {
     if (
       loading ||
@@ -577,7 +634,6 @@ const BuyerReviews: FC = () => {
     };
   }, [loading]);
 
-  /* ---------------- Review Navigation ---------------- */
   const handleReviewClick = (
     event: MouseEvent<HTMLAnchorElement>,
     sparepartId: string
@@ -592,7 +648,6 @@ const BuyerReviews: FC = () => {
     });
   };
 
-  /* ---------------- Newest To Oldest ---------------- */
   const orderedReviews = [
     ...reviews,
   ].sort(
@@ -605,7 +660,6 @@ const BuyerReviews: FC = () => {
       ).getTime()
   );
 
-  /* ---------------- Loading ---------------- */
   if (loading) {
     return (
       <div
@@ -635,7 +689,6 @@ const BuyerReviews: FC = () => {
     );
   }
 
-  /* ---------------- Error ---------------- */
   if (error) {
     return (
       <ErrorState
@@ -646,7 +699,6 @@ const BuyerReviews: FC = () => {
     );
   }
 
-  /* ---------------- Empty ---------------- */
   if (!reviews.length) {
     return <EmptyState />;
   }
@@ -655,7 +707,7 @@ const BuyerReviews: FC = () => {
     <div
       className="
         mx-auto
-        mt-20
+        mt-30
         mb-10
         flex
         max-w-[900px]
@@ -668,17 +720,15 @@ const BuyerReviews: FC = () => {
         max-[768px]:mx-4
         max-[768px]:mt-16
         max-[768px]:p-5
-        max-[480px]:mt-[100px]
+        max-[480px]:mt-[140px]
         max-[480px]:p-4
       "
     >
-      {/* ---------- Summary ---------- */}
       <div className="text-[15px] font-medium text-gray-700">
-        <strong>Total Reviews:</strong>{" "}
+        <strong>{t("buyerReviews.totalReviews")}:</strong>{" "}
         {reviews.length}
       </div>
 
-      {/* ---------- Reviews ---------- */}
       {orderedReviews.map(
         (review) => (
           <Link
@@ -705,13 +755,12 @@ const BuyerReviews: FC = () => {
                 hover:shadow-md
               "
             >
-              {/* ---------- Header ---------- */}
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <ProfileCircle
                     displayName={
                       review.user_display_name?.trim() ||
-                      "User"
+                      t("buyerReviews.user")
                     }
                   />
 
@@ -725,8 +774,7 @@ const BuyerReviews: FC = () => {
                         text-[#004080]
                       "
                     >
-                      {review.user_display_name?.trim() ||
-                        "User"}
+                      {getDisplayName(review.user_display_name)}
                     </span>
 
                     <span className="text-sm text-gray-600">
@@ -738,7 +786,6 @@ const BuyerReviews: FC = () => {
                 </div>
               </div>
 
-              {/* ---------- Image ---------- */}
               {review.sparepart?.image_url && (
                 <div
                   className="
@@ -753,7 +800,7 @@ const BuyerReviews: FC = () => {
                       review.sparepart
                         .image_url
                     }
-                    alt={`${review.sparepart.brand} spare part`}
+                    alt={`${review.sparepart.brand} ${t("buyerReviews.sparePart")}`}
                     className="
                       max-h-[13%]
                       max-w-[13%]
@@ -772,19 +819,10 @@ const BuyerReviews: FC = () => {
                       max-[480px]:text-xl
                     "
                   >
-                    {
-                      review.sparepart
-                        .brand
-                    }{" "}
-                    {
-                      review.sparepart
-                        .category
-                    }{" "}
-                    for{" "}
-                    {
-                      review.sparepart
-                        .vehicle_type
-                    }
+                    {review.sparepart.brand}{" "}
+                    {translateCategory(review.sparepart.category)}{" "}
+                    {t("common.for")}{" "}
+                    {translateCategory(review.sparepart.vehicle_type)}
                   </p>
 
                   <p className="mb-2 text-lg font-semibold text-red-600">
@@ -806,7 +844,6 @@ const BuyerReviews: FC = () => {
                 </div>
               )}
 
-              {/* ---------- Rating ---------- */}
               <div
                 className="
                   mb-2
@@ -841,8 +878,7 @@ const BuyerReviews: FC = () => {
                 </span>
               </div>
 
-              {/* ---------- Comment ---------- */}
-              {review.comment && (
+              {(review.translated_comment || review.comment) && (
                 <p
                   className="
                     mb-3
@@ -851,11 +887,10 @@ const BuyerReviews: FC = () => {
                     text-gray-700
                   "
                 >
-                  {review.comment}
+                  {review.translated_comment || review.comment}
                 </p>
               )}
 
-              {/* ---------- Reactions ---------- */}
               <div
                 className="
                   flex

@@ -1,28 +1,24 @@
+import logging
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from datetime import timedelta
-
-from django.db import transaction
-from django.shortcuts import get_object_or_404
-from django.utils import timezone
-
+from django.db import transaction, IntegrityError
 from django.db.models import Sum
-from utils.tasks import (send_order_status_email_task,)
 from django.db.models.functions import (
     TruncDay,
     TruncWeek,
     TruncMonth,
     TruncYear,
 )
+from django.http import Http404
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import serializers, status
-
-from utils.cloudflare import upload_image_to_r2, is_r2_image_url 
-from utils.tasks import cleanup_r2_image, send_account_unlocked_email_task
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from app.models import (
     Users,
@@ -32,7 +28,23 @@ from app.models import (
     Reviews,
 )
 
-import logging
+from utils.cloudflare import (
+    upload_image_to_r2,
+    is_r2_image_url,
+)
+
+from utils.tasks import (
+    send_admin_credentials_email_task,
+    send_order_status_email_task,
+    cleanup_r2_image,
+    send_account_unlocked_email_task,
+)
+
+from .buyerViews import (
+    get_requested_language,
+    detect_comment_language,
+    get_cached_translation_result,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +87,7 @@ def get_user_display_name(user):
     profile = getattr(
         user,
         "profile",
-        None
+        None,
     )
 
     if profile:
@@ -92,16 +104,63 @@ def get_user_display_name(user):
 
 # --------------------------- SERIALIZERS ----------------------------------------------
 class SparePartsSerializer(serializers.ModelSerializer):
+    translated_description = serializers.SerializerMethodField()
+    translation_pending = serializers.SerializerMethodField()
+
     class Meta:
         model = SpareParts
         fields = "__all__"
 
+    def _get_description_translation(self, obj):
+        cache_key = ("description_translation", obj.pk)
+
+        if cache_key in self._translation_results:
+            return self._translation_results[cache_key]
+
+        request = self.context.get("request")
+        description = obj.description or ""
+
+        if request is None or not description.strip():
+            result = (description, False)
+        else:
+            target_language = get_requested_language(request)
+            source_language = detect_comment_language(description)
+
+            result = get_cached_translation_result(
+                text=description,
+                source_language=source_language,
+                target_language=target_language,
+            )
+
+        self._translation_results[cache_key] = result
+        return result
+
+    def get_translated_description(self, obj):
+        translated_text, _ = self._get_description_translation(obj)
+        return translated_text
+
+    def get_translation_pending(self, obj):
+        _, pending = self._get_description_translation(obj)
+        return pending
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._translation_results = {}
+
 
 class ReviewsSerializer(serializers.ModelSerializer):
+    translated_comment = serializers.SerializerMethodField()
+    translation_pending = serializers.SerializerMethodField()
+
     class Meta:
         model = Reviews
         fields = "__all__"
 
+    def get_translated_comment(self, obj):
+        return obj.comment or ""
+
+    def get_translation_pending(self, obj):
+        return False
 
 
 # --------------------------- ADMIN MANAGEMENT ----------------------------------------------
@@ -111,7 +170,6 @@ class CreateAdminView(APIView):
     def post(self, request):
         current_user = request.user
 
-        # --------------------------- SUPER ADMIN CHECK ---------------------------
         if current_user.role != "super_admin":
             return Response(
                 {
@@ -125,39 +183,17 @@ class CreateAdminView(APIView):
 
         data = request.data or {}
 
-        email = data.get("email")
-        password = data.get("password")
-        role = data.get(
-            "role",
-            "admin",
-        )
+        email = str(data.get("email") or "").strip().lower()
+        password = data.get("password") or ""
+        role = data.get("role", "admin")
 
         if not email or not password:
             return Response(
-                {
-                    "error": (
-                        "Email and password "
-                        "are required"
-                    )
-                },
+                {"error": "Email and password are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        email = str(email).strip().lower()
-
-        if not email:
-            return Response(
-                {
-                    "error": "Email cannot be empty"
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # --------------------------- ROLE VALIDATION ---------------------------
-        if role not in [
-            "admin",
-            "super_admin",
-        ]:
+        if role not in ["admin", "super_admin"]:
             return Response(
                 {
                     "error": (
@@ -168,85 +204,81 @@ class CreateAdminView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- EMAIL CHECK ---------------------------
-        if Users.objects.filter(
-            email=email
-        ).exists():
-            return Response(
-                {
-                    "error": "Email already exists"
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
-
         try:
             with transaction.atomic():
-                admin_user = Users(
-                    email=email,
-                    role=role,
 
-                    email_verified=True,
+                if Users.objects.filter(email=email).exists():
+                    return Response(
+                        {"error": "Email already exists"},
+                        status=status.HTTP_409_CONFLICT,
+                    )
 
-                    email_otp_hash=None,
-                    email_otp_expires=None,
-                    email_otp_last_sent=None,
-                    email_otp_resend_count=0,
-                    email_otp_attempts=0,
-                    email_otp_locked_until=None,
+                extra_fields = {
+                    "email_verified": True,
+                    "initial_password_changed": False,
+                }
 
-                    # Initial password must be changed within the expiry period.
-                    initial_password_changed=False,
-                )
-
-                admin_user.set_password(
-                    password
-                )
+                if role == "admin":
+                    admin_user = Users.objects.create_admin(
+                        email=email,
+                        password=password,
+                        **extra_fields,
+                    )
+                else:
+                    admin_user = Users.objects.create_super_admin(
+                        email=email,
+                        password=password,
+                        **extra_fields,
+                    )
 
                 admin_user.set_initial_admin_password_expiry()
 
-                admin_user.save()
+                admin_id = admin_user.id
+                admin_email = admin_user.email
+                admin_role = admin_user.role
+                display_name = admin_user.display_name
 
-            # --------------------------- SEND CREDENTIALS EMAIL ---------------------------
-            from utils.tasks import (
-                send_admin_credentials_email_task,
-            )
+                def send_credentials():
+                    try:
+                        send_admin_credentials_email_task.delay(
+                            admin_email,
+                            password,
+                            admin_role,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to queue admin credentials email "
+                            "for %s.",
+                            admin_email,
+                        )
 
-            send_admin_credentials_email_task.delay(
-                admin_user.email,
-                password,
-                admin_user.role,
-            )
+                transaction.on_commit(send_credentials)
 
             return Response(
                 {
                     "message": (
-                        f"{role} account created and "
-                        "verified successfully. "
-                        "Initial password must be changed "
-                        "within 12 hours."
+                        f"{admin_role} account created and verified successfully. "
+                        "Initial password must be changed within 12 hours."
                     ),
-                    "id": str(
-                        admin_user.id
-                    ),
-                    "email": admin_user.email,
-                    "display_name": (
-                        admin_user.display_name
-                    ),
-                    "role": admin_user.role,
+                    "id": str(admin_id),
+                    "email": admin_email,
+                    "display_name": display_name,
+                    "role": admin_role,
                 },
                 status=status.HTTP_201_CREATED,
             )
 
-        except Exception as exc:
-            print(
-                "Create admin error:",
-                exc,
+        except IntegrityError:
+            return Response(
+                {"error": "Email already exists"},
+                status=status.HTTP_409_CONFLICT,
             )
 
+        except Exception:
+            logger.exception("Create admin error.")
+
             return Response(
-                {
-                    "error": "Internal server error"
-                },
+                {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -260,10 +292,7 @@ class ListAdminsView(APIView):
         if current_user.role != "super_admin":
             return Response(
                 {
-                    "error": (
-                        "Only super_admin can "
-                        "list admins"
-                    )
+                    "error": "Only super_admin can list admins"
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
@@ -276,13 +305,8 @@ class ListAdminsView(APIView):
                     "super_admin",
                 ]
             )
-            .exclude(
-                id=current_user.id
-            )
-            .order_by(
-                "role",
-                "email",
-            )
+            .exclude(id=current_user.id)
+            .order_by("role", "email")
         )
 
         admins_list = []
@@ -303,9 +327,7 @@ class ListAdminsView(APIView):
             )
 
         return Response(
-            {
-                "admins": admins_list
-            },
+            {"admins": admins_list},
             status=status.HTTP_200_OK,
         )
 
@@ -320,82 +342,105 @@ class UnlockAdminAccountView(APIView):
             return Response(
                 {
                     "error": (
-                        "Only super_admin can "
-                        "unlock accounts"
+                        "Only super_admin can unlock accounts"
                     )
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        admin_user = Users.objects.filter(
-            pk=admin_id,
-            role__in=[
-                "admin",
-                "super_admin",
-            ],
-        ).first()
-
-        if not admin_user:
-            return Response(
-                {
-                    "error": (
-                        "Admin account not found"
+        try:
+            with transaction.atomic():
+                admin_user = (
+                    Users.objects
+                    .select_for_update()
+                    .filter(
+                        pk=admin_id,
+                        role__in=["admin", "super_admin"],
                     )
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if admin_user.id == current_user.id:
-            return Response(
-                {
-                    "error": (
-                        "You cannot unlock your "
-                        "own account here."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        admin_user.is_active = True
-
-        if not admin_user.initial_password_changed:
-            admin_user.initial_password_expires = (
-                timezone.now()
-                + timedelta(
-                    hours=Users.INITIAL_PASSWORD_EXPIRY_HOURS
+                    .first()
                 )
+
+                if not admin_user:
+                    return Response(
+                        {"error": "Admin account not found"},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                if admin_user.id == current_user.id:
+                    return Response(
+                        {
+                            "error": (
+                                "You cannot unlock your own "
+                                "account here."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                admin_user.is_active = True
+
+                if not admin_user.initial_password_changed:
+                    admin_user.initial_password_expires = (
+                        timezone.now()
+                        + timedelta(
+                            hours=Users.INITIAL_PASSWORD_EXPIRY_HOURS
+                        )
+                    )
+
+                admin_user.save(
+                    update_fields=[
+                        "is_active",
+                        "initial_password_expires",
+                    ]
+                )
+
+                admin_id_value = str(admin_user.id)
+                admin_email = admin_user.email
+                admin_role = admin_user.role
+                initial_password_expired = (
+                    admin_user.has_expired_initial_password()
+                )
+                is_locked = not admin_user.is_active
+
+                def send_unlocked_email():
+                    try:
+                        send_account_unlocked_email_task.delay(
+                            admin_email,
+                            admin_role,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to queue account-unlocked email "
+                            "for %s.",
+                            admin_email,
+                        )
+
+                transaction.on_commit(send_unlocked_email)
+
+            return Response(
+                {
+                    "message": (
+                        f"{admin_role} "
+                        f"{admin_email} "
+                        "unlocked successfully"
+                    ),
+                    "id": admin_id_value,
+                    "email": admin_email,
+                    "role": admin_role,
+                    "is_active": True,
+                    "initial_password_expired": initial_password_expired,
+                    "is_locked": is_locked,
+                },
+                status=status.HTTP_200_OK,
             )
 
-        admin_user.save(
-            update_fields=[
-                "is_active",
-                "initial_password_expires",
-            ]
-        )
+        except Exception:
+            logger.exception("Failed to unlock admin account %s.", admin_id)
 
-        send_account_unlocked_email_task.delay(
-            admin_user.email,
-            admin_user.role,
-        )
-
-        return Response(
-            {
-                "message": (
-                    f"{admin_user.role} "
-                    f"{admin_user.email} "
-                    "unlocked successfully"
-                ),
-                "id": str(admin_user.id),
-                "email": admin_user.email,
-                "role": admin_user.role,
-                "is_active": admin_user.is_active,
-                "initial_password_expired": (
-                    admin_user.has_expired_initial_password()
-                ),
-                "is_locked": not admin_user.is_active,
-            },
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class DeleteAdminView(APIView):
@@ -407,62 +452,98 @@ class DeleteAdminView(APIView):
         if current_user.role != "super_admin":
             return Response(
                 {
-                    "error": (
-                        "Only super_admin can "
-                        "delete admins"
-                    )
+                    "error": "Only super_admin can delete admins"
                 },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        admin_user = Users.objects.filter(
-            pk=admin_id,
-            role__in=[
-                "admin",
-                "super_admin",
-            ],
-        ).first()
-
-        if not admin_user:
-            return Response(
-                {
-                    "error": (
-                        "Admin not found or cannot "
-                        "delete this user"
+        try:
+            with transaction.atomic():
+                admin_user = (
+                    Users.objects
+                    .select_for_update()
+                    .filter(
+                        pk=admin_id,
+                        role__in=["admin", "super_admin"],
                     )
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        if admin_user.id == current_user.id:
-            return Response(
-                {
-                    "error": (
-                        "You cannot delete your "
-                        "own account here."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        email = admin_user.email
-        role = admin_user.role
-
-        admin_user.delete()
-
-        return Response(
-            {
-                "message": (
-                    f"{role} {email} "
-                    "deleted successfully"
+                    .first()
                 )
-            },
-            status=status.HTTP_200_OK,
-        )
+
+                if not admin_user:
+                    return Response(
+                        {
+                            "error": (
+                                "Admin not found or cannot "
+                                "delete this user"
+                            )
+                        },
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+                if admin_user.id == current_user.id:
+                    return Response(
+                        {
+                            "error": (
+                                "You cannot delete your own "
+                                "account here."
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                email = admin_user.email
+                role = admin_user.role
+
+                admin_user.delete()
+
+            return Response(
+                {
+                    "message": (
+                        f"{role} {email} deleted successfully"
+                    )
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception:
+            logger.exception("Failed to delete admin account %s.", admin_id)
+
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
+# --------------------------- SUPPORT FOR FRENCH SEARCHES ------------------------
+FRENCH_CATEGORY_ALIASES = {
+    "pneu": "tyre",
+    "pneus": "tyre",
+    "pneu de voiture": "tyre",
+    "pneus de voiture": "tyre",
+    "jante": "rim",
+    "jantes": "rim",
+    "batterie": "battery",
+    "batteries": "battery",
+    "filtre à huile": "oil filter",
+    "filtre huile": "oil filter",
+}
 
-# ------------------------------ Spare Parts Management -------------------------------------------
+
+def normalize_sparepart_category(category):
+    if not category:
+        return ""
+
+    normalized = " ".join(
+        str(category).strip().lower().split()
+    )
+
+    return FRENCH_CATEGORY_ALIASES.get(
+        normalized,
+        normalized,
+    )
+
+
+# ------------------------------ SPARE PARTS MANAGEMENT -------------------------------------------
 class AdminSparePartsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -493,6 +574,9 @@ class AdminSparePartsView(APIView):
         ):
             return None
 
+    def _normalize_category(self, value):
+        return normalize_sparepart_category(value)
+
     def _schedule_r2_image_cleanup(self, image_url):
         if not image_url or not is_r2_image_url(image_url):
             return
@@ -504,13 +588,10 @@ class AdminSparePartsView(APIView):
                 "Failed to schedule Cloudflare R2 image cleanup."
             )
 
-    # ---------------- CREATE ----------------
     def post(self, request):
         if not self._check_admin(request):
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -518,7 +599,6 @@ class AdminSparePartsView(APIView):
         image_url = None
 
         try:
-            # ---------------- REQUIRED FIELDS ----------------
             required_fields = [
                 "category",
                 "vehicle_type",
@@ -550,7 +630,6 @@ class AdminSparePartsView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # ---------------- PRICE VALIDATION ----------------
             buying_price = self._normalize_price(
                 data.get("buying_price")
             )
@@ -577,14 +656,13 @@ class AdminSparePartsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # ---------------- IMAGE UPLOAD ----------------
             image_file = request.FILES.get("image")
-
             image_url = upload_image_to_r2(image_file)
 
-            # ---------------- CREATE ----------------
             spare = SpareParts.objects.create(
-                category=data.get("category"),
+                category=self._normalize_category(
+                    data.get("category")
+                ),
                 vehicle_type=data.get("vehicle_type"),
                 brand=data.get("brand"),
                 colour=data.get("colour"),
@@ -597,7 +675,10 @@ class AdminSparePartsView(APIView):
             return Response(
                 {
                     "message": "Spare part created successfully",
-                    "sparepart": SparePartsSerializer(spare).data,
+                    "sparepart": SparePartsSerializer(
+                        spare,
+                        context={"request": request},
+                    ).data,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -607,9 +688,7 @@ class AdminSparePartsView(APIView):
                 self._schedule_r2_image_cleanup(image_url)
 
             return Response(
-                {
-                    "error": str(exc)
-                },
+                {"error": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -620,19 +699,14 @@ class AdminSparePartsView(APIView):
             logger.exception("Failed to create spare part.")
 
             return Response(
-                {
-                    "error": str(exc)
-                },
+                {"error": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    # ---------------- UPDATE ----------------
     def put(self, request, spare_id):
         if not self._check_admin(request):
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -642,14 +716,12 @@ class AdminSparePartsView(APIView):
         )
 
         data = request.data
-
         old_image_url = spare.image
         new_image_url = None
 
         try:
             changes_detected = False
 
-            # ---------------- TEXT FIELDS ----------------
             text_fields = [
                 "category",
                 "vehicle_type",
@@ -662,9 +734,30 @@ class AdminSparePartsView(APIView):
                 if field not in data:
                     continue
 
-                new_value = self._normalize_value(
-                    data.get(field)
-                )
+                if field == "category":
+                    new_value = self._normalize_category(
+                        data.get(field)
+                    )
+                else:
+                    new_value = self._normalize_value(
+                        data.get(field)
+                    )
+
+                if field in [
+                    "category",
+                    "vehicle_type",
+                    "brand",
+                    "colour",
+                ] and not new_value:
+                    return Response(
+                        {
+                            "error": (
+                                f"{field.replace('_', ' ').capitalize()} "
+                                "cannot be empty"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
                 current_value = self._normalize_value(
                     getattr(spare, field)
@@ -672,14 +765,12 @@ class AdminSparePartsView(APIView):
 
                 if new_value != current_value:
                     changes_detected = True
-
                     setattr(
                         spare,
                         field,
-                        data.get(field),
+                        new_value,
                     )
 
-            # ---------------- PRICE FIELDS ----------------
             price_fields = [
                 "buying_price",
                 "marked_price",
@@ -714,14 +805,8 @@ class AdminSparePartsView(APIView):
 
                 if value != current_value:
                     changes_detected = True
+                    setattr(spare, field, value)
 
-                    setattr(
-                        spare,
-                        field,
-                        value,
-                    )
-
-            # ---------------- IMAGE FIELD ----------------
             image_file = request.FILES.get("image")
 
             if image_file:
@@ -732,7 +817,6 @@ class AdminSparePartsView(APIView):
                 spare.image = new_image_url
                 changes_detected = True
 
-            # ---------------- NO CHANGES ----------------
             if not changes_detected:
                 return Response(
                     {
@@ -745,17 +829,18 @@ class AdminSparePartsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # ---------------- SAVE ----------------
             spare.save()
 
-            # Deletes the old image only after the database update succeeds.
             if new_image_url and old_image_url != new_image_url:
                 self._schedule_r2_image_cleanup(old_image_url)
 
             return Response(
                 {
                     "message": "Spare part updated successfully",
-                    "sparepart": SparePartsSerializer(spare).data,
+                    "sparepart": SparePartsSerializer(
+                        spare,
+                        context={"request": request},
+                    ).data,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -765,9 +850,7 @@ class AdminSparePartsView(APIView):
                 self._schedule_r2_image_cleanup(new_image_url)
 
             return Response(
-                {
-                    "error": str(exc)
-                },
+                {"error": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -781,19 +864,14 @@ class AdminSparePartsView(APIView):
             )
 
             return Response(
-                {
-                    "error": str(exc)
-                },
+                {"error": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    # ---------------- DELETE ----------------
     def delete(self, request, spare_id):
         if not self._check_admin(request):
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -807,7 +885,6 @@ class AdminSparePartsView(APIView):
         try:
             spare.delete()
 
-            # Images hosted by other CDNs are not deleted.
             self._schedule_r2_image_cleanup(image_url)
 
             return Response(
@@ -824,13 +901,11 @@ class AdminSparePartsView(APIView):
             )
 
             return Response(
-                {
-                    "error": str(exc)
-                },
+                {"error": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        
+
 # --------------------------- ADMIN REVIEWS ----------------------------------------------
 class AdminReviewsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -843,9 +918,7 @@ class AdminReviewsView(APIView):
             "super_admin",
         ]:
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -861,32 +934,26 @@ class AdminReviewsView(APIView):
                 "likes__user",
                 "likes__user__profile",
             )
-            .order_by(
-                "-created_at"
-            )
+            .order_by("-created_at")
         )
 
         result = []
 
         for review in reviews:
-            review_dict = (
-                ReviewsSerializer(
-                    review
-                ).data
-            )
+            review_dict = ReviewsSerializer(
+                review,
+                context={"request": request},
+            ).data
 
-            review_dict["sparepart_id"] = (
-                str(
-                    review.sparepart_id
-                )
+            review_dict["sparepart_id"] = str(
+                review.sparepart_id
             )
 
             sparepart = review.sparepart
 
             review_dict["sparepart_image"] = (
                 sparepart.image
-                if sparepart
-                and sparepart.image
+                if sparepart and sparepart.image
                 else None
             )
 
@@ -897,18 +964,11 @@ class AdminReviewsView(APIView):
             )
 
             review_dict["user_email"] = (
-                user.email
-                if user
-                else ""
+                user.email if user else ""
             )
 
-            review_dict["total_likes"] = (
-                review.total_likes
-            )
-
-            review_dict["total_dislikes"] = (
-                review.total_dislikes
-            )
+            review_dict["total_likes"] = review.total_likes
+            review_dict["total_dislikes"] = review.total_dislikes
 
             review_dict["created_at"] = (
                 review.created_at.isoformat()
@@ -920,13 +980,9 @@ class AdminReviewsView(APIView):
 
             review_dict["likes"] = [
                 {
-                    "user_id": str(
-                        reaction.user_id
-                    ),
-                    "user_display_name": (
-                        get_user_display_name(
-                            reaction.user
-                        )
+                    "user_id": str(reaction.user_id),
+                    "user_display_name": get_user_display_name(
+                        reaction.user
                     ),
                     "is_like": True,
                 }
@@ -936,13 +992,9 @@ class AdminReviewsView(APIView):
 
             review_dict["dislikes"] = [
                 {
-                    "user_id": str(
-                        reaction.user_id
-                    ),
-                    "user_display_name": (
-                        get_user_display_name(
-                            reaction.user
-                        )
+                    "user_id": str(reaction.user_id),
+                    "user_display_name": get_user_display_name(
+                        reaction.user
                     ),
                     "is_like": False,
                 }
@@ -950,9 +1002,7 @@ class AdminReviewsView(APIView):
                 if not reaction.is_like
             ]
 
-            result.append(
-                review_dict
-            )
+            result.append(review_dict)
 
         return Response(
             result,
@@ -971,9 +1021,7 @@ class AdminReviewsBySparePartView(APIView):
             "super_admin",
         ]:
             return Response(
-                {
-                    "error": "Unauthorized"
-                },
+                {"error": "Unauthorized"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -988,27 +1036,20 @@ class AdminReviewsBySparePartView(APIView):
                 "likes__user",
                 "likes__user__profile",
             )
-            .filter(
-                sparepart_id=sparepart_id
-            )
-            .order_by(
-                "-created_at"
-            )
+            .filter(sparepart_id=sparepart_id)
+            .order_by("-created_at")
         )
 
         result = []
 
         for review in reviews:
-            review_dict = (
-                ReviewsSerializer(
-                    review
-                ).data
-            )
+            review_dict = ReviewsSerializer(
+                review,
+                context={"request": request},
+            ).data
 
-            review_dict["sparepart_id"] = (
-                str(
-                    review.sparepart_id
-                )
+            review_dict["sparepart_id"] = str(
+                review.sparepart_id
             )
 
             user = review.user
@@ -1018,18 +1059,11 @@ class AdminReviewsBySparePartView(APIView):
             )
 
             review_dict["user_email"] = (
-                user.email
-                if user
-                else ""
+                user.email if user else ""
             )
 
-            review_dict["total_likes"] = (
-                review.total_likes
-            )
-
-            review_dict["total_dislikes"] = (
-                review.total_dislikes
-            )
+            review_dict["total_likes"] = review.total_likes
+            review_dict["total_dislikes"] = review.total_dislikes
 
             review_dict["created_at"] = (
                 review.created_at.isoformat()
@@ -1041,13 +1075,9 @@ class AdminReviewsBySparePartView(APIView):
 
             review_dict["likes"] = [
                 {
-                    "user_id": str(
-                        reaction.user_id
-                    ),
-                    "user_display_name": (
-                        get_user_display_name(
-                            reaction.user
-                        )
+                    "user_id": str(reaction.user_id),
+                    "user_display_name": get_user_display_name(
+                        reaction.user
                     ),
                     "is_like": True,
                 }
@@ -1057,13 +1087,9 @@ class AdminReviewsBySparePartView(APIView):
 
             review_dict["dislikes"] = [
                 {
-                    "user_id": str(
-                        reaction.user_id
-                    ),
-                    "user_display_name": (
-                        get_user_display_name(
-                            reaction.user
-                        )
+                    "user_id": str(reaction.user_id),
+                    "user_display_name": get_user_display_name(
+                        reaction.user
                     ),
                     "is_like": False,
                 }
@@ -1071,9 +1097,7 @@ class AdminReviewsBySparePartView(APIView):
                 if not reaction.is_like
             ]
 
-            result.append(
-                review_dict
-            )
+            result.append(review_dict)
 
         return Response(
             result,
@@ -1093,9 +1117,7 @@ class ReviewsAnalyticsView(APIView):
             "super_admin",
         ]:
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1110,17 +1132,9 @@ class ReviewsAnalyticsView(APIView):
         analytics = {}
 
         for sparepart in spareparts:
-            vehicle_type = (
-                sparepart.vehicle_type
-            )
-
-            category = (
-                sparepart.category
-            )
-
-            brand = (
-                sparepart.brand
-            )
+            vehicle_type = sparepart.vehicle_type
+            category = sparepart.category
+            brand = sparepart.brand
 
             key = (
                 vehicle_type,
@@ -1130,32 +1144,23 @@ class ReviewsAnalyticsView(APIView):
 
             if key not in analytics:
                 analytics[key] = {
-                    "vehicle_type": (
-                        vehicle_type
-                    ),
+                    "vehicle_type": vehicle_type,
                     "category": category,
                     "brand": brand,
                     "total_reviews": 0,
                     "total_rating": 0.0,
                 }
 
-            total_reviews = (
-                sparepart.total_reviews
-            )
+            total_reviews = sparepart.total_reviews
 
             average_rating = float(
                 sparepart.average_rating or 0
             )
 
-            analytics[key][
-                "total_reviews"
-            ] += total_reviews
+            analytics[key]["total_reviews"] += total_reviews
 
-            analytics[key][
-                "total_rating"
-            ] += (
-                average_rating
-                * total_reviews
+            analytics[key]["total_rating"] += (
+                average_rating * total_reviews
             )
 
         grouped = {}
@@ -1168,68 +1173,45 @@ class ReviewsAnalyticsView(APIView):
 
             if group_key not in grouped:
                 grouped[group_key] = {
-                    "vehicle_type": (
-                        item["vehicle_type"]
-                    ),
-                    "category": (
-                        item["category"]
-                    ),
+                    "vehicle_type": item["vehicle_type"],
+                    "category": item["category"],
                     "brands": [],
                 }
 
-            total_reviews = (
-                item["total_reviews"]
-            )
+            total_reviews = item["total_reviews"]
 
             average_rating = (
-                item["total_rating"]
-                / total_reviews
+                item["total_rating"] / total_reviews
                 if total_reviews > 0
                 else 0.0
             )
 
-            grouped[group_key][
-                "brands"
-            ].append(
+            grouped[group_key]["brands"].append(
                 {
                     "brand": item["brand"],
                     "average_rating": round(
                         average_rating,
                         1,
                     ),
-                    "total_reviews": (
-                        total_reviews
-                    ),
+                    "total_reviews": total_reviews,
                 }
             )
 
-        result = list(
-            grouped.values()
-        )
+        result = list(grouped.values())
 
         for group in result:
             group["brands"].sort(
                 key=lambda brand: (
-                    -brand[
-                        "average_rating"
-                    ],
-                    -brand[
-                        "total_reviews"
-                    ],
-                    brand[
-                        "brand"
-                    ].lower(),
+                    -brand["average_rating"],
+                    -brand["total_reviews"],
+                    brand["brand"].lower(),
                 )
             )
 
         result.sort(
             key=lambda group: (
-                group[
-                    "vehicle_type"
-                ],
-                group[
-                    "category"
-                ],
+                group["vehicle_type"],
+                group["category"],
             )
         )
 
@@ -1237,7 +1219,6 @@ class ReviewsAnalyticsView(APIView):
             result,
             status=status.HTTP_200_OK,
         )
-
 
 
 # --------------------------- ADMIN ORDERS ----------------------------------------------
@@ -1250,13 +1231,10 @@ class AdminOrdersView(APIView):
             "super_admin",
         ]
 
-    # Get paid orders only
     def get(self, request):
         if not self._check_admin(request):
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1269,15 +1247,9 @@ class AdminOrdersView(APIView):
             .prefetch_related(
                 "order_items__sparepart"
             )
-            .filter(
-                paid=True
-            )
-            .exclude(
-                status="expired"
-            )
-            .order_by(
-                "-created_at"
-            )
+            .filter(paid=True)
+            .exclude(status="expired")
+            .order_by("-created_at")
         )
 
         summary = []
@@ -1289,45 +1261,30 @@ class AdminOrdersView(APIView):
 
             total_price = sum(
                 (
-                    money_to_decimal(
-                        item.subtotal
-                    )
+                    money_to_decimal(item.subtotal)
                     for item in order_items
                 ),
                 Decimal("0.00"),
             )
 
             total_quantity = sum(
-                int(
-                    item.quantity or 0
-                )
+                int(item.quantity or 0)
                 for item in order_items
             )
 
-            # --------------------------- CUSTOMER PROFILE ---------------------------
             profile = getattr(
                 order.user,
                 "profile",
-                None
+                None,
             )
 
             if profile:
                 customer_profile = {
-                    "id": str(
-                        profile.id
-                    ),
-                    "first_name": (
-                        profile.first_name
-                    ),
-                    "last_name": (
-                        profile.last_name
-                    ),
-                    "phone_number": (
-                        profile.phone_number
-                    ),
-                    "national_id": (
-                        profile.national_id
-                    ),
+                    "id": str(profile.id),
+                    "first_name": profile.first_name,
+                    "last_name": profile.last_name,
+                    "phone_number": profile.phone_number,
+                    "national_id": profile.national_id,
                 }
 
                 customer_name = " ".join(
@@ -1343,19 +1300,14 @@ class AdminOrdersView(APIView):
                 customer_profile = None
                 customer_name = ""
 
-            # --------------------------- ADDRESS ---------------------------
             address = order.address
 
             if address:
                 address_details = {
-                    "id": str(
-                        address.id
-                    ),
+                    "id": str(address.id),
                     "street": address.street,
                     "city": address.city,
-                    "postal_code": (
-                        address.postal_code
-                    ),
+                    "postal_code": address.postal_code,
                     "country": address.country,
                 }
 
@@ -1374,93 +1326,55 @@ class AdminOrdersView(APIView):
                 address_details = None
                 address_string = ""
 
-            # --------------------------- ORDER DATA ---------------------------
             order_data = {
-                "id": str(
-                    order.id
-                ),
+                "id": str(order.id),
                 "status": order.status,
                 "paid": order.paid,
-                "payment_method": (
-                    order.payment_method
-                ),
-
+                "payment_method": order.payment_method,
                 "customer": {
-                    "id": str(
-                        order.user.id
-                    ),
+                    "id": str(order.user.id),
                     "email": order.user.email,
                     "name": customer_name,
                     "profile": customer_profile,
                 },
-
                 "total_quantity": total_quantity,
-
-                "total_price": (
-                    money_to_float(
-                        total_price
-                    )
-                ),
-
+                "total_price": money_to_float(total_price),
                 "address": address_string,
-
-                "address_details": (
-                    address_details
-                ),
-
+                "address_details": address_details,
                 "created_at": (
                     order.created_at.isoformat()
                     if order.created_at
                     else None
                 ),
-
                 "shipped_at": (
                     order.shipped_at.isoformat()
                     if order.shipped_at
                     else None
                 ),
-
                 "delivered_at": (
                     order.delivered_at.isoformat()
                     if order.delivered_at
                     else None
                 ),
-
                 "items": [
                     {
-                        "id": str(
-                            item.id
+                        "id": str(item.id),
+                        "quantity": int(item.quantity or 0),
+                        "unit_price": money_to_float(
+                            item.unit_price
                         ),
-                        "quantity": int(
-                            item.quantity or 0
-                        ),
-                        "unit_price": (
-                            money_to_float(
-                                item.unit_price
-                            )
-                        ),
-                        "subtotal": (
-                            money_to_float(
-                                item.subtotal
-                            )
+                        "subtotal": money_to_float(
+                            item.subtotal
                         ),
                         "sparepart": (
                             {
-                                "id": str(
-                                    item.sparepart.id
-                                ),
-                                "brand": (
-                                    item.sparepart.brand
-                                ),
-                                "category": (
-                                    item.sparepart.category
-                                ),
+                                "id": str(item.sparepart.id),
+                                "brand": item.sparepart.brand,
+                                "category": item.sparepart.category,
                                 "vehicle_type": (
                                     item.sparepart.vehicle_type
                                 ),
-                                "image": (
-                                    item.sparepart.image
-                                ),
+                                "image": item.sparepart.image,
                             }
                             if item.sparepart
                             else None
@@ -1470,159 +1384,153 @@ class AdminOrdersView(APIView):
                 ],
             }
 
-            summary.append(
-                order_data
-            )
+            summary.append(order_data)
 
         return Response(
-            {
-                "orders": summary
-            },
+            {"orders": summary},
             status=status.HTTP_200_OK,
         )
 
-    # Update order status
-    def patch(
-        self,
-        request,
-        order_id,
-    ):
+    def patch(self, request, order_id):
         if not self._check_admin(request):
             return Response(
-                {
-                    "error": "Admins only"
-                },
+                {"error": "Admins only"},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        order = get_object_or_404(
-            Orders,
-            pk=order_id,
-        )
-
-        # --------------------------- PAID CHECK ---------------------------
-        if not order.paid:
-            return Response(
-                {
-                    "error": (
-                        "Only paid orders can be "
-                        "updated by an admin"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         data = request.data or {}
-
-        new_status = data.get(
-            "status"
-        )
+        new_status = data.get("status")
 
         if not new_status:
             return Response(
-                {
-                    "error": "Missing status field"
-                },
+                {"error": "Missing status field"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------- STATUS TRANSITIONS ---------------------------
         allowed_transitions = {
-            "pending": [
-                "shipped",
-                "cancelled",
-            ],
-            "shipped": [
-                "delivered",
-            ],
+            "pending": ["shipped", "cancelled"],
+            "shipped": ["delivered"],
             "delivered": [],
             "cancelled": [],
         }
 
-        current_status = (
-            order.status
-        )
-
-        if new_status not in (
-            allowed_transitions.get(
-                current_status,
-                [],
-            )
-        ):
-            return Response(
-                {
-                    "error": (
-                        "Cannot change order status "
-                        f"from '{current_status}' "
-                        f"to '{new_status}'"
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # --------------------------- CUSTOMER EMAIL ---------------------------
-        customer_email = order.user.email
-
-        # --------------------------- UPDATE STATUS ---------------------------
-        order.status = new_status
-
-        # --------------------------- SHIPPED TIME ---------------------------
-        if (
-            new_status == "shipped"
-            and not order.shipped_at
-        ):
-            order.shipped_at = (
-                timezone.now()
-            )
-
-        # --------------------------- DELIVERED TIME ---------------------------
-        if (
-            new_status == "delivered"
-            and not order.delivered_at
-        ):
-            order.delivered_at = (
-                timezone.now()
-            )
-
-        order.save()
-
-        # --------------------------- ORDER STATUS EMAIL ---------------------------
-        if new_status in [
-            "shipped",
-            "delivered",
-        ]:
-            transaction.on_commit(
-                lambda: send_order_status_email_task.delay(
-                    customer_email,
-                    str(order.id),
-                    new_status,
+        try:
+            with transaction.atomic():
+                order = get_object_or_404(
+                    Orders.objects.select_for_update(),
+                    pk=order_id,
                 )
+
+                if not order.paid:
+                    return Response(
+                        {
+                            "error": (
+                                "Only paid orders can be "
+                                "updated by an admin"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                current_status = order.status
+
+                if new_status not in allowed_transitions.get(
+                    current_status,
+                    [],
+                ):
+                    return Response(
+                        {
+                            "error": (
+                                "Cannot change order status "
+                                f"from '{current_status}' "
+                                f"to '{new_status}'"
+                            )
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                customer_email = order.user.email
+                order_id_value = str(order.id)
+
+                order.status = new_status
+
+                if (
+                    new_status == "shipped"
+                    and not order.shipped_at
+                ):
+                    order.shipped_at = timezone.now()
+
+                if (
+                    new_status == "delivered"
+                    and not order.delivered_at
+                ):
+                    order.delivered_at = timezone.now()
+
+                order.save(
+                    update_fields=[
+                        "status",
+                        "shipped_at",
+                        "delivered_at",
+                    ]
+                )
+
+                if new_status in ["shipped", "delivered"]:
+
+                    def send_status_email():
+                        try:
+                            send_order_status_email_task.delay(
+                                customer_email,
+                                order_id_value,
+                                new_status,
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Failed to queue order status email "
+                                "for order %s.",
+                                order_id_value,
+                            )
+
+                    transaction.on_commit(send_status_email)
+
+                response_data = {
+                    "message": (
+                        f"Order {order_id_value} updated successfully"
+                    ),
+                    "status": order.status,
+                    "payment_method": order.payment_method,
+                    "shipped_at": (
+                        order.shipped_at.isoformat()
+                        if order.shipped_at
+                        else None
+                    ),
+                    "delivered_at": (
+                        order.delivered_at.isoformat()
+                        if order.delivered_at
+                        else None
+                    ),
+                }
+
+            return Response(
+                response_data,
+                status=status.HTTP_200_OK,
             )
 
-        return Response(
-            {
-                "message": (
-                    f"Order {order.id} "
-                    "updated successfully"
-                ),
-                "status": order.status,
-                "payment_method": (
-                    order.payment_method
-                ),
-                "shipped_at": (
-                    order.shipped_at.isoformat()
-                    if order.shipped_at
-                    else None
-                ),
-                "delivered_at": (
-                    order.delivered_at.isoformat()
-                    if order.delivered_at
-                    else None
-                ),
-            },
-            status=status.HTTP_200_OK,
-        )
-    
+        except Http404:
+            return Response(
+                {"error": "Order not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        except Exception:
+            logger.exception(
+                "Failed to update order status for order %s.",
+                order_id,
+            )
+
+            return Response(
+                {"error": "Internal server error"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 # --------------------------- REVENUE DATA ANALYTICS ----------------------------------------------
@@ -1664,10 +1572,7 @@ class RevenueAnalyticsView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if user.role not in [
-            "admin",
-            "super_admin",
-        ]:
+        if user.role not in ["admin", "super_admin"]:
             return Response(
                 {
                     "detail": (
@@ -1697,9 +1602,8 @@ class RevenueAnalyticsView(APIView):
             return Response(
                 {
                     "error": (
-                        "Invalid period. "
-                        "Use daily, weekly, monthly "
-                        "or yearly."
+                        "Invalid period. Use daily, weekly, "
+                        "monthly or yearly."
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -1713,8 +1617,7 @@ class RevenueAnalyticsView(APIView):
                     {
                         "error": (
                             "Invalid vehicle_type. "
-                            "Use sedan, suv, truck "
-                            "or bus."
+                            "Use sedan, suv, truck or bus."
                         )
                     },
                     status=status.HTTP_400_BAD_REQUEST,
@@ -1725,9 +1628,7 @@ class RevenueAnalyticsView(APIView):
 
             if category not in self.VALID_CATEGORIES:
                 return Response(
-                    {
-                        "error": "Invalid category."
-                    },
+                    {"error": "Invalid category."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -1737,12 +1638,8 @@ class RevenueAnalyticsView(APIView):
                 "order",
                 "sparepart",
             )
-            .filter(
-                order__paid=True
-            )
-            .exclude(
-                order__status__iexact="cancelled"
-            )
+            .filter(order__paid=True)
+            .exclude(order__status__iexact="cancelled")
         )
 
         if vehicle_type:
@@ -1762,7 +1659,7 @@ class RevenueAnalyticsView(APIView):
 
         elif period == "weekly":
             period_start_date = (
-                today - timezone.timedelta(days=today.weekday())
+                today - timedelta(days=today.weekday())
             )
 
         elif period == "monthly":
@@ -1799,32 +1696,21 @@ class RevenueAnalyticsView(APIView):
             .count()
         )
 
-        # TIMELINE
         if period == "daily":
-            truncated_date = TruncDay(
-                "order__created_at"
-            )
+            truncated_date = TruncDay("order__created_at")
 
         elif period == "weekly":
-            truncated_date = TruncWeek(
-                "order__created_at"
-            )
+            truncated_date = TruncWeek("order__created_at")
 
         elif period == "yearly":
-            truncated_date = TruncYear(
-                "order__created_at"
-            )
+            truncated_date = TruncYear("order__created_at")
 
         else:
-            truncated_date = TruncMonth(
-                "order__created_at"
-            )
+            truncated_date = TruncMonth("order__created_at")
 
         timeline = (
             order_items
-            .annotate(
-                period_date=truncated_date
-            )
+            .annotate(period_date=truncated_date)
             .values("period_date")
             .annotate(
                 parts_sold=Sum("quantity"),
@@ -1871,7 +1757,6 @@ class RevenueAnalyticsView(APIView):
                 }
             )
 
-        # VEHICLE TYPE BREAKDOWN
         vehicle_types = (
             order_items
             .values("sparepart__vehicle_type")
@@ -1888,8 +1773,7 @@ class RevenueAnalyticsView(APIView):
             vehicle_type_data.append(
                 {
                     "vehicle_type": (
-                        item["sparepart__vehicle_type"]
-                        or ""
+                        item["sparepart__vehicle_type"] or ""
                     ),
                     "parts_sold": int(
                         item["parts_sold"] or 0
@@ -1900,7 +1784,6 @@ class RevenueAnalyticsView(APIView):
                 }
             )
 
-        # CATEGORY BREAKDOWN
         categories = (
             order_items
             .values("sparepart__category")
@@ -1917,8 +1800,7 @@ class RevenueAnalyticsView(APIView):
             category_data.append(
                 {
                     "category": (
-                        item["sparepart__category"]
-                        or ""
+                        item["sparepart__category"] or ""
                     ),
                     "parts_sold": int(
                         item["parts_sold"] or 0
@@ -1929,7 +1811,6 @@ class RevenueAnalyticsView(APIView):
                 }
             )
 
-        # BRAND BREAKDOWN HELPER
         def get_brand_data(queryset):
             brands = (
                 queryset
@@ -1948,16 +1829,13 @@ class RevenueAnalyticsView(APIView):
             return [
                 {
                     "vehicle_type": (
-                        item["sparepart__vehicle_type"]
-                        or ""
+                        item["sparepart__vehicle_type"] or ""
                     ),
                     "category": (
-                        item["sparepart__category"]
-                        or ""
+                        item["sparepart__category"] or ""
                     ),
                     "brand": (
-                        item["sparepart__brand"]
-                        or ""
+                        item["sparepart__brand"] or ""
                     ),
                     "parts_sold": int(
                         item["parts_sold"] or 0
@@ -1969,23 +1847,17 @@ class RevenueAnalyticsView(APIView):
                 for item in brands
             ]
 
-        # ALL-TIME BRAND SALES
         all_time_brand_data = get_brand_data(
             order_items
         )
 
-        # SELECTED-PERIOD BRAND SALES
         brand_data = get_brand_data(
             period_order_items
         )
 
-        # BRAND SALES BY EACH TIMELINE PERIOD
-        # Groups sales by date interval and brand.
         brand_timeline = (
             order_items
-            .annotate(
-                period_date=truncated_date
-            )
+            .annotate(period_date=truncated_date)
             .values(
                 "period_date",
                 "sparepart__brand",

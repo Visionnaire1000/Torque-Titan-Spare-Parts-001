@@ -2,7 +2,9 @@ import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
+import { useTranslation } from "react-i18next";
 import config from "../../../../config";
+
 
 /* ---------------- Types ---------------- */
 interface SparePart {
@@ -37,15 +39,8 @@ interface RestoreState {
 const SkeletonCard = (): ReactElement => (
   <div
     className="
-      relative
-      flex
-      h-full
-      flex-col
-      items-center
-      overflow-hidden
-      rounded-xl
-      bg-[#f6f7f8]
-      p-3
+      relative flex h-full flex-col items-center overflow-hidden
+      rounded-xl bg-[#f6f7f8] p-3
     "
   >
     <div className="mb-[10px] h-[140px] w-full rounded-[10px] bg-[#e0e0e0]" />
@@ -57,95 +52,79 @@ const SkeletonCard = (): ReactElement => (
 );
 
 /* ---------------- Error UI ---------------- */
+interface ErrorStateProps {
+  onRetry: () => Promise<void>;
+}
+
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-[10px] text-2xl font-semibold">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 text-[#666]">
-      Unable to load spare parts. Please check your connection and try again.
-    </p>
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-[10px] text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      type="button"
-      className="
-        mb-[30px]
-        inline-flex
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111]
-        px-5
-        py-[10px]
-        text-white
-        transition-opacity
-        hover:opacity-85
-      "
-      onClick={() => void onRetry()}
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300"
-      />
+      <p className="mb-5 text-[#666]">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
 
-      Retry
-    </button>
-  </div>
-);
+      <button
+        type="button"
+        className="
+          mb-[30px] inline-flex items-center gap-2 rounded-md
+          bg-[#111] px-5 py-[10px] text-white transition-opacity
+          hover:opacity-85
+        "
+        onClick={() => void onRetry()}
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-300"
+        />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const SedanTyres = (): ReactElement => {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const restoreState =
-    location.state as RestoreState | null;
+  const restoreState = location.state as RestoreState | null;
 
   const hasRestoreState =
     Boolean(restoreState?.restoreFilters) ||
     typeof restoreState?.restoreScrollY === "number";
 
-  const [items, setItems] =
-    useState<SparePart[]>([]);
+  const [items, setItems] = useState<SparePart[]>([]);
 
-  const [brand, setBrand] =
-    useState<string>(
-      restoreState?.restoreFilters?.brand ?? ""
-    );
+  const [brand, setBrand] = useState<string>(
+    restoreState?.restoreFilters?.brand ?? ""
+  );
 
-  const [price, setPrice] =
-    useState<string>(
-      restoreState?.restoreFilters?.price ?? ""
-    );
+  const [price, setPrice] = useState<string>(
+    restoreState?.restoreFilters?.price ?? ""
+  );
 
-  const [brandOpen, setBrandOpen] =
-    useState<boolean>(false);
+  const [brandOpen, setBrandOpen] = useState<boolean>(false);
+  const [priceOpen, setPriceOpen] = useState<boolean>(false);
 
-  const [priceOpen, setPriceOpen] =
-    useState<boolean>(false);
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
 
-  const brandDropdownRef =
-    useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState<number>(
+    restoreState?.restoreFilters?.currentPage ?? 1
+  );
 
-  const priceDropdownRef =
-    useRef<HTMLDivElement>(null);
-
-  const [currentPage, setCurrentPage] =
-    useState<number>(
-      restoreState?.restoreFilters?.currentPage ?? 1
-    );
-
-  const [totalPages, setTotalPages] =
-    useState<number>(1);
-
-  const [loading, setLoading] =
-    useState<boolean>(true);
-
-  const [error, setError] =
-    useState<boolean>(false);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
 
   const { addItem } = useCart();
 
@@ -159,19 +138,50 @@ const SedanTyres = (): ReactElement => {
     "Dunlop",
   ];
 
+  /* ---------------- Translation ---------------- */
+  const translateCategory = (value: string): string => {
+    const normalized = value.trim().toLowerCase();
+
+    const categoryAliases: Record<string, string> = {
+      tyre: "tyre",
+      tyres: "tyre",
+      rim: "rim",
+      rims: "rim",
+      battery: "battery",
+      batteries: "battery",
+      filter: "filter",
+      filters: "filter",
+      "oil filter": "filter",
+      "oil filters": "filter",
+      sedan: "sedan",
+      saloon: "sedan",
+      suv: "suv",
+      truck: "truck",
+      lorry: "truck",
+      bus: "bus",
+    };
+
+    const key = categoryAliases[normalized] ?? normalized;
+    const translationKey = `productCategories.${key}`;
+    const translated = t(translationKey);
+
+    return translated === translationKey ? value : translated;
+  };
+
+  const getProductLabel = (item: SparePart): string => {
+    return `${item.brand} ${translateCategory(item.category)} ${t("common.for")} ${translateCategory(item.vehicle_type)}`;
+  };
+
   /* ---------------- Restore Refs ---------------- */
-  const isRestoringRef =
-    useRef<boolean>(hasRestoreState);
+  const isRestoringRef = useRef<boolean>(hasRestoreState);
 
-  const restoreScrollYRef =
-    useRef<number | null>(
-      typeof restoreState?.restoreScrollY === "number"
-        ? restoreState.restoreScrollY
-        : null
-    );
+  const restoreScrollYRef = useRef<number | null>(
+    typeof restoreState?.restoreScrollY === "number"
+      ? restoreState.restoreScrollY
+      : null
+  );
 
-  const initialRestoreRef =
-    useRef<boolean>(hasRestoreState);
+  const initialRestoreRef = useRef<boolean>(hasRestoreState);
 
   /* ---------------- Restore Listing State ---------------- */
   useEffect(() => {
@@ -179,17 +189,9 @@ const SedanTyres = (): ReactElement => {
       return;
     }
 
-    setBrand(
-      restoreState?.restoreFilters?.brand ?? ""
-    );
-
-    setPrice(
-      restoreState?.restoreFilters?.price ?? ""
-    );
-
-    setCurrentPage(
-      restoreState?.restoreFilters?.currentPage ?? 1
-    );
+    setBrand(restoreState?.restoreFilters?.brand ?? "");
+    setPrice(restoreState?.restoreFilters?.price ?? "");
+    setCurrentPage(restoreState?.restoreFilters?.currentPage ?? 1);
 
     setBrandOpen(false);
     setPriceOpen(false);
@@ -223,14 +225,12 @@ const SedanTyres = (): ReactElement => {
         throw new Error("Failed to fetch tyres");
       }
 
-      const data: SparePartsResponse =
-        await response.json();
+      const data: SparePartsResponse = await response.json();
 
       setItems(data.items ?? []);
       setTotalPages(data.pages ?? 1);
     } catch (err) {
       console.error(err);
-
       setItems([]);
       setError(true);
     } finally {
@@ -241,23 +241,15 @@ const SedanTyres = (): ReactElement => {
   /* ---------------- Fetch Effect ---------------- */
   useEffect(() => {
     void fetchTyres();
-  }, [
-    brand,
-    price,
-    currentPage,
-  ]);
+  }, [brand, price, currentPage]);
 
   /* ---------------- Restore Scroll Position ---------------- */
   useEffect(() => {
-    if (
-      loading ||
-      restoreScrollYRef.current === null
-    ) {
+    if (loading || restoreScrollYRef.current === null) {
       return;
     }
 
-    const scrollY =
-      restoreScrollYRef.current;
+    const scrollY = restoreScrollYRef.current;
 
     isRestoringRef.current = true;
 
@@ -314,19 +306,13 @@ const SedanTyres = (): ReactElement => {
       });
     };
 
-    const images = Array.from(
-      document.images
-    );
-
-    const pendingImages = images.filter(
-      (image) => !image.complete
-    );
+    const images = Array.from(document.images);
+    const pendingImages = images.filter((image) => !image.complete);
 
     if (pendingImages.length === 0) {
       restoreScroll();
     } else {
-      let remaining =
-        pendingImages.length;
+      let remaining = pendingImages.length;
 
       const handleImageLoad = (): void => {
         remaining -= 1;
@@ -337,41 +323,21 @@ const SedanTyres = (): ReactElement => {
       };
 
       pendingImages.forEach((image) => {
-        image.addEventListener(
-          "load",
-          handleImageLoad,
-          { once: true }
-        );
-
-        image.addEventListener(
-          "error",
-          handleImageLoad,
-          { once: true }
-        );
+        image.addEventListener("load", handleImageLoad, { once: true });
+        image.addEventListener("error", handleImageLoad, { once: true });
       });
 
-      const fallbackTimer =
-        window.setTimeout(() => {
-          restoreScroll();
-        }, 1500);
+      const fallbackTimer = window.setTimeout(() => {
+        restoreScroll();
+      }, 1500);
 
       return () => {
         cancelled = true;
-
-        window.clearTimeout(
-          fallbackTimer
-        );
+        window.clearTimeout(fallbackTimer);
 
         pendingImages.forEach((image) => {
-          image.removeEventListener(
-            "load",
-            handleImageLoad
-          );
-
-          image.removeEventListener(
-            "error",
-            handleImageLoad
-          );
+          image.removeEventListener("load", handleImageLoad);
+          image.removeEventListener("error", handleImageLoad);
         });
       };
     }
@@ -379,10 +345,7 @@ const SedanTyres = (): ReactElement => {
     return () => {
       cancelled = true;
     };
-  }, [
-    loading,
-    currentPage,
-  ]);
+  }, [loading, currentPage]);
 
   /* ---------------- Normal Page Scroll ---------------- */
   useEffect(() => {
@@ -408,20 +371,16 @@ const SedanTyres = (): ReactElement => {
     }
 
     setCurrentPage(1);
-  }, [
-    brand,
-    price,
-  ]);
+  }, [brand, price]);
 
   /* ---------------- Back To Available Parts ---------------- */
-  const handleBackToAvailableParts =
-    (): void => {
-      setBrand("");
-      setPrice("");
-      setCurrentPage(1);
-      setBrandOpen(false);
-      setPriceOpen(false);
-    };
+  const handleBackToAvailableParts = (): void => {
+    setBrand("");
+    setPrice("");
+    setCurrentPage(1);
+    setBrandOpen(false);
+    setPriceOpen(false);
+  };
 
   /* ---------------- Item Navigation ---------------- */
   const handleItemClick = (
@@ -461,126 +420,80 @@ const SedanTyres = (): ReactElement => {
     ): void => {
       if (
         brandDropdownRef.current &&
-        !brandDropdownRef.current.contains(
-          event.target as Node
-        )
+        !brandDropdownRef.current.contains(event.target as Node)
       ) {
         setBrandOpen(false);
       }
 
       if (
         priceDropdownRef.current &&
-        !priceDropdownRef.current.contains(
-          event.target as Node
-        )
+        !priceDropdownRef.current.contains(event.target as Node)
       ) {
         setPriceOpen(false);
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
   /* ---------------- Pagination ---------------- */
   const getVisiblePages = (): number[] => {
     const pages: number[] = [];
-
     const maxVisible = 5;
 
-    let start = Math.max(
-      currentPage - 2,
-      1
-    );
+    let start = Math.max(currentPage - 2, 1);
 
-    let end = Math.min(
-      start + maxVisible - 1,
-      totalPages
-    );
+    let end = Math.min(start + maxVisible - 1, totalPages);
 
-    start = Math.max(
-      end - maxVisible + 1,
-      1
-    );
+    start = Math.max(end - maxVisible + 1, 1);
 
-    for (
-      let i = start;
-      i <= end;
-      i++
-    ) {
+    for (let i = start; i <= end; i++) {
       pages.push(i);
     }
 
     return pages;
   };
 
-  const visiblePages =
-    getVisiblePages();
+  const visiblePages = getVisiblePages();
 
   /* ---------------- Render ---------------- */
   return (
     <div
       className="
-        mt-[70px]
-        bg-[#f9f9f9]
-        p-5
-        pb-[70px]
-        font-[Arial,sans-serif]
-        max-[480px]:max-w-[480px]
+        mt-[70px] bg-[#f9f9f9] p-5 pb-[70px]
+        font-[Arial,sans-serif] max-[480px]:max-w-[480px]
         max-[480px]:pb-5
       "
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
-         inline-flex
-         items-center
-         justify-center
-         rounded-md
-         p-2
-         text-[rgb(0,64,128)]
-         text-lg
-         font-bold
-         transition-colors
-         cursor-pointer
-         hover:bg-[#eaf2f8]
-      "
-    >
-      Home
-    </Link>
+          inline-flex items-center justify-center rounded-md p-2
+          text-[rgb(0,64,128)] text-lg font-bold transition-colors
+          cursor-pointer hover:bg-[#eaf2f8]
+        "
+      >
+        {t("buyerNavbar.home")}
+      </Link>
+
       {/* Filters */}
       {!error && (
         <>
           {/* Back Button */}
-          {(brand !== "" ||
-            price !== "") && (
+          {(brand !== "" || price !== "") && (
             <div className="mb-4">
               <button
                 type="button"
-                onClick={
-                  handleBackToAvailableParts
-                }
-                aria-label="Back to available parts"
+                onClick={handleBackToAvailableParts}
+                aria-label={t("categoriesCommon.backToAvailableParts")}
                 className="
-                  mt-4
-                  inline-flex
-                  items-center
-                  justify-center
-                  rounded-md
-                  p-2
-                  text-[rgb(0,64,128)]
-                  transition-colors
-                  cursor-pointer
+                  mt-4 inline-flex items-center justify-center rounded-md
+                  p-2 text-[rgb(0,64,128)] transition-colors cursor-pointer
                   hover:bg-[#eaf2f8]
                 "
               >
@@ -591,67 +504,37 @@ const SedanTyres = (): ReactElement => {
 
           <div
             className="
-              mt-5
-              mb-[25px]
-              flex
-              w-full
-              justify-center
+              mt-5 mb-[25px] flex w-full justify-center
             "
           >
             <div
               className="
-                flex
-                flex-wrap
-                items-center
-                justify-center
-                gap-4
-                max-[480px]:mt-3
-                max-[480px]:items-center
-                max-[480px]:gap-2
+                flex flex-wrap items-center justify-center gap-4
+                max-[480px]:mt-3 max-[480px]:items-center max-[480px]:gap-2
               "
             >
               {/* Brand Dropdown */}
               <div
                 ref={brandDropdownRef}
-                className="
-                  relative
-                  w-[180px]
-                  max-[480px]:w-[160px]
-                "
+                className="relative w-[180px] max-[480px]:w-[160px]"
               >
                 <button
                   type="button"
                   onClick={() => {
-                    setBrandOpen(
-                      (open) => !open
-                    );
+                    setBrandOpen((open) => !open);
                     setPriceOpen(false);
                   }}
                   className="
-                    flex
-                    w-full
-                    items-center
-                    justify-between
-                    rounded-md
-                    border
-                    border-[#ccc]
-                    bg-white
-                    px-3
-                    py-2
-                    text-left
-                    text-[14px]
-                    transition-colors
-                    cursor-pointer
-                    hover:border-[#0077ff]
-                    focus:border-[#0077ff]
-                    focus:outline-none
-                    max-[480px]:px-4
-                    max-[480px]:py-1
-                    max-[480px]:text-base
+                    flex w-full items-center justify-between rounded-md
+                    border border-[#ccc] bg-white px-3 py-2 text-left
+                    text-[14px] transition-colors cursor-pointer
+                    hover:border-[#0077ff] focus:border-[#0077ff]
+                    focus:outline-none max-[480px]:px-4
+                    max-[480px]:py-1 max-[480px]:text-base
                   "
                 >
                   <span className="truncate">
-                    {brand || "All Brands"}
+                    {brand || t("categoriesCommon.allBrands")}
                   </span>
 
                   {brandOpen ? (
@@ -670,17 +553,8 @@ const SedanTyres = (): ReactElement => {
                 {brandOpen && (
                   <div
                     className="
-                      absolute
-                      left-0
-                      z-50
-                      mt-1
-                      w-full
-                      overflow-hidden
-                      rounded-md
-                      border
-                      border-[#ddd]
-                      bg-white
-                      shadow-lg
+                      absolute left-0 z-50 mt-1 w-full overflow-hidden
+                      rounded-md border border-[#ddd] bg-white shadow-lg
                     "
                   >
                     <button
@@ -690,14 +564,8 @@ const SedanTyres = (): ReactElement => {
                         setBrandOpen(false);
                       }}
                       className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        hover:bg-[#f0f6ff]
+                        block w-full px-3 py-2 text-left text-[14px]
+                        transition-colors hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
                           brand === ""
@@ -706,43 +574,31 @@ const SedanTyres = (): ReactElement => {
                         }
                       `}
                     >
-                      All Brands
+                      {t("categoriesCommon.allBrands")}
                     </button>
 
-                    {availableBrands.map(
-                      (itemBrand) => (
-                        <button
-                          key={itemBrand}
-                          type="button"
-                          onClick={() => {
-                            setBrand(
-                              itemBrand
-                            );
-                            setBrandOpen(false);
-                          }}
-                          className={`
-                            block
-                            w-full
-                            px-3
-                            py-2
-                            text-left
-                            text-[14px]
-                            transition-colors
-                            hover:bg-[#f0f6ff]
-                            cursor-pointer
-                            max-[480px]:text-base
-                            ${
-                              brand ===
-                              itemBrand
-                                ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                                : "text-[#333]"
-                            }
-                          `}
-                        >
-                          {itemBrand}
-                        </button>
-                      )
-                    )}
+                    {availableBrands.map((itemBrand) => (
+                      <button
+                        key={itemBrand}
+                        type="button"
+                        onClick={() => {
+                          setBrand(itemBrand);
+                          setBrandOpen(false);
+                        }}
+                        className={`
+                          block w-full px-3 py-2 text-left text-[14px]
+                          transition-colors hover:bg-[#f0f6ff]
+                          cursor-pointer max-[480px]:text-base
+                          ${
+                            brand === itemBrand
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemBrand}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -750,51 +606,37 @@ const SedanTyres = (): ReactElement => {
               {/* Price Dropdown */}
               <div
                 ref={priceDropdownRef}
-                className="
-                  relative
-                  w-[180px]
-                  max-[480px]:w-[160px]
-                "
+                className="relative w-[180px] max-[480px]:w-[160px]"
               >
                 <button
                   type="button"
                   onClick={() => {
-                    setPriceOpen(
-                      (open) => !open
-                    );
+                    setPriceOpen((open) => !open);
                     setBrandOpen(false);
                   }}
                   className="
-                    flex
-                    w-full
-                    items-center
-                    justify-between
-                    rounded-md
-                    border
-                    border-[#ccc]
-                    bg-white
-                    px-3
-                    py-2
-                    text-left
-                    text-[14px]
-                    transition-colors
-                    cursor-pointer
-                    hover:border-[#0077ff]
-                    focus:border-[#0077ff]
-                    focus:outline-none
-                    max-[480px]:px-4
-                    max-[480px]:py-1
-                    max-[480px]:text-base
+                    flex w-full items-center justify-between rounded-md
+                    border border-[#ccc] bg-white px-3 py-2 text-left
+                    text-[14px] transition-colors cursor-pointer
+                    hover:border-[#0077ff] focus:border-[#0077ff]
+                    focus:outline-none max-[480px]:px-4
+                    max-[480px]:py-1 max-[480px]:text-base
                   "
                 >
                   <span className="truncate">
                     {price === ""
-                      ? "All Prices"
+                      ? t("categoriesCommon.allPrices")
                       : price === "low"
-                        ? "Low (< 15k)"
+                        ? t("categoriesCommon.priceLow", {
+                            threshold: "15k",
+                          })
                         : price === "medium"
-                          ? "Medium (15k–30k)"
-                          : "High (> 30k)"}
+                          ? t("categoriesCommon.priceMedium", {
+                              range: "15k–30k",
+                            })
+                          : t("categoriesCommon.priceHigh", {
+                              threshold: "30k",
+                            })}
                   </span>
 
                   {priceOpen ? (
@@ -813,17 +655,8 @@ const SedanTyres = (): ReactElement => {
                 {priceOpen && (
                   <div
                     className="
-                      absolute
-                      left-0
-                      z-50
-                      mt-1
-                      w-full
-                      overflow-hidden
-                      rounded-md
-                      border
-                      border-[#ddd]
-                      bg-white
-                      shadow-lg
+                      absolute left-0 z-50 mt-1 w-full overflow-hidden
+                      rounded-md border border-[#ddd] bg-white shadow-lg
                     "
                   >
                     <button
@@ -833,14 +666,8 @@ const SedanTyres = (): ReactElement => {
                         setPriceOpen(false);
                       }}
                       className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        hover:bg-[#f0f6ff]
+                        block w-full px-3 py-2 text-left text-[14px]
+                        transition-colors hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
                           price === ""
@@ -849,7 +676,7 @@ const SedanTyres = (): ReactElement => {
                         }
                       `}
                     >
-                      All Prices
+                      {t("categoriesCommon.allPrices")}
                     </button>
 
                     <button
@@ -859,16 +686,9 @@ const SedanTyres = (): ReactElement => {
                         setPriceOpen(false);
                       }}
                       className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        hover:bg-[#f0f6ff]
-                        cursor-pointer
-                        max-[480px]:text-base
+                        block w-full px-3 py-2 text-left text-[14px]
+                        transition-colors hover:bg-[#f0f6ff]
+                        cursor-pointer max-[480px]:text-base
                         ${
                           price === "low"
                             ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
@@ -876,7 +696,9 @@ const SedanTyres = (): ReactElement => {
                         }
                       `}
                     >
-                      Low (&lt; 15k)
+                      {t("categoriesCommon.priceLow", {
+                        threshold: "15k",
+                      })}
                     </button>
 
                     <button
@@ -886,15 +708,8 @@ const SedanTyres = (): ReactElement => {
                         setPriceOpen(false);
                       }}
                       className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        cursor-pointer
-                        hover:bg-[#f0f6ff]
+                        block w-full px-3 py-2 text-left text-[14px]
+                        transition-colors cursor-pointer hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
                           price === "medium"
@@ -903,7 +718,9 @@ const SedanTyres = (): ReactElement => {
                         }
                       `}
                     >
-                      Medium (15k–30k)
+                      {t("categoriesCommon.priceMedium", {
+                        range: "15k–30k",
+                      })}
                     </button>
 
                     <button
@@ -913,15 +730,8 @@ const SedanTyres = (): ReactElement => {
                         setPriceOpen(false);
                       }}
                       className={`
-                        block
-                        w-full
-                        px-3
-                        py-2
-                        text-left
-                        text-[14px]
-                        transition-colors
-                        cursor-pointer
-                        hover:bg-[#f0f6ff]
+                        block w-full px-3 py-2 text-left text-[14px]
+                        transition-colors cursor-pointer hover:bg-[#f0f6ff]
                         max-[480px]:text-base
                         ${
                           price === "high"
@@ -930,7 +740,9 @@ const SedanTyres = (): ReactElement => {
                         }
                       `}
                     >
-                      High (&gt; 30k)
+                      {t("categoriesCommon.priceHigh", {
+                        threshold: "30k",
+                      })}
                     </button>
                   </div>
                 )}
@@ -942,45 +754,29 @@ const SedanTyres = (): ReactElement => {
 
       {/* Error */}
       {error ? (
-        <ErrorState
-          onRetry={fetchTyres}
-        />
+        <ErrorState onRetry={fetchTyres} />
       ) : (
         <>
           {/* Products */}
           <div
             className="
-              grid
-              grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
-              gap-5
-              max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
+              grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
+              gap-5 max-[480px]:grid-cols-[repeat(auto-fill,minmax(120px,1fr))]
             "
           >
             {loading ? (
-              Array.from({ length: 8 }).map(
-                (_, index) => (
-                  <SkeletonCard
-                    key={index}
-                  />
-                )
-              )
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
             ) : items.length > 0 ? (
               items.map((item) => (
                 <div
                   key={item.id}
                   className="
-                    flex
-                    h-full
-                    cursor-pointer
-                    flex-col
-                    items-center
-                    rounded-xl
-                    bg-white
-                    p-3
+                    flex h-full cursor-pointer flex-col items-center
+                    rounded-xl bg-white p-3
                     shadow-[0_4px_10px_rgba(0,0,0,0.1)]
-                    transition-all
-                    duration-200
-                    hover:-translate-y-1
+                    transition-all duration-200 hover:-translate-y-1
                     hover:shadow-[0_8px_16px_rgba(0,0,0,0.15)]
                     max-[480px]:shadow-[0_4px_12px_rgba(0,0,0,0.06)]
                     max-[480px]:hover:shadow-[0_8px_20px_rgba(0,0,0,0.1)]
@@ -988,87 +784,53 @@ const SedanTyres = (): ReactElement => {
                 >
                   <Link
                     to={`/items/${item.id}`}
-                    onClick={(event) =>
-                      handleItemClick(
-                        event,
-                        item.id
-                      )
-                    }
+                    onClick={(event) => handleItemClick(event, item.id)}
                     className="
-                      flex
-                      h-full
-                      w-full
-                      flex-col
-                      items-center
-                      text-inherit
-                      no-underline
+                      flex h-full w-full flex-col items-center
+                      text-inherit no-underline
                     "
                   >
                     <img
                       src={item.image}
-                      alt={item.brand}
+                      alt={getProductLabel(item)}
                       className="
-                        mb-[10px]
-                        h-[150px]
-                        w-full
-                        rounded-lg
-                        object-contain
-                        max-[480px]:h-auto
-                        max-[480px]:w-[60%]
-                        max-[480px]:object-cover
+                        mb-[10px] h-[150px] w-full rounded-lg
+                        object-contain max-[480px]:h-auto
+                        max-[480px]:w-[60%] max-[480px]:object-cover
                       "
                     />
 
                     <h4 className="my-[5px] mb-[10px] text-center text-base text-[#333]">
-                      {item.brand}{" "}
-                      {item.category} for{" "}
-                      {item.vehicle_type}
+                      {getProductLabel(item)}
                     </h4>
 
                     <p className="mb-[10px] text-lg font-bold text-[rgb(255,0,0)]">
-                      KES{" "}
-                      {item.buying_price.toLocaleString()}
+                      KES {item.buying_price.toLocaleString()}
 
-                      {item.discount_percentage >
-                        0 && (
+                      {item.discount_percentage > 0 && (
                         <span className="ml-[5px] font-normal text-[#d9534f]">
-                          (-
-                          {item.discount_percentage.toFixed(
-                            0
-                          )}
-                          %)
+                          (-{item.discount_percentage.toFixed(0)}%)
                         </span>
                       )}
                     </p>
 
                     <button
                       type="button"
-                      onClick={(event) =>
-                        handleAddToCart(
-                          item,
-                          event
-                        )
-                      }
+                      onClick={(event) => handleAddToCart(item, event)}
                       className="
-                        rounded-md
-                        bg-[rgb(0,64,128)]
-                        px-3
-                        py-2
-                        font-bold
-                        text-white
-                        transition-colors
-                        cursor-pointer
+                        rounded-md bg-[rgb(0,64,128)] px-3 py-2
+                        font-bold text-white transition-colors cursor-pointer
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
               ))
             ) : (
               <p className="col-span-full mb-20 text-center text-base text-[#7f0d0d]">
-                No sedan tyres found.
+                {t("sedanTyres.noItemsFound")}
               </p>
             )}
           </div>
@@ -1076,48 +838,30 @@ const SedanTyres = (): ReactElement => {
           {/* Pagination */}
           {loading ? (
             <div className="mt-4 flex justify-center gap-2">
-              {[1, 2, 3, 4].map(
-                (item) => (
-                  <div
-                    key={item}
-                    className="h-8 w-10 rounded-md bg-[#e0e0e0]"
-                  />
-                )
-              )}
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="h-8 w-10 rounded-md bg-[#e0e0e0]"
+                />
+              ))}
             </div>
           ) : (
             totalPages > 1 && (
               <div className="my-[30px] flex flex-wrap items-center justify-center gap-[6px]">
                 <button
                   type="button"
-                  disabled={
-                    currentPage === 1
-                  }
+                  disabled={currentPage === 1}
                   onClick={() =>
-                    setCurrentPage(
-                      (page) =>
-                        Math.max(
-                          page - 1,
-                          1
-                        )
-                    )
+                    setCurrentPage((page) => Math.max(page - 1, 1))
                   }
                   className="
-                    rounded
-                    border
-                    border-[#ddd]
-                    bg-white
-                    px-3
-                    py-[6px]
-                    text-sm
-                    transition-colors
-                    cursor-pointer
-                    hover:bg-[#f0f0f0]
-                    disabled:cursor-not-allowed
+                    rounded border border-[#ddd] bg-white px-3 py-[6px]
+                    text-sm transition-colors cursor-pointer
+                    hover:bg-[#f0f0f0] disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
@@ -1126,39 +870,25 @@ const SedanTyres = (): ReactElement => {
                   </span>
                 )}
 
-                {visiblePages.map(
-                  (page) => (
-                    <button
-                      type="button"
-                      key={page}
-                      onClick={() =>
-                        setCurrentPage(
-                          page
-                        )
+                {visiblePages.map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`
+                      rounded border px-3 py-[6px] text-sm transition-colors
+                      ${
+                        page === currentPage
+                          ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
+                          : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
                       }
-                      className={`
-                        rounded
-                        border
-                        px-3
-                        py-[6px]
-                        text-sm
-                        transition-colors
-                        ${
-                          page ===
-                          currentPage
-                            ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
-                            : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
-                        }
-                      `}
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
+                    `}
+                  >
+                    {page}
+                  </button>
+                ))}
 
-                {visiblePages[
-                  visiblePages.length - 1
-                ] < totalPages && (
+                {visiblePages[visiblePages.length - 1] < totalPages && (
                   <span className="select-none px-[6px] text-base">
                     …
                   </span>
@@ -1166,35 +896,20 @@ const SedanTyres = (): ReactElement => {
 
                 <button
                   type="button"
-                  disabled={
-                    currentPage ===
-                    totalPages
-                  }
+                  disabled={currentPage === totalPages}
                   onClick={() =>
-                    setCurrentPage(
-                      (page) =>
-                        Math.min(
-                          page + 1,
-                          totalPages
-                        )
+                    setCurrentPage((page) =>
+                      Math.min(page + 1, totalPages)
                     )
                   }
                   className="
-                    rounded
-                    border
-                    border-[#ddd]
-                    bg-white
-                    px-3
-                    py-[6px]
-                    text-sm
-                    transition-colors
-                    cursor-pointer
-                    hover:bg-[#f0f0f0]
-                    disabled:cursor-not-allowed
+                    rounded border border-[#ddd] bg-white px-3 py-[6px]
+                    text-sm transition-colors cursor-pointer
+                    hover:bg-[#f0f0f0] disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )

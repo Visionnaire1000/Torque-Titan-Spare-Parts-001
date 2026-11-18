@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, PackageOpen, RefreshCw, Loader2 } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -53,7 +54,6 @@ interface BuyerOrdersLocationState {
   restoreScrollY?: number;
 }
 
-
 const SkeletonOrderCard: React.FC = () => (
   <div className="relative mb-4 overflow-hidden rounded-xl border border-gray-200 bg-gray-50 p-4">
     <div className="mb-4 flex items-center justify-between">
@@ -85,184 +85,162 @@ const SkeletonOrderCard: React.FC = () => (
   </div>
 );
 
+const ErrorState: React.FC<ErrorStateProps> = ({ onRetry }) => {
+  const { t } = useTranslation();
 
-const ErrorState: React.FC<ErrorStateProps> = ({
-  onRetry,
-}) => (
-  <div className="flex h-[60vh] flex-col items-center justify-center px-5 text-center">
-    <h2 className="mb-2 text-2xl font-semibold text-gray-900">
-      Something went wrong
-    </h2>
+  return (
+    <div className="flex h-[60vh] flex-col items-center justify-center px-5 text-center">
+      <h2 className="mb-2 text-2xl font-semibold text-gray-900">
+        {t("buyerOrders.errors.title")}
+      </h2>
 
-    <p className="mb-5 max-w-md text-[15px] text-gray-500">
-      Unable to load orders. Please check your connection and try again.
-    </p>
+      <p className="mb-5 max-w-md text-[15px] text-gray-500">
+        {t("buyerOrders.errors.loadDescription")}
+      </p>
 
-    <button
-      type="button"
-      onClick={onRetry}
-      className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-white transition hover:-translate-y-0.5 hover:bg-gray-800"
-    >
-      <RefreshCw size={18} />
-      Retry
-    </button>
-  </div>
-);
-
+      <button
+        type="button"
+        onClick={onRetry}
+        className="flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-white transition hover:-translate-y-0.5 hover:bg-gray-800"
+      >
+        <RefreshCw size={18} />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 const BuyerOrders: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const { authFetch } = useAuth();
-
   const location = useLocation();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [activeTab, setActiveTab] = useState<string>("pending");
-  const [expandedOrderId, setExpandedOrderId] =
-    useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
-  const [orderIdToCancel, setOrderIdToCancel] =
-    useState<string | null>(null);
+  const [orderIdToCancel, setOrderIdToCancel] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
 
-  const [cancellingOrderId, setCancellingOrderId] =
-    useState<string | null>(null);
+  const [seenOrderIds, setSeenOrderIds] = useState<SeenOrders>(() => {
+    try {
+      const saved = localStorage.getItem("buyer_seen_order_ids");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
-  const [currentTime, setCurrentTime] =
-    useState<number>(Date.now());
+  const prevOrdersRef = useRef<Order[]>([]);
+  const restoreScrollYRef = useRef<number | null>(null);
+  const restoreExpandedOrderRef = useRef<string | null>(null);
+  const initialRestoreRef = useRef<boolean>(false);
+  const isRestoringRef = useRef<boolean>(false);
 
-  const [seenOrderIds, setSeenOrderIds] =
-    useState<SeenOrders>(() => {
-      try {
-        const saved =
-          localStorage.getItem(
-            "buyer_seen_order_ids",
-          );
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-        return saved
-          ? JSON.parse(saved)
-          : {};
-      } catch {
-        return {};
-      }
+  const tabs: string[] = [
+    "pending",
+    "shipped",
+    "delivered",
+    "cancelled",
+  ];
+
+  const getStatusLabel = (status: string): string => {
+    return t(`buyerOrders.statuses.${status.toLowerCase()}`, {
+      defaultValue: status,
     });
+  };
 
-  const prevOrdersRef =
-    useRef<Order[]>([]);
+  const normalizeTranslationKey = (value: string): string => {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+  };
 
-  const restoreScrollYRef =
-    useRef<number | null>(null);
+  const getSparePartLabel = (
+    type: "categories" | "vehicleTypes",
+    value: string,
+  ): string => {
+    const key = normalizeTranslationKey(value);
 
-  const restoreExpandedOrderRef =
-    useRef<string | null>(null);
-
-  const initialRestoreRef =
-    useRef<boolean>(false);
-
-  const isRestoringRef =
-    useRef<boolean>(false);
-
-  const timeZone =
-    Intl.DateTimeFormat()
-      .resolvedOptions()
-      .timeZone;
-
+    return t(`buyerOrders.${type}.${key}`, {
+      defaultValue: value,
+    });
+  };
 
   useEffect(() => {
-    const interval =
-      window.setInterval(() => {
-        setCurrentTime(Date.now());
-      }, 1000);
+    const interval = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
 
     return () => {
       window.clearInterval(interval);
     };
   }, []);
 
-
   useEffect(() => {
-    const previousScrollRestoration =
-      window.history.scrollRestoration;
+    const previousScrollRestoration = window.history.scrollRestoration;
 
-    window.history.scrollRestoration =
-      "manual";
+    window.history.scrollRestoration = "manual";
 
     return () => {
-      window.history.scrollRestoration =
-        previousScrollRestoration;
+      window.history.scrollRestoration = previousScrollRestoration;
     };
   }, []);
 
-
   useEffect(() => {
-    const state =
-      location.state as
-        | BuyerOrdersLocationState
-        | null;
+    const state = location.state as BuyerOrdersLocationState | null;
 
     if (!state) {
       return;
     }
 
-    const hasScrollRestore =
-      typeof state.restoreScrollY === "number";
+    const hasScrollRestore = typeof state.restoreScrollY === "number";
+    const hasExpandedOrder = typeof state.expandedOrderId === "string";
 
-    const hasExpandedOrder =
-      typeof state.expandedOrderId === "string";
-
-    if (
-      hasScrollRestore ||
-      hasExpandedOrder
-    ) {
+    if (hasScrollRestore || hasExpandedOrder) {
       initialRestoreRef.current = true;
       isRestoringRef.current = true;
     }
 
     if (hasScrollRestore) {
-      restoreScrollYRef.current =
-        state.restoreScrollY ?? null;
+      restoreScrollYRef.current = state.restoreScrollY ?? null;
     }
 
     if (hasExpandedOrder) {
-      restoreExpandedOrderRef.current =
-        state.expandedOrderId ?? null;
+      restoreExpandedOrderRef.current = state.expandedOrderId ?? null;
     }
   }, [location.state]);
-
 
   useEffect(() => {
     if (!initialRestoreRef.current) {
       return;
     }
 
-    const orderId =
-      restoreExpandedOrderRef.current;
+    const orderId = restoreExpandedOrderRef.current;
 
     if (!orderId) {
       return;
     }
 
-    const order =
-      orders.find(
-        (currentOrder) =>
-          currentOrder.id === orderId,
-      );
+    const order = orders.find(
+      (currentOrder) => currentOrder.id === orderId,
+    );
 
     if (!order) {
       return;
     }
 
-    const restoredStatus =
-      order.status.toLowerCase();
+    const restoredStatus = order.status.toLowerCase();
 
     if (
       activeTab !== restoredStatus &&
-      [
-        "pending",
-        "shipped",
-        "delivered",
-        "cancelled",
-      ].includes(restoredStatus)
+      tabs.includes(restoredStatus)
     ) {
       setActiveTab(restoredStatus);
     }
@@ -270,32 +248,19 @@ const BuyerOrders: React.FC = () => {
     setExpandedOrderId(orderId);
   }, [orders]);
 
-
   useLayoutEffect(() => {
-    if (
-      !initialRestoreRef.current ||
-      !isRestoringRef.current
-    ) {
+    if (!initialRestoreRef.current || !isRestoringRef.current) {
       return;
     }
 
-    if (
-      loading ||
-      !orders.length
-    ) {
+    if (loading || !orders.length) {
       return;
     }
 
-    const restoreScrollY =
-      restoreScrollYRef.current;
+    const restoreScrollY = restoreScrollYRef.current;
+    const restoreOrderId = restoreExpandedOrderRef.current;
 
-    const restoreOrderId =
-      restoreExpandedOrderRef.current;
-
-    if (
-      restoreOrderId &&
-      expandedOrderId !== restoreOrderId
-    ) {
+    if (restoreOrderId && expandedOrderId !== restoreOrderId) {
       return;
     }
 
@@ -303,7 +268,6 @@ const BuyerOrders: React.FC = () => {
       initialRestoreRef.current = false;
       isRestoringRef.current = false;
       restoreExpandedOrderRef.current = null;
-
       return;
     }
 
@@ -321,9 +285,7 @@ const BuyerOrders: React.FC = () => {
       });
 
       requestAnimationFrame(() => {
-        if (cancelled) {
-          return;
-        }
+        if (cancelled) return;
 
         window.scrollTo({
           top: restoreScrollY,
@@ -332,9 +294,7 @@ const BuyerOrders: React.FC = () => {
         });
 
         requestAnimationFrame(() => {
-          if (cancelled) {
-            return;
-          }
+          if (cancelled) return;
 
           window.scrollTo({
             top: restoreScrollY,
@@ -343,9 +303,7 @@ const BuyerOrders: React.FC = () => {
           });
 
           requestAnimationFrame(() => {
-            if (cancelled) {
-              return;
-            }
+            if (cancelled) return;
 
             window.scrollTo({
               top: restoreScrollY,
@@ -362,65 +320,38 @@ const BuyerOrders: React.FC = () => {
       });
     };
 
-    const images =
-      Array.from(document.images);
-
-    const pendingImages =
-      images.filter(
-        (image) => !image.complete,
-      );
+    const images = Array.from(document.images);
+    const pendingImages = images.filter((image) => !image.complete);
 
     if (pendingImages.length === 0) {
       restoreScroll();
     } else {
-      let remaining =
-        pendingImages.length;
+      let remaining = pendingImages.length;
 
-      const handleImageLoad =
-        (): void => {
-          remaining -= 1;
+      const handleImageLoad = (): void => {
+        remaining -= 1;
 
-          if (remaining <= 0) {
-            restoreScroll();
-          }
-        };
+        if (remaining <= 0) {
+          restoreScroll();
+        }
+      };
 
       pendingImages.forEach((image) => {
-        image.addEventListener(
-          "load",
-          handleImageLoad,
-          { once: true },
-        );
-
-        image.addEventListener(
-          "error",
-          handleImageLoad,
-          { once: true },
-        );
+        image.addEventListener("load", handleImageLoad, { once: true });
+        image.addEventListener("error", handleImageLoad, { once: true });
       });
 
-      const fallbackTimer =
-        window.setTimeout(() => {
-          restoreScroll();
-        }, 1500);
+      const fallbackTimer = window.setTimeout(() => {
+        restoreScroll();
+      }, 1500);
 
       return () => {
         cancelled = true;
-
-        window.clearTimeout(
-          fallbackTimer,
-        );
+        window.clearTimeout(fallbackTimer);
 
         pendingImages.forEach((image) => {
-          image.removeEventListener(
-            "load",
-            handleImageLoad,
-          );
-
-          image.removeEventListener(
-            "error",
-            handleImageLoad,
-          );
+          image.removeEventListener("load", handleImageLoad);
+          image.removeEventListener("error", handleImageLoad);
         });
       };
     }
@@ -428,124 +359,82 @@ const BuyerOrders: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [
-    loading,
-    orders,
-    expandedOrderId,
-  ]);
-
+  }, [loading, orders, expandedOrderId]);
 
   const formatOrderTime = (
-    dateString:
-      | string
-      | null
-      | undefined,
+    dateString: string | null | undefined,
   ): string => {
     if (!dateString) {
       return "";
     }
 
-    const value =
-      String(dateString).trim();
+    const value = String(dateString).trim();
 
     if (!value) {
       return "";
     }
 
-    let utcDate: Date;
-
-    if (
-      value.endsWith("Z") ||
-      /[+-]\d{2}:?\d{2}$/.test(value)
-    ) {
-      utcDate = new Date(value);
-    } else {
-      utcDate = new Date(`${value}Z`);
-    }
+    const utcDate =
+      value.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(value)
+        ? new Date(value)
+        : new Date(`${value}Z`);
 
     if (Number.isNaN(utcDate.getTime())) {
-      console.error(
-        "Invalid order date:",
-        dateString,
-      );
-
+      console.error("Invalid order date:", dateString);
       return "";
     }
 
-    return new Intl.DateTimeFormat(
-      undefined,
-      {
-        timeZone,
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      },
-    ).format(utcDate);
+    return new Intl.DateTimeFormat(i18n.language || undefined, {
+      timeZone,
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: i18n.language.startsWith("en"),
+    }).format(utcDate);
   };
 
-
-  const getOrderCreatedAt = (
-    dateString: string,
-  ): number => {
-    const value =
-      String(dateString).trim();
+  const getOrderCreatedAt = (dateString: string): number => {
+    const value = String(dateString).trim();
 
     if (!value) {
       return NaN;
     }
 
     const date =
-      value.endsWith("Z") ||
-      /[+-]\d{2}:?\d{2}$/.test(value)
+      value.endsWith("Z") || /[+-]\d{2}:?\d{2}$/.test(value)
         ? new Date(value)
         : new Date(`${value}Z`);
 
     return date.getTime();
   };
 
-
-  const canCancelOrder = (
-    order: Order,
-  ): boolean => {
-    if (
-      order.status.toLowerCase() !== "pending"
-    ) {
+  const canCancelOrder = (order: Order): boolean => {
+    if (order.status.toLowerCase() !== "pending") {
       return false;
     }
 
-    const createdAt =
-      getOrderCreatedAt(
-        order.created_at,
-      );
+    const createdAt = getOrderCreatedAt(order.created_at);
 
     if (!Number.isFinite(createdAt)) {
       return false;
     }
 
-    const cancellationDeadline =
-      createdAt +
-      60 * 60 * 1000;
+    const cancellationDeadline = createdAt + 60 * 60 * 1000;
 
     return currentTime < cancellationDeadline;
   };
 
-
   const getImageUrl = (
-    image:
-      | string
-      | null
-      | undefined,
+    image: string | null | undefined,
   ): string => {
     if (!image) {
       return "/placeholder.png";
     }
 
-    const trimmedImage =
-      image.trim();
+    const trimmedImage = image.trim();
 
     if (!trimmedImage) {
       return "/placeholder.png";
@@ -566,77 +455,55 @@ const BuyerOrders: React.FC = () => {
     return `${config.API_BASE_URL}/${trimmedImage}`;
   };
 
+  const fetchOrders = async (): Promise<Order[] | null> => {
+    setLoading(true);
+    setError("");
 
-  const fetchOrders =
-    async (): Promise<Order[] | null> => {
-      setLoading(true);
-      setError("");
+    try {
+      const res = await authFetch(
+        `${config.API_BASE_URL}/orders/`,
+      );
 
-      try {
-        const res =
-          await authFetch(
-            `${config.API_BASE_URL}/orders/`,
-          );
-
-        if (!res.ok) {
-          throw new Error(
-            "Failed to fetch orders",
-          );
-        }
-
-        const data: Order[] =
-          await res.json();
-
-        const newOrders =
-          Array.isArray(data)
-            ? data
-            : [];
-
-        const hasChanged =
-          JSON.stringify(
-            prevOrdersRef.current,
-          ) !==
-          JSON.stringify(
-            newOrders,
-          );
-
-        if (hasChanged) {
-          setOrders(newOrders);
-
-          prevOrdersRef.current =
-            newOrders;
-
-          localStorage.setItem(
-            "buyer_orders_cache",
-            JSON.stringify(newOrders),
-          );
-
-          window.dispatchEvent(
-            new Event("ordersUpdated"),
-          );
-        }
-
-        return newOrders;
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to fetch orders";
-
-        setError(message);
-
-        toast.error(message);
-
-        return null;
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        throw new Error(t("buyerOrders.errors.fetchFailed"));
       }
-    };
 
+      const data: Order[] = await res.json();
+      const newOrders = Array.isArray(data) ? data : [];
 
-  const cancelOrder = (
-    orderId: string,
-  ): void => {
+      const hasChanged =
+        JSON.stringify(prevOrdersRef.current) !==
+        JSON.stringify(newOrders);
+
+      if (hasChanged) {
+        setOrders(newOrders);
+        prevOrdersRef.current = newOrders;
+
+        localStorage.setItem(
+          "buyer_orders_cache",
+          JSON.stringify(newOrders),
+        );
+
+        window.dispatchEvent(new Event("ordersUpdated"));
+      }
+
+      return newOrders;
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t("buyerOrders.errors.fetchFailed");
+
+      setError(message);
+      toast.error(message);
+
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelOrder = (orderId: string): void => {
     if (cancellingOrderId) {
       return;
     }
@@ -644,107 +511,83 @@ const BuyerOrders: React.FC = () => {
     setOrderIdToCancel(orderId);
   };
 
+  const confirmCancelOrder = async (): Promise<void> => {
+    if (!orderIdToCancel || cancellingOrderId) {
+      return;
+    }
 
-  const confirmCancelOrder =
-    async (): Promise<void> => {
-      if (
-        !orderIdToCancel ||
-        cancellingOrderId
-      ) {
-        return;
-      }
+    const orderId = orderIdToCancel;
 
-      const orderId =
-        orderIdToCancel;
+    setCancellingOrderId(orderId);
 
-      setCancellingOrderId(orderId);
+    try {
+      const res = await authFetch(
+        `${config.API_BASE_URL}/orders/${orderId}/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "cancelled",
+          }),
+        },
+      );
 
-      try {
-        const res =
-          await authFetch(
-            `${config.API_BASE_URL}/orders/${orderId}/`,
-            {
-              method: "PATCH",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                status: "cancelled",
-              }),
-            },
-          );
+      const data: {
+        error?: string;
+        message?: string;
+      } = await res.json();
 
-        const data: {
-          error?: string;
-          message?: string;
-        } = await res.json();
-
-        if (!res.ok) {
-          throw new Error(
-            data.error ??
-              "Failed to cancel order",
-          );
-        }
-
-        const refreshedOrders =
-          await fetchOrders();
-
-        const cancelledOrder =
-          refreshedOrders?.find(
-            (order) =>
-              order.id === orderId,
-          );
-
-        if (
-          cancelledOrder?.status.toLowerCase() !==
-          "cancelled"
-        ) {
-          throw new Error(
-            "Cancellation is still being processed. Please wait a moment and try again.",
-          );
-        }
-
-        setOrderIdToCancel(null);
-
-        toast.success(
-          data.message ??
-            "Order cancelled successfully",
+      if (!res.ok) {
+        throw new Error(
+          data.error ?? t("buyerOrders.errors.cancelFailed"),
         );
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to cancel order";
-
-        toast.error(message);
-      } finally {
-        setCancellingOrderId(null);
       }
-    };
 
+      const refreshedOrders = await fetchOrders();
 
-  const handleTabClick = (
-    tab: string,
-  ): void => {
+      const cancelledOrder = refreshedOrders?.find(
+        (order) => order.id === orderId,
+      );
+
+      if (cancelledOrder?.status.toLowerCase() !== "cancelled") {
+        throw new Error(
+          t("buyerOrders.errors.cancellationProcessing"),
+        );
+      }
+
+      setOrderIdToCancel(null);
+
+      toast.success(
+        data.message ?? t("buyerOrders.cancel.success"),
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : t("buyerOrders.errors.cancelFailed");
+
+      toast.error(message);
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
+  const handleTabClick = (tab: string): void => {
     if (isRestoringRef.current) {
       return;
     }
 
     setActiveTab(tab);
 
-    const ordersInTab =
-      orders.filter(
-        (order) =>
-          order.status.toLowerCase() === tab,
-      );
+    const ordersInTab = orders.filter(
+      (order) => order.status.toLowerCase() === tab,
+    );
 
     const updatedSeen: SeenOrders = {
       ...seenOrderIds,
-      [tab]:
-        ordersInTab.map(
-          (order) => order.id,
-        ),
+      [tab]: ordersInTab.map((order) => order.id),
     };
 
     setSeenOrderIds(updatedSeen);
@@ -755,179 +598,109 @@ const BuyerOrders: React.FC = () => {
     );
   };
 
-
   useEffect(() => {
     if (!orders.length) {
       return;
     }
 
-    const ordersInTab =
-      orders.filter(
-        (order) =>
-          order.status.toLowerCase() ===
-          activeTab,
+    const ordersInTab = orders.filter(
+      (order) => order.status.toLowerCase() === activeTab,
+    );
+
+    setSeenOrderIds((currentSeen) => {
+      const seenSet = new Set(currentSeen[activeTab] ?? []);
+
+      ordersInTab.forEach((order) => {
+        seenSet.add(order.id);
+      });
+
+      const updatedSeen: SeenOrders = {
+        ...currentSeen,
+        [activeTab]: Array.from(seenSet),
+      };
+
+      localStorage.setItem(
+        "buyer_seen_order_ids",
+        JSON.stringify(updatedSeen),
       );
 
-    setSeenOrderIds(
-      (currentSeen) => {
-        const seenSet =
-          new Set(
-            currentSeen[activeTab] ?? [],
-          );
+      return updatedSeen;
+    });
 
-        ordersInTab.forEach(
-          (order) => {
-            seenSet.add(order.id);
-          },
-        );
-
-        const updatedSeen: SeenOrders = {
-          ...currentSeen,
-          [activeTab]:
-            Array.from(seenSet),
-        };
-
-        localStorage.setItem(
-          "buyer_seen_order_ids",
-          JSON.stringify(updatedSeen),
-        );
-
-        return updatedSeen;
-      },
-    );
-
-    window.dispatchEvent(
-      new Event("ordersUpdated"),
-    );
-  }, [
-    activeTab,
-    orders,
-  ]);
-
+    window.dispatchEvent(new Event("ordersUpdated"));
+  }, [activeTab, orders]);
 
   useEffect(() => {
     void fetchOrders();
 
-    const interval =
-      setInterval(() => {
-        void fetchOrders();
-      }, 30000);
+    const interval = setInterval(() => {
+      void fetchOrders();
+    }, 30000);
 
-    return () =>
-      clearInterval(interval);
+    return () => clearInterval(interval);
   }, []);
 
+  const groupedOrders: Record<string, Order[]> = orders.reduce(
+    (acc, order) => {
+      const status = order.status.toLowerCase();
 
-  const groupedOrders:
-    Record<string, Order[]> =
-    orders.reduce(
-      (
-        acc,
-        order,
-      ) => {
-        const status =
-          order.status.toLowerCase();
+      if (!acc[status]) {
+        acc[status] = [];
+      }
 
-        if (!acc[status]) {
-          acc[status] = [];
-        }
+      acc[status].push(order);
 
-        acc[status].push(order);
-
-        return acc;
-      },
-      {} as Record<string, Order[]>,
-    );
-
-
-  Object.keys(
-    groupedOrders,
-  ).forEach(
-    (status) => {
-      groupedOrders[status].sort(
-        (a, b) => {
-          const dateA =
-            a.created_at
-              ? new Date(
-                  a.created_at,
-                ).getTime()
-              : 0;
-
-          const dateB =
-            b.created_at
-              ? new Date(
-                  b.created_at,
-                ).getTime()
-              : 0;
-
-          return (
-            (Number.isFinite(dateB)
-              ? dateB
-              : 0) -
-            (Number.isFinite(dateA)
-              ? dateA
-              : 0)
-          );
-        },
-      );
+      return acc;
     },
+    {} as Record<string, Order[]>,
   );
 
+  Object.keys(groupedOrders).forEach((status) => {
+    groupedOrders[status].sort((a, b) => {
+      const dateA = a.created_at
+        ? new Date(a.created_at).getTime()
+        : 0;
 
-  const tabs: string[] = [
-    "pending",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ];
+      const dateB = b.created_at
+        ? new Date(b.created_at).getTime()
+        : 0;
 
-
-  const getBadgeCount = (
-    tab: string,
-  ): number => {
-    const ordersInTab =
-      groupedOrders[tab] ?? [];
-
-    const seenIds =
-      new Set(
-        seenOrderIds[tab] ?? [],
+      return (
+        (Number.isFinite(dateB) ? dateB : 0) -
+        (Number.isFinite(dateA) ? dateA : 0)
       );
+    });
+  });
+
+  const getBadgeCount = (tab: string): number => {
+    const ordersInTab = groupedOrders[tab] ?? [];
+    const seenIds = new Set(seenOrderIds[tab] ?? []);
 
     return ordersInTab.filter(
-      (order) =>
-        !seenIds.has(order.id),
+      (order) => !seenIds.has(order.id),
     ).length;
   };
 
-
   const getPaymentMethodLabel = (
-    paymentMethod:
-      | string
-      | null,
+    paymentMethod: string | null,
   ): string => {
-    switch (
-      paymentMethod?.toLowerCase()
-    ) {
+    switch (paymentMethod?.toLowerCase()) {
       case "stripe":
-        return "Card";
+        return t("buyerOrders.paymentMethods.card");
 
       case "mpesa":
         return "M-PESA";
 
       case "airtel":
-        return "Airtel Money";
+        return t("buyerOrders.paymentMethods.airtel");
 
       case "paypal":
         return "PayPal";
 
       default:
-        return (
-          paymentMethod ||
-          "N/A"
-        );
+        return paymentMethod || t("common.notAvailable");
     }
   };
-
 
   if (loading) {
     return (
@@ -948,15 +721,9 @@ const BuyerOrders: React.FC = () => {
     );
   }
 
-
   if (error) {
-    return (
-      <ErrorState
-        onRetry={fetchOrders}
-      />
-    );
+    return <ErrorState onRetry={() => void fetchOrders()} />;
   }
-
 
   if (!orders.length) {
     return (
@@ -968,25 +735,23 @@ const BuyerOrders: React.FC = () => {
           />
 
           <h2 className="mb-3 text-2xl font-semibold text-gray-900">
-            No orders yet
+            {t("buyerOrders.empty.title")}
           </h2>
 
           <p className="mb-6 text-gray-500">
-            You haven't placed any orders. Start
-            shopping to see them here.
+            {t("buyerOrders.empty.description")}
           </p>
 
           <Link
             to="/"
             className="inline-block rounded-lg bg-gray-900 px-5 py-2.5 text-white transition hover:-translate-y-0.5 hover:bg-gray-800"
           >
-            Browse Products
+            {t("buyerOrders.empty.browseProducts")}
           </Link>
         </div>
       </div>
     );
   }
-
 
   return (
     <div
@@ -1007,7 +772,6 @@ const BuyerOrders: React.FC = () => {
         autoClose={3000}
         theme="colored"
       />
-
 
       {orderIdToCancel && (
         <div
@@ -1044,11 +808,11 @@ const BuyerOrders: React.FC = () => {
                 />
 
                 <h2 className="mt-4 text-lg font-semibold text-gray-900 sm:text-xl">
-                  Cancelling Order
+                  {t("buyerOrders.cancel.processingTitle")}
                 </h2>
 
                 <p className="mt-2 text-sm text-gray-500">
-                  Please wait while we process your cancellation.
+                  {t("buyerOrders.cancel.processingDescription")}
                 </p>
               </div>
             ) : (
@@ -1062,19 +826,17 @@ const BuyerOrders: React.FC = () => {
                     sm:text-xl
                   "
                 >
-                  Are you sure you want to cancel this order?
+                  {t("buyerOrders.cancel.confirmTitle")}
                 </h2>
 
                 <p className="mt-2 text-sm text-gray-500">
-                  This action will cancel the order and cannot be undone.
+                  {t("buyerOrders.cancel.confirmDescription")}
                 </p>
 
-                <div className="mt-6 flex justify-end gap-3">
+                <div className="mt-6 mr-10 flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() =>
-                      setOrderIdToCancel(null)
-                    }
+                    onClick={() => setOrderIdToCancel(null)}
                     className="
                       rounded-md
                       bg-gray-200
@@ -1088,7 +850,7 @@ const BuyerOrders: React.FC = () => {
                       hover:bg-gray-300
                     "
                   >
-                    No
+                    {t("common.no")}
                   </button>
 
                   <button
@@ -1109,7 +871,7 @@ const BuyerOrders: React.FC = () => {
                       hover:shadow-md
                     "
                   >
-                    Yes, Cancel
+                    {t("buyerOrders.cancel.confirmButton")}
                   </button>
                 </div>
               </>
@@ -1117,7 +879,6 @@ const BuyerOrders: React.FC = () => {
           </div>
         </div>
       )}
-
 
       <div
         className="
@@ -1131,16 +892,13 @@ const BuyerOrders: React.FC = () => {
         "
       >
         {tabs.map((tab) => {
-          const count =
-            getBadgeCount(tab);
+          const count = getBadgeCount(tab);
 
           return (
             <button
               type="button"
               key={tab}
-              onClick={() =>
-                handleTabClick(tab)
-              }
+              onClick={() => handleTabClick(tab)}
               className={`
                 relative
                 min-w-[120px]
@@ -1154,6 +912,7 @@ const BuyerOrders: React.FC = () => {
                 transition-all
                 duration-300
                 sm:text-base
+                cursor-pointer
                 hover:text-[#004080]
                 ${
                   activeTab === tab
@@ -1162,8 +921,7 @@ const BuyerOrders: React.FC = () => {
                 }
               `}
             >
-              {tab.charAt(0).toUpperCase() +
-                tab.slice(1)}
+              {getStatusLabel(tab)}
 
               {count > 0 && (
                 <span
@@ -1200,296 +958,272 @@ const BuyerOrders: React.FC = () => {
         })}
       </div>
 
-
       <div className="space-y-4">
         {groupedOrders[activeTab]?.length ? (
-          groupedOrders[activeTab].map(
-            (order: Order) => {
-              const cancellationAvailable =
-                canCancelOrder(order);
+          groupedOrders[activeTab].map((order: Order) => {
+            const cancellationAvailable = canCancelOrder(order);
+            const isCancelling = cancellingOrderId === order.id;
 
-              const isCancelling =
-                cancellingOrderId ===
-                order.id;
-
-              return (
+            return (
+              <div
+                key={order.id}
+                className="
+                  w-full
+                  rounded-lg
+                  border
+                  border-gray-300
+                  bg-gray-50
+                  p-4
+                  transition-shadow
+                  duration-300
+                  hover:shadow-lg
+                "
+              >
                 <div
-                  key={order.id}
+                  onClick={() => {
+                    if (!isCancelling) {
+                      setExpandedOrderId(
+                        expandedOrderId === order.id
+                          ? null
+                          : order.id,
+                      );
+                    }
+                  }}
                   className="
-                    w-full
-                    rounded-lg
-                    border
-                    border-gray-300
-                    bg-gray-50
-                    p-4
-                    transition-shadow
-                    duration-300
-                    hover:shadow-lg
+                    mb-3
+                    flex
+                    cursor-pointer
+                    flex-wrap
+                    items-center
+                    justify-between
+                    gap-2
+                    text-base
                   "
                 >
-                  <div
+                  <strong>
+                    {t("buyerOrders.orderNumber", {
+                      id: order.id,
+                    })}
+                  </strong>
+
+                  <span className="font-semibold uppercase text-[#004080]">
+                    {getStatusLabel(order.status)}
+                  </span>
+
+                  <span className="cursor-pointer">
+                    {expandedOrderId === order.id ? (
+                      <ChevronUp size={18} />
+                    ) : (
+                      <ChevronDown size={18} />
+                    )}
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-[15px]">
+                  <div>
+                    <span className="font-semibold">
+                      {t("buyerOrders.fields.totalItems")}
+                    </span>{" "}
+                    {order.total_quantity}
+                  </div>
+
+                  <div>
+                    <span className="font-semibold">
+                      {t("buyerOrders.fields.totalCost")}
+                    </span>
+
+                    <span className="ml-2 font-semibold text-red-600">
+                      KES{" "}
+                      {order.total_price?.toLocaleString(i18n.language) ??
+                        "0"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="font-semibold">
+                      {t("buyerOrders.fields.paymentMethod")}
+                    </span>{" "}
+                    <span className="font-medium text-[#004080]">
+                      {getPaymentMethodLabel(order.payment_method)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="font-semibold">
+                      {t("buyerOrders.fields.shippingAddress")}
+                    </span>{" "}
+                    {order.address || t("common.notAvailable")}
+                  </div>
+
+                  <div>
+                    <span className="font-semibold">
+                      {t("buyerOrders.fields.createdAt")}
+                    </span>{" "}
+                    {formatOrderTime(order.created_at)}
+
+                    <small className="ml-2 text-xs text-gray-500">
+                      ({timeZone})
+                    </small>
+                  </div>
+                </div>
+
+                {order.status.toLowerCase() === "pending" && (
+                  <button
+                    type="button"
+                    disabled={
+                      !cancellationAvailable ||
+                      cancellingOrderId !== null
+                    }
                     onClick={() => {
-                      if (!isCancelling) {
-                        setExpandedOrderId(
-                          expandedOrderId ===
-                            order.id
-                            ? null
-                            : order.id,
-                        );
+                      if (
+                        cancellationAvailable &&
+                        !cancellingOrderId
+                      ) {
+                        cancelOrder(order.id);
                       }
                     }}
-                    className="
-                      mb-3
+                    className={`
+                      mt-4
                       flex
-                      cursor-pointer
-                      flex-wrap
                       items-center
-                      justify-between
                       gap-2
-                      text-base
-                    "
-                  >
-                    <strong>
-                      Order #{order.id}
-                    </strong>
-
-                    <span className="font-semibold uppercase text-[#004080]">
-                      {order.status}
-                    </span>
-
-                    <span className="cursor-pointer">
-                      {expandedOrderId ===
-                      order.id ? (
-                        <ChevronUp size={18} />
-                      ) : (
-                        <ChevronDown size={18} />
-                      )}
-                    </span>
-                  </div>
-
-
-                  <div className="space-y-2 text-[15px]">
-                    <div>
-                      <span className="font-semibold">
-                        Total Items:
-                      </span>{" "}
-                      {order.total_quantity}
-                    </div>
-
-                    <div>
-                      <span className="font-semibold">
-                        Total Cost:
-                      </span>
-
-                      <span className="ml-2 font-semibold text-red-600">
-                        KES{" "}
-                        {order.total_price?.toLocaleString() ??
-                          "0"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold">
-                        Payment Method:
-                      </span>{" "}
-                      <span className="font-medium text-[#004080]">
-                        {getPaymentMethodLabel(
-                          order.payment_method,
-                        )}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="font-semibold">
-                        Shipping Address:
-                      </span>{" "}
-                      {order.address || "N/A"}
-                    </div>
-
-                    <div>
-                      <span className="font-semibold">
-                        Created At:
-                      </span>{" "}
-                      {formatOrderTime(
-                        order.created_at,
-                      )}
-
-                      <small className="ml-2 text-xs text-gray-500">
-                        ({timeZone})
-                      </small>
-                    </div>
-                  </div>
-
-
-                  {order.status.toLowerCase() ===
-                    "pending" && (
-                    <button
-                      type="button"
-                      disabled={
-                        !cancellationAvailable ||
-                        cancellingOrderId !== null
+                      rounded-md
+                      px-4
+                      py-2
+                      text-sm
+                      font-medium
+                      text-white
+                      transition
+                      cursor-pointer
+                      ${
+                        cancellationAvailable && !cancellingOrderId
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "cursor-not-allowed bg-gray-400 opacity-60"
                       }
-                      onClick={() => {
-                        if (
-                          cancellationAvailable &&
-                          !cancellingOrderId
-                        ) {
-                          cancelOrder(order.id);
-                        }
-                      }}
-                      className={`
-                        mt-4
-                        flex
-                        items-center
-                        gap-2
-                        rounded-md
-                        px-4
-                        py-2
-                        text-sm
-                        font-medium
-                        text-white
-                        transition
-                        cursor-pointer
-                        ${
-                          cancellationAvailable &&
-                          !cancellingOrderId
-                            ? "bg-red-600 hover:bg-red-700"
-                            : "cursor-not-allowed bg-gray-400 opacity-60"
-                        }
-                      `}
-                    >
-                      {isCancelling ? (
-                        <>
-                          <Loader2
-                            size={16}
-                            className="animate-spin"
-                          />
-                          Cancelling...
-                        </>
-                      ) : cancellationAvailable ? (
-                        "Cancel Order"
-                      ) : (
-                        "Cancellation Period Expired"
-                      )}
-                    </button>
-                  )}
-
-
-                  {expandedOrderId ===
-                    order.id &&
-                    Array.isArray(order.items) &&
-                    order.items.length > 0 && (
-                      <div className="mt-4 border-t border-gray-200 pt-4">
-                        {order.items.map(
-                          (item: OrderItem) => (
-                            <div
-                              key={item.id}
-                              className="
-                                mb-4
-                                flex
-                                flex-col
-                                gap-4
-                                border-b
-                                border-dashed
-                                border-gray-300
-                                pb-4
-                                sm:flex-row
-                              "
-                            >
-                              <Link
-                                to={`/items/${item.sparepart.id}`}
-                                state={{
-                                  from:
-                                    location.pathname,
-                                  restoreScrollY:
-                                    window.scrollY,
-                                  expandedOrderId:
-                                    order.id,
-                                }}
-                                className="flex justify-center sm:block"
-                              >
-                                <img
-                                  src={getImageUrl(
-                                    item.sparepart.image,
-                                  )}
-                                  alt={
-                                    item.sparepart.brand ||
-                                    "Spare part"
-                                  }
-                                  className="
-                                    h-24
-                                    w-24
-                                    rounded-md
-                                    object-cover
-                                  "
-                                  onError={(event) => {
-                                    const target =
-                                      event.currentTarget;
-
-                                    if (
-                                      target.src.endsWith(
-                                        "/placeholder.png",
-                                      )
-                                    ) {
-                                      return;
-                                    }
-
-                                    target.src =
-                                      "/placeholder.png";
-                                  }}
-                                />
-                              </Link>
-
-                              <div className="flex-1 text-center sm:text-left">
-                                <strong className="block text-base">
-                                  {
-                                    item.sparepart.brand
-                                  }{" "}
-                                  {
-                                    item.sparepart.category
-                                  }{" "}
-                                  for{" "}
-                                  {
-                                    item.sparepart.vehicle_type
-                                  }
-                                </strong>
-
-                                <p className="mt-2">
-                                  <span className="font-semibold">
-                                    Quantity:
-                                  </span>{" "}
-                                  {item.quantity}
-                                </p>
-
-                                <p className="mt-1">
-                                  <span className="font-semibold">
-                                    Unit Price:
-                                  </span>{" "}
-                                  KES{" "}
-                                  {item.unit_price?.toLocaleString() ??
-                                    "0"}
-                                </p>
-
-                                <p className="mt-1">
-                                  <span className="font-semibold">
-                                    Subtotal:
-                                  </span>{" "}
-                                  <span className="font-semibold text-red-600">
-                                    KES{" "}
-                                    {item.subtotal?.toLocaleString() ??
-                                      "0"}
-                                  </span>
-                                </p>
-                              </div>
-                            </div>
-                          ),
-                        )}
-                      </div>
+                    `}
+                  >
+                    {isCancelling ? (
+                      <>
+                        <Loader2
+                          size={16}
+                          className="animate-spin"
+                        />
+                        {t("buyerOrders.cancel.cancelling")}
+                      </>
+                    ) : cancellationAvailable ? (
+                      t("buyerOrders.cancel.button")
+                    ) : (
+                      t("buyerOrders.cancel.expired")
                     )}
-                </div>
-              );
-            },
-          )
+                  </button>
+                )}
+
+                {expandedOrderId === order.id &&
+                  Array.isArray(order.items) &&
+                  order.items.length > 0 && (
+                    <div className="mt-4 border-t border-gray-200 pt-4">
+                      {order.items.map((item: OrderItem) => (
+                        <div
+                          key={item.id}
+                          className="
+                            mb-4
+                            flex
+                            flex-col
+                            gap-4
+                            border-b
+                            border-dashed
+                            border-gray-300
+                            pb-4
+                            sm:flex-row
+                          "
+                        >
+                          <Link
+                            to={`/items/${item.sparepart.id}`}
+                            state={{
+                              from: location.pathname,
+                              restoreScrollY: window.scrollY,
+                              expandedOrderId: order.id,
+                            }}
+                            className="flex justify-center sm:block"
+                          >
+                            <img
+                              src={getImageUrl(item.sparepart.image)}
+                              alt={
+                                item.sparepart.brand ||
+                                t("buyerOrders.sparePartFallback")
+                              }
+                              className="
+                                h-24
+                                w-24
+                                rounded-md
+                                object-cover
+                              "
+                              onError={(event) => {
+                                const target = event.currentTarget;
+
+                                if (
+                                  target.src.endsWith(
+                                    "/placeholder.png",
+                                  )
+                                ) {
+                                  return;
+                                }
+
+                                target.src = "/placeholder.png";
+                              }}
+                            />
+                          </Link>
+
+                          <div className="flex-1 text-center sm:text-left">
+                            <strong className="block text-base">
+                              {item.sparepart.brand}{" "}
+                              {getSparePartLabel(
+                                "categories",
+                                item.sparepart.category,
+                              )}{" "}
+                              {t("buyerOrders.sparePartFor")}{" "}
+                              {getSparePartLabel(
+                                "vehicleTypes",
+                                item.sparepart.vehicle_type,
+                              )}
+                            </strong>
+
+                            <p className="mt-2">
+                              <span className="font-semibold">
+                                {t("buyerOrders.fields.quantity")}
+                              </span>{" "}
+                              {item.quantity}
+                            </p>
+
+                            <p className="mt-1">
+                              <span className="font-semibold">
+                                {t("buyerOrders.fields.unitPrice")}
+                              </span>{" "}
+                              KES{" "}
+                              {item.unit_price?.toLocaleString(
+                                i18n.language,
+                              ) ?? "0"}
+                            </p>
+
+                            <p className="mt-1">
+                              <span className="font-semibold">
+                                {t("buyerOrders.fields.subtotal")}
+                              </span>{" "}
+                              <span className="font-semibold text-red-600">
+                                KES{" "}
+                                {item.subtotal?.toLocaleString(
+                                  i18n.language,
+                                ) ?? "0"}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            );
+          })
         ) : (
           <div
             className="
@@ -1508,21 +1242,15 @@ const BuyerOrders: React.FC = () => {
             />
 
             <h3 className="text-xl font-semibold text-gray-900">
-              No {activeTab} orders
+              {t("buyerOrders.empty.noStatusOrders", {
+                status: getStatusLabel(activeTab).toLowerCase(),
+              })}
             </h3>
 
             <p className="mt-2 max-w-md text-sm text-gray-500">
-              {activeTab === "pending" &&
-                "You have no pending orders right now."}
-
-              {activeTab === "shipped" &&
-                "Nothing has been shipped yet."}
-
-              {activeTab === "delivered" &&
-                "No delivered orders yet."}
-
-              {activeTab === "cancelled" &&
-                "No cancelled orders."}
+              {t(`buyerOrders.empty.${activeTab}`, {
+                defaultValue: "",
+              })}
             </p>
           </div>
         )}

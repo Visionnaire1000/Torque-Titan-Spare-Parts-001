@@ -282,10 +282,6 @@ STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
 STRIPE_SUCCESS_URL = env("STRIPE_SUCCESS_URL")
 STRIPE_CANCEL_URL = env("STRIPE_CANCEL_URL")
 
-#-------------------------PAYSTACK CONFIG-------------------------
-PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY")
-
-
 #-------------------------PAYPAL CONFIG-------------------------
 PAYPAL_CLIENT_ID = env("PAYPAL_CLIENT_ID")
 PAYPAL_CLIENT_SECRET = env("PAYPAL_CLIENT_SECRET")
@@ -295,6 +291,8 @@ PAYPAL_WEBHOOK_ID = env("PAYPAL_WEBHOOK_ID")
 PAYPAL_SUCCESS_URL = env("PAYPAL_SUCCESS_URL")
 PAYPAL_CANCEL_URL = env("PAYPAL_CANCEL_URL")
 
+#-------------------------PAYSTACK CONFIG-------------------------
+PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY")
 
 
 #------------------------- CLOUDFLARE CONFIG--------------------
@@ -303,6 +301,25 @@ R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY")
 R2_BUCKET_NAME = env("R2_BUCKET_NAME")
 R2_ENDPOINT_URL = env("R2_ENDPOINT_URL")
 R2_PUBLIC_URL = env("R2_PUBLIC_URL", "").rstrip("/")
+
+
+# ----------------------- SHARED CACHE -----------------------
+REDIS_URL = env("CELERY_BROKER_URL")
+
+if not REDIS_URL:
+    raise RuntimeError("REDIS_URL is not set in the environment.")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": "torque_titan",
+        "TIMEOUT": 300,
+    },
+}
 
 
 # -----------------------EMAIL---------------------------------

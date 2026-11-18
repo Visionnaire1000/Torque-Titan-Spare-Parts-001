@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { Trash2, PlusCircle, MinusCircle, ShoppingCart, X } from "lucide-react";
@@ -8,6 +9,8 @@ import "react-toastify/dist/ReactToastify.css";
 
 
 const Cart = () => {
+  const { t } = useTranslation();
+
   const {
     items,
     removeItem,
@@ -18,15 +21,51 @@ const Cart = () => {
   } = useCart();
 
   const { isAuthenticated } = useAuth();
-
   const navigate = useNavigate();
 
   const [showClearCartDialog, setShowClearCartDialog] =
     useState<boolean>(false);
 
+  const translateCategory = (value: string): string => {
+    const normalized = value.trim().toLowerCase();
+
+    const categoryAliases: Record<string, string> = {
+      tyre: "tyre",
+      tyres: "tyre",
+      rim: "rim",
+      rims: "rim",
+      battery: "battery",
+      batteries: "battery",
+      filter: "filter",
+      filters: "filter",
+      "oil filter": "filter",
+      "oil filters": "filter",
+      sedan: "sedan",
+      saloon: "sedan",
+      suv: "suv",
+      truck: "truck",
+      lorry: "truck",
+      bus: "bus",
+    };
+
+    const key = categoryAliases[normalized] ?? normalized;
+    const translationKey = `productCategories.${key}`;
+    const translated = t(translationKey);
+
+    return translated === translationKey ? value : translated;
+  };
+
+  const getProductLabel = (
+    brand: string,
+    category: string,
+    vehicleType: string
+  ): string => {
+    return `${brand} ${translateCategory(category)} ${t("common.productFor")} ${translateCategory(vehicleType)}`;
+  };
+
   const handleCheckout = (): void => {
     if (!isAuthenticated) {
-      toast.error("Please login to proceed with checkout");
+      toast.error(t("cart.checkoutLoginRequired"));
 
       navigate("/login", {
         state: { from: "/cart" },
@@ -44,7 +83,7 @@ const Cart = () => {
     try {
       await clearCart();
     } catch {
-      toast.error("Failed to clear cart");
+      toast.error(t("cart.clearFailed"));
     }
   };
 
@@ -64,6 +103,7 @@ const Cart = () => {
           py-12
           max-[480px]:max-w-[480px]
           max-[480px]:p-[2px]
+          max-[480px]:mt-[140px]
           lg:mt-[50px]
         "
       >
@@ -76,7 +116,7 @@ const Cart = () => {
             max-[480px]:ml-1
           "
         >
-          Your Cart
+          {t("cart.title")}
         </h1>
 
         <div
@@ -103,7 +143,7 @@ const Cart = () => {
               text-[rgb(0,64,128)]
             "
           >
-            Loading your cart...
+            {t("cart.loading")}
           </h2>
         </div>
       </div>
@@ -120,6 +160,7 @@ const Cart = () => {
           w-full
           max-[480px]:max-w-[480px]
           max-[480px]:p-[2px]
+          max-[480px]:mt-[140px]
           px-4
           py-12
           lg:mt-[50px]
@@ -134,7 +175,7 @@ const Cart = () => {
             max-[480px]:ml-1
           "
         >
-          Your Cart
+          {t("cart.title")}
         </h1>
 
         <div
@@ -161,7 +202,7 @@ const Cart = () => {
               text-[rgb(255,0,0)]
             "
           >
-            Your cart is empty
+            {t("cart.empty")}
           </h2>
         </div>
       </div>
@@ -180,6 +221,7 @@ const Cart = () => {
           py-12
           max-[480px]:max-w-[480px]
           max-[480px]:p-[2px]
+          max-[480px]:mt-[140px]
           lg:mt-[50px]
         "
       >
@@ -206,23 +248,23 @@ const Cart = () => {
                 <thead>
                   <tr>
                     <th className="border-b border-[#e0e0e0] p-4 text-left text-sm font-semibold uppercase text-[#555]">
-                      Item
+                      {t("cart.item")}
                     </th>
 
                     <th className="border-b border-[#e0e0e0] p-4 text-left text-sm font-semibold uppercase text-[#555]">
-                      Price
+                      {t("cart.price")}
                     </th>
 
                     <th className="border-b border-[#e0e0e0] p-4 text-left text-sm font-semibold uppercase text-[#555]">
-                      Quantity
+                      {t("cart.quantity")}
                     </th>
 
                     <th className="border-b border-[#e0e0e0] p-4 text-left text-sm font-semibold uppercase text-[#555]">
-                      Subtotal
+                      {t("cart.subtotal")}
                     </th>
 
                     <th className="border-b border-[#e0e0e0] p-4 text-left text-sm font-semibold uppercase text-[#555]">
-                      Actions
+                      {t("cart.actions")}
                     </th>
                   </tr>
                 </thead>
@@ -263,8 +305,11 @@ const Cart = () => {
                               text-black
                             "
                           >
-                            {item.brand} {item.category} for{" "}
-                            {item.vehicle_type}
+                            {getProductLabel(
+                              item.brand,
+                              item.category,
+                              item.vehicle_type
+                            )}
                           </p>
                         </div>
                       </td>
@@ -291,7 +336,9 @@ const Cart = () => {
                                 item.quantity - 1
                               )
                             }
-                            aria-label={`Decrease quantity of ${item.brand}`}
+                            aria-label={t("cart.decreaseQuantity", {
+                              brand: item.brand,
+                            })}
                             className="
                               flex
                               h-8
@@ -334,7 +381,9 @@ const Cart = () => {
                                 item.quantity + 1
                               )
                             }
-                            aria-label={`Increase quantity of ${item.brand}`}
+                            aria-label={t("cart.increaseQuantity", {
+                              brand: item.brand,
+                            })}
                             className="
                               flex
                               h-8
@@ -380,7 +429,9 @@ const Cart = () => {
                         <button
                           type="button"
                           onClick={() => removeItem(item.id)}
-                          aria-label={`Remove ${item.brand} from cart`}
+                          aria-label={t("cart.removeItem", {
+                            brand: item.brand,
+                          })}
                           className="
                             ml-[25px]
                             border-none
@@ -417,7 +468,7 @@ const Cart = () => {
                 "
                 onClick={() => setShowClearCartDialog(true)}
               >
-                Clear Cart
+                {t("cart.clearCart")}
               </button>
             </div>
           </div>
@@ -451,7 +502,7 @@ const Cart = () => {
                   font-semibold
                 "
               >
-                <span>Total</span>
+                <span>{t("cart.total")}</span>
 
                 <span
                   className="
@@ -481,7 +532,7 @@ const Cart = () => {
                 hover:bg-[rgb(3,34,65)]
               "
             >
-              Proceed to Checkout
+              {t("cart.proceedToCheckout")}
             </button>
           </div>
         </div>
@@ -528,7 +579,7 @@ const Cart = () => {
             <button
               type="button"
               onClick={handleCloseClearCartDialog}
-              aria-label="Close clear cart dialog"
+              aria-label={t("cart.closeClearDialog")}
               className="
                 absolute
                 right-3
@@ -579,7 +630,7 @@ const Cart = () => {
                   text-gray-900
                 "
               >
-                Clear your cart?
+                {t("cart.clearCartTitle")}
               </h2>
 
               <p
@@ -592,11 +643,9 @@ const Cart = () => {
                   text-gray-600
                 "
               >
-                Remove all{" "}
-                {items.length === 1
-                  ? "the item"
-                  : `${items.length} items`}{" "}
-                from your cart?
+                {t("cart.clearCartDescription", {
+                  count: items.length,
+                })}
               </p>
 
               <div
@@ -630,7 +679,7 @@ const Cart = () => {
                     cursor-pointer
                   "
                 >
-                  Cancel
+                  {t("cart.cancel")}
                 </button>
 
                 <button
@@ -642,6 +691,7 @@ const Cart = () => {
                     bg-red-600
                     px-3
                     py-2
+                    ml-5
                     text-sm
                     font-semibold
                     text-white
@@ -655,7 +705,7 @@ const Cart = () => {
                     cursor-pointer
                   "
                 >
-                  Clear Cart
+                  {t("cart.clearCart")}
                 </button>
               </div>
             </div>

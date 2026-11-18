@@ -3,49 +3,29 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
 import PhoneInput, { isValidPhoneNumber, type Value } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
 
 
 const inputClassName = `
-  w-full
-  rounded-[10px]
-  border
-  border-gray-200
-  bg-gray-50
-  px-[14px]
-  py-3
-  text-[0.95rem]
-  outline-none
-  transition-all
-  duration-200
-  focus:border-[rgb(0,64,128)]
-  focus:bg-white
-  focus:ring-4
-  focus:ring-[rgb(0,64,128)]/10
+  w-full rounded-[10px] border border-gray-200 bg-gray-50
+  px-[14px] py-3 text-[0.95rem] outline-none transition-all
+  duration-200 focus:border-[rgb(0,64,128)] focus:bg-white
+  focus:ring-4 focus:ring-[rgb(0,64,128)]/10
 `;
 
 const readOnlyInputClassName = `
-  w-full
-  rounded-[10px]
-  border
-  border-gray-200
-  bg-gray-100
-  px-[14px]
-  py-3
-  text-[0.95rem]
-  text-gray-700
-  outline-none
+  w-full rounded-[10px] border border-gray-200 bg-gray-100
+  px-[14px] py-3 text-[0.95rem] text-gray-700 outline-none
 `;
 
 const labelClassName = `
-  mb-1
-  block
-  text-[0.85rem]
-  font-semibold
-  text-gray-600
+  mb-1 block text-[0.85rem] font-semibold text-gray-600
 `;
 
 const AccountManagement = (): React.JSX.Element => {
+  const { t } = useTranslation();
+
   const {
     user,
     logout,
@@ -70,9 +50,7 @@ const AccountManagement = (): React.JSX.Element => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [nationalId, setNationalId] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState<Value | undefined>(
-    undefined
-  );
+  const [phoneNumber, setPhoneNumber] = useState<Value | undefined>(undefined);
   const [editingPhone, setEditingPhone] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -96,22 +74,15 @@ const AccountManagement = (): React.JSX.Element => {
   const passwordPattern =
     /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
-  const requirementMessage =
-    "Password must be at least 8 characters and include one uppercase letter, one number, and one special character.";
-
   const allRequirementsMet = passwordPattern.test(newPassword);
 
-  const changePasswordCountdown =
-    otpCountdowns.change_password;
-
-  const deleteAccountCountdown =
-    otpCountdowns.delete_account;
+  const changePasswordCountdown = otpCountdowns.change_password;
+  const deleteAccountCountdown = otpCountdowns.delete_account;
 
   const normalizedPhone = phoneNumber?.trim() ?? "";
 
   const validPhone =
-    Boolean(normalizedPhone) &&
-    isValidPhoneNumber(normalizedPhone);
+    Boolean(normalizedPhone) && isValidPhoneNumber(normalizedPhone);
 
   const validNationalId =
     nationalIdPattern.test(nationalId.trim());
@@ -143,29 +114,27 @@ const AccountManagement = (): React.JSX.Element => {
         !normalizedPhone ||
         !trimmedNationalId
       ) {
-        setProfileError("Please fill in all profile fields.");
+        setProfileError(t("accountManagement.errors.fillProfileFields"));
         return;
       }
 
       if (!isValidPhoneNumber(normalizedPhone)) {
-        setProfileError("Please enter a valid phone number.");
+        setProfileError(t("accountManagement.errors.invalidPhone"));
         return;
       }
 
       if (!nationalIdPattern.test(trimmedNationalId)) {
-        setProfileError(
-          "National ID must be 4 to 50 characters and contain only letters, numbers, spaces, hyphens, or slashes."
-        );
+        setProfileError(t("accountManagement.errors.invalidNationalId"));
         return;
       }
     } else {
       if (!normalizedPhone) {
-        setProfileError("Phone number is required.");
+        setProfileError(t("accountManagement.errors.phoneRequired"));
         return;
       }
 
       if (!isValidPhoneNumber(normalizedPhone)) {
-        setProfileError("Please enter a valid phone number.");
+        setProfileError(t("accountManagement.errors.invalidPhone"));
         return;
       }
     }
@@ -207,31 +176,27 @@ const AccountManagement = (): React.JSX.Element => {
     setPasswordError("");
 
     if (!currentPassword.trim()) {
-      setPasswordError("Current password is required.");
+      setPasswordError(t("accountManagement.errors.currentPasswordRequired"));
       return;
     }
 
     if (!newPassword.trim()) {
-      setPasswordError("New password is required.");
+      setPasswordError(t("accountManagement.errors.newPasswordRequired"));
       return;
     }
 
     if (!allRequirementsMet) {
-      setPasswordError(
-        "Password must be at least 8 characters and include one uppercase letter, one number, and one special character."
-      );
+      setPasswordError(t("accountManagement.password.requirements"));
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setPasswordError("New passwords do not match.");
+      setPasswordError(t("accountManagement.errors.passwordMismatch"));
       return;
     }
 
     if (newPassword === currentPassword) {
-      setPasswordError(
-        "New password must be different from your current password."
-      );
+      setPasswordError(t("accountManagement.errors.passwordMustBeDifferent"));
       return;
     }
 
@@ -258,12 +223,12 @@ const AccountManagement = (): React.JSX.Element => {
     const trimmedOtp = changePasswordOtp.trim();
 
     if (!trimmedOtp) {
-      setPasswordError("OTP is required.");
+      setPasswordError(t("accountManagement.errors.otpRequired"));
       return;
     }
 
     if (trimmedOtp.length !== 6) {
-      setPasswordError("Please enter the 6-digit OTP.");
+      setPasswordError(t("accountManagement.errors.invalidOtpLength"));
       return;
     }
 
@@ -286,16 +251,14 @@ const AccountManagement = (): React.JSX.Element => {
     }
   };
 
-  const handleResendChangePasswordOtp =
-    async (): Promise<void> => {
-      if (changePasswordCountdown > 0 || resendLoading) {
-        return;
-      }
+  const handleResendChangePasswordOtp = async (): Promise<void> => {
+    if (changePasswordCountdown > 0 || resendLoading) {
+      return;
+    }
 
-      setPasswordError("");
-
-      await resendOtp(null, "change_password");
-    };
+    setPasswordError("");
+    await resendOtp(null, "change_password");
+  };
 
   const handleCancelChangePassword = (): void => {
     setCurrentPassword("");
@@ -316,14 +279,13 @@ const AccountManagement = (): React.JSX.Element => {
     }
   };
 
-  const handleResendDeleteAccountOtp =
-    async (): Promise<void> => {
-      if (deleteAccountCountdown > 0 || resendLoading) {
-        return;
-      }
+  const handleResendDeleteAccountOtp = async (): Promise<void> => {
+    if (deleteAccountCountdown > 0 || resendLoading) {
+      return;
+    }
 
-      await resendOtp(null, "delete_account");
-    };
+    await resendOtp(null, "delete_account");
+  };
 
   const handleStartDeleteAccount = (): void => {
     setShowDeleteConfirm(true);
@@ -331,22 +293,21 @@ const AccountManagement = (): React.JSX.Element => {
     setDeleteOtp("");
   };
 
-  const handleCompleteDeleteAccount =
-    async (): Promise<void> => {
-      if (!deleteOtp) {
-        return;
-      }
+  const handleCompleteDeleteAccount = async (): Promise<void> => {
+    if (!deleteOtp) {
+      return;
+    }
 
-      const success = await completeDeleteAccount(deleteOtp);
+    const success = await completeDeleteAccount(deleteOtp);
 
-      if (success) {
-        setDeleteOtp("");
-        setDeleteStep(1);
-        setShowDeleteConfirm(false);
+    if (success) {
+      setDeleteOtp("");
+      setDeleteStep(1);
+      setShowDeleteConfirm(false);
 
-        await logout();
-      }
-    };
+      await logout();
+    }
+  };
 
   const handleCancelDelete = (): void => {
     setShowDeleteConfirm(false);
@@ -373,15 +334,8 @@ const AccountManagement = (): React.JSX.Element => {
   return (
     <div
       className="
-        mx-auto
-        mt-[80px]
-        mb-[40px]
-        w-full
-        max-w-[520px]
-        rounded-2xl
-        bg-white
-        p-6
-        font-sans
+        mx-auto mt-[120px] mb-[40px] w-full max-w-[520px]
+        rounded-2xl bg-white p-6 font-sans
         shadow-[0_10px_30px_rgba(0,0,0,0.08)]
         max-[480px]:max-w-[480px]
       "
@@ -390,19 +344,16 @@ const AccountManagement = (): React.JSX.Element => {
         <section className="mb-8">
           <h2
             className="
-              mb-5
-              text-[1.6rem]
-              font-bold
-              text-[rgb(0,64,128)]
+              mb-5 text-[1.6rem] font-bold text-[rgb(0,64,128)]
             "
           >
-            My Profile
+            {t("accountManagement.profile.title")}
           </h2>
 
           <div className="flex flex-col gap-4">
             <div>
               <label className={labelClassName}>
-                First Name
+                {t("accountManagement.profile.firstName")}
               </label>
 
               <input
@@ -411,16 +362,14 @@ const AccountManagement = (): React.JSX.Element => {
                 readOnly={hasProfile}
                 onChange={(e) => setFirstName(e.target.value)}
                 className={
-                  hasProfile
-                    ? readOnlyInputClassName
-                    : inputClassName
+                  hasProfile ? readOnlyInputClassName : inputClassName
                 }
               />
             </div>
 
             <div>
               <label className={labelClassName}>
-                Last Name
+                {t("accountManagement.profile.lastName")}
               </label>
 
               <input
@@ -429,16 +378,14 @@ const AccountManagement = (): React.JSX.Element => {
                 readOnly={hasProfile}
                 onChange={(e) => setLastName(e.target.value)}
                 className={
-                  hasProfile
-                    ? readOnlyInputClassName
-                    : inputClassName
+                  hasProfile ? readOnlyInputClassName : inputClassName
                 }
               />
             </div>
 
             <div>
               <label className={labelClassName}>
-                Email
+                {t("accountManagement.profile.email")}
               </label>
 
               <input
@@ -451,7 +398,7 @@ const AccountManagement = (): React.JSX.Element => {
 
             <div>
               <label className={labelClassName}>
-                National ID
+                {t("accountManagement.profile.nationalId")}
               </label>
 
               <input
@@ -468,13 +415,7 @@ const AccountManagement = (): React.JSX.Element => {
                     : `${
                         validNationalId || !nationalId
                           ? inputClassName
-                          : `
-                              ${inputClassName}
-                              border-red-500
-                              bg-red-50
-                              focus:border-red-500
-                              focus:ring-red-500/10
-                            `
+                          : `${inputClassName} border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-500/10`
                       }`
                 }
               />
@@ -484,15 +425,11 @@ const AccountManagement = (): React.JSX.Element => {
               <div className="w-full max-w-[430px]">
                 <label
                   className="
-                    mb-2
-                    block
-                    text-center
-                    text-[0.85rem]
-                    font-semibold
-                    text-gray-600
+                    mb-2 block text-center text-[0.85rem]
+                    font-semibold text-gray-600
                   "
                 >
-                  Phone Number
+                  {t("accountManagement.profile.phoneNumber")}
                 </label>
 
                 <div
@@ -511,11 +448,7 @@ const AccountManagement = (): React.JSX.Element => {
                     onChange={handlePhoneChange}
                     disabled={hasProfile && !editingPhone}
                     className="
-                      !flex
-                      !w-full
-                      !items-center
-                      !border-0
-                      !bg-transparent
+                      !flex !w-full !items-center !border-0 !bg-transparent
                       [&_.PhoneInputCountry]:!m-0
                       [&_.PhoneInputCountry]:!flex
                       [&_.PhoneInputCountry]:!items-center
@@ -560,13 +493,13 @@ const AccountManagement = (): React.JSX.Element => {
 
                 {normalizedPhone && !validPhone && (
                   <p className="mt-1.5 text-center text-[0.8rem] font-medium text-red-600">
-                    Please enter a valid international phone number.
+                    {t("accountManagement.profile.invalidPhone")}
                   </p>
                 )}
 
                 {hasProfile && !editingPhone && (
                   <p className="mt-1.5 text-center text-[0.75rem] text-gray-500">
-                    Click “Edit Phone Number” to change your number.
+                    {t("accountManagement.profile.editPhoneHint")}
                   </p>
                 )}
               </div>
@@ -584,24 +517,16 @@ const AccountManagement = (): React.JSX.Element => {
                 onClick={handleUpdateProfile}
                 disabled={profileLoading}
                 className="
-                  rounded-[10px]
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-3
-                  text-[0.95rem]
-                  font-semibold
-                  text-white
-                  transition-colors
-                  duration-200
-                  cursor-pointer
+                  rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                  text-[0.95rem] font-semibold text-white
+                  transition-colors duration-200 cursor-pointer
                   hover:bg-[rgb(0,58,115)]
-                  disabled:cursor-not-allowed
-                  disabled:bg-gray-300
+                  disabled:cursor-not-allowed disabled:bg-gray-300
                 "
               >
                 {profileLoading
-                  ? "Saving Profile..."
-                  : "Save Profile"}
+                  ? t("accountManagement.profile.savingProfile")
+                  : t("accountManagement.profile.saveProfile")}
               </button>
             )}
 
@@ -613,20 +538,13 @@ const AccountManagement = (): React.JSX.Element => {
                   setProfileError("");
                 }}
                 className="
-                  rounded-[10px]
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-3
-                  text-[0.95rem]
-                  font-semibold
-                  text-white
-                  transition-colors
-                  cursor-pointer
-                  duration-200
+                  rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                  text-[0.95rem] font-semibold text-white
+                  transition-colors cursor-pointer duration-200
                   hover:bg-[rgb(0,58,115)]
                 "
               >
-                Edit Phone Number
+                {t("accountManagement.profile.editPhone")}
               </button>
             )}
 
@@ -637,25 +555,16 @@ const AccountManagement = (): React.JSX.Element => {
                   onClick={handleUpdateProfile}
                   disabled={profileLoading || !validPhone}
                   className="
-                    flex-1
-                    rounded-[10px]
-                    bg-[rgb(0,64,128)]
-                    px-4
-                    py-3
-                    text-[0.95rem]
-                    font-semibold
-                    text-white
-                    transition-colors
-                    duration-200
-                    cursor-pointer
+                    flex-1 rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                    text-[0.95rem] font-semibold text-white
+                    transition-colors duration-200 cursor-pointer
                     hover:bg-[rgb(0,58,115)]
-                    disabled:cursor-not-allowed
-                    disabled:bg-gray-300
+                    disabled:cursor-not-allowed disabled:bg-gray-300
                   "
                 >
                   {profileLoading
-                    ? "Saving..."
-                    : "Save Phone Number"}
+                    ? t("accountManagement.profile.saving")
+                    : t("accountManagement.profile.savePhone")}
                 </button>
 
                 <button
@@ -663,22 +572,13 @@ const AccountManagement = (): React.JSX.Element => {
                   onClick={handleCancelPhoneEdit}
                   disabled={profileLoading}
                   className="
-                    flex-1
-                    rounded-[10px]
-                    bg-gray-200
-                    px-4
-                    py-3
-                    text-[0.95rem]
-                    font-semibold
-                    text-gray-900
-                    transition-colors
-                    duration-200
-                    cursor-pointer
-                    hover:bg-gray-300
-                    disabled:cursor-not-allowed
+                    flex-1 rounded-[10px] bg-gray-200 px-4 py-3
+                    text-[0.95rem] font-semibold text-gray-900
+                    transition-colors duration-200 cursor-pointer
+                    hover:bg-gray-300 disabled:cursor-not-allowed
                   "
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             )}
@@ -689,35 +589,21 @@ const AccountManagement = (): React.JSX.Element => {
       {!isBuyer && (
         <h2
           className="
-            mb-3
-            text-[1.5rem]
-            font-bold
-            text-[rgb(0,64,128)]
+            mb-3 text-[1.5rem] font-bold text-[rgb(0,64,128)]
           "
         >
-          Hello {user.display_name}
+          {t("accountManagement.hello", { name: user.display_name })}
         </h2>
       )}
 
       {!isGoogleOAuth && (
-        <section
-          className="
-            mb-8
-            border-t
-            border-gray-200
-            pt-6
-          "
-        >
+        <section className="mb-8 border-t border-gray-200 pt-6">
           <h3
             className="
-              mt-4
-              mb-4
-              text-[1.1rem]
-              font-semibold
-              text-red-600
+              mt-4 mb-4 text-[1.1rem] font-semibold text-red-600
             "
           >
-            Change Password
+            {t("accountManagement.password.title")}
           </h3>
 
           {changePasswordStep === 1 ? (
@@ -727,7 +613,7 @@ const AccountManagement = (): React.JSX.Element => {
             >
               <input
                 type={showChangePassword ? "text" : "password"}
-                placeholder="Current password"
+                placeholder={t("accountManagement.password.currentPassword")}
                 value={currentPassword}
                 onChange={(e) => {
                   setCurrentPassword(e.target.value);
@@ -739,7 +625,7 @@ const AccountManagement = (): React.JSX.Element => {
 
               <input
                 type={showChangePassword ? "text" : "password"}
-                placeholder="New password"
+                placeholder={t("accountManagement.password.newPassword")}
                 value={newPassword}
                 onChange={(e) => {
                   setNewPassword(e.target.value);
@@ -758,24 +644,18 @@ const AccountManagement = (): React.JSX.Element => {
               {passwordFocused && !allRequirementsMet && (
                 <div
                   className="
-                    rounded-[5px]
-                    border
-                    border-[#f5c2c7]
-                    bg-[#f8d7da]
-                    px-[10px]
-                    py-[5px]
-                    text-[0.9rem]
-                    font-medium
-                    text-[#d9534f]
+                    rounded-[5px] border border-[#f5c2c7]
+                    bg-[#f8d7da] px-[10px] py-[5px]
+                    text-[0.9rem] font-medium text-[#d9534f]
                   "
                 >
-                  {requirementMessage}
+                  {t("accountManagement.password.requirements")}
                 </div>
               )}
 
               <input
                 type={showChangePassword ? "text" : "password"}
-                placeholder="Confirm new password"
+                placeholder={t("accountManagement.password.confirmNewPassword")}
                 value={confirmNewPassword}
                 onChange={(e) => {
                   setConfirmNewPassword(e.target.value);
@@ -796,33 +676,23 @@ const AccountManagement = (): React.JSX.Element => {
                 onClick={() =>
                   setShowChangePassword((previous) => !previous)
                 }
+                aria-label={
+                  showChangePassword
+                    ? t("accountManagement.password.hidePassword")
+                    : t("accountManagement.password.showPassword")
+                }
                 className="
-                  flex
-                  w-full
-                  items-center
-                  justify-center
-                  gap-2
-                  rounded-[10px]
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-3
-                  text-[0.95rem]
-                  font-semibold
-                  text-white
-                  transition-colors
-                  duration-200
-                  cursor-pointer
+                  flex w-full items-center justify-center gap-2
+                  rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                  text-[0.95rem] font-semibold text-white
+                  transition-colors duration-200 cursor-pointer
                   hover:bg-[rgb(0,58,115)]
                 "
               >
                 {showChangePassword ? (
-                  <>
-                    <EyeOff size={20} />
-                  </>
+                  <EyeOff size={20} />
                 ) : (
-                  <>
-                    <Eye size={20} />
-                  </>
+                  <Eye size={20} />
                 )}
               </button>
 
@@ -830,25 +700,16 @@ const AccountManagement = (): React.JSX.Element => {
                 type="submit"
                 disabled={changePasswordLoading}
                 className="
-                  cursor-pointer
-                  rounded-[10px]
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-3
-                  text-[0.95rem]
-                  font-semibold
-                  text-white
-                  transition-colors
-                  duration-200
-                  cursor-pointer
+                  rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                  text-[0.95rem] font-semibold text-white
+                  transition-colors duration-200 cursor-pointer
                   hover:bg-[rgb(0,58,115)]
-                  disabled:cursor-not-allowed
-                  disabled:bg-gray-300
+                  disabled:cursor-not-allowed disabled:bg-gray-300
                 "
               >
                 {changePasswordLoading
-                  ? "Sending OTP..."
-                  : "Send OTP"}
+                  ? t("accountManagement.password.sendingOtp")
+                  : t("accountManagement.password.sendOtp")}
               </button>
             </form>
           ) : (
@@ -858,27 +719,19 @@ const AccountManagement = (): React.JSX.Element => {
             >
               <div
                 className="
-                  rounded-xl
-                  border
-                  border-blue-100
-                  bg-blue-50
-                  p-4
+                  rounded-xl border border-blue-100 bg-blue-50 p-4
                 "
               >
                 <h4
                   className="
-                    mb-1
-                    text-[1rem]
-                    font-semibold
-                    text-[rgb(0,64,128)]
+                    mb-1 text-[1rem] font-semibold text-[rgb(0,64,128)]
                   "
                 >
-                  Verify Your Password Change
+                  {t("accountManagement.password.verifyTitle")}
                 </h4>
 
                 <p className="text-[0.9rem] leading-relaxed text-gray-600">
-                  We sent a 6-digit OTP to your email. Enter it below
-                  to complete your password change.
+                  {t("accountManagement.password.verifyDescription")}
                 </p>
               </div>
 
@@ -887,7 +740,7 @@ const AccountManagement = (): React.JSX.Element => {
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
-                placeholder="Enter OTP"
+                placeholder={t("accountManagement.enterOtp")}
                 value={changePasswordOtp}
                 onChange={(e) =>
                   handleOtpChange(e, setChangePasswordOtp)
@@ -903,84 +756,53 @@ const AccountManagement = (): React.JSX.Element => {
                 </p>
               )}
 
-              <div
-                className="
-                  flex
-                  flex-wrap
-                  items-center
-                  gap-3
-                  text-[0.9rem]
-                "
-              >
+              <div className="flex flex-wrap items-center gap-3 text-[0.9rem]">
                 {otpSent && changePasswordCountdown > 0 && (
                   <span
                     className="
-                      rounded-md
-                      bg-[#ffe6e6]
-                      px-2
-                      py-1
-                      font-bold
-                      text-[#e53935]
+                      rounded-md bg-[#ffe6e6] px-2 py-1
+                      font-bold text-[#e53935]
                     "
                   >
-                    Resend OTP in {changePasswordCountdown}s
+                    {t("accountManagement.resendOtpIn", {
+                      seconds: changePasswordCountdown,
+                    })}
                   </span>
                 )}
 
                 <button
                   type="button"
                   onClick={handleResendChangePasswordOtp}
-                  disabled={
-                    changePasswordCountdown > 0 ||
-                    resendLoading
-                  }
+                  disabled={changePasswordCountdown > 0 || resendLoading}
                   className="
-                    cursor-pointer
-                    rounded-md
-                    bg-[#1976d2]
-                    px-3
-                    py-2
-                    font-medium
-                    text-white
-                    transition-colors
-                    duration-200
-                    cursor-pointer
-                    hover:bg-[#115293]
-                    disabled:cursor-not-allowed
-                    disabled:opacity-60
+                    rounded-md bg-[#1976d2] px-3 py-2
+                    font-medium text-white transition-colors
+                    duration-200 cursor-pointer hover:bg-[#115293]
+                    disabled:cursor-not-allowed disabled:opacity-60
                   "
                 >
                   {resendLoading
-                    ? "Resending OTP..."
-                    : "Resend OTP"}
+                    ? t("accountManagement.resendingOtp")
+                    : t("accountManagement.resendOtp")}
                 </button>
               </div>
 
               <button
                 type="submit"
                 disabled={
-                  changePasswordLoading ||
-                  changePasswordOtp.length !== 6
+                  changePasswordLoading || changePasswordOtp.length !== 6
                 }
                 className="
-                  rounded-[10px]
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-3
-                  text-[0.95rem]
-                  font-semibold
-                  text-white
-                  transition-colors
-                  duration-200
-                  cursor-pointer
+                  rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                  text-[0.95rem] font-semibold text-white
+                  transition-colors duration-200 cursor-pointer
                   hover:bg-[rgb(0,58,115)]
-                  disabled:cursor-not-allowed
-                  disabled:bg-gray-300
+                  disabled:cursor-not-allowed disabled:bg-gray-300
                 "
               >
                 {changePasswordLoading
-                  ? "Verifying OTP..."
-                  : "Verify OTP"}
+                  ? t("accountManagement.verifyingOtp")
+                  : t("accountManagement.verifyOtp")}
               </button>
 
               <button
@@ -988,21 +810,13 @@ const AccountManagement = (): React.JSX.Element => {
                 onClick={handleCancelChangePassword}
                 disabled={changePasswordLoading}
                 className="
-                  rounded-[10px]
-                  bg-[rgb(0,64,128)]
-                  px-4
-                  py-3
-                  text-[0.95rem]
-                  font-semibold
-                  text-white
-                  transition-colors
-                  duration-200
-                  hover:bg-[rgb(0,58,115)]
-                  cursor-pointer
-                  disabled:cursor-not-allowed
+                  rounded-[10px] bg-[rgb(0,64,128)] px-4 py-3
+                  text-[0.95rem] font-semibold text-white
+                  transition-colors duration-200 hover:bg-[rgb(0,58,115)]
+                  cursor-pointer disabled:cursor-not-allowed
                 "
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </form>
           )}
@@ -1012,13 +826,10 @@ const AccountManagement = (): React.JSX.Element => {
       <section className="border-t border-gray-200 pt-6">
         <h3
           className="
-            mb-4
-            text-[1.1rem]
-            font-semibold
-            text-[#b91c1c]
+            mb-4 text-[1.1rem] font-semibold text-[#b91c1c]
           "
         >
-          Danger Zone
+          {t("accountManagement.delete.dangerZone")}
         </h3>
 
         {!showDeleteConfirm ? (
@@ -1026,31 +837,19 @@ const AccountManagement = (): React.JSX.Element => {
             type="button"
             onClick={handleStartDeleteAccount}
             className="
-              rounded-[10px]
-              bg-[#dc2626]
-              px-4
-              py-3
-              text-[0.95rem]
-              font-semibold
-              text-white
-              transition-colors
-              duration-200
-              cursor-pointer
+              rounded-[10px] bg-[#dc2626] px-4 py-3
+              text-[0.95rem] font-semibold text-white
+              transition-colors duration-200 cursor-pointer
               hover:bg-[#b91c1c]
             "
           >
-            Delete Account
+            {t("accountManagement.delete.deleteAccount")}
           </button>
         ) : (
           <div
             className="
-              relative
-              mt-4
-              rounded-xl
-              border
-              border-[#fecaca]
-              bg-[#fef2f2]
-              p-4
+              relative mt-4 rounded-xl border border-[#fecaca]
+              bg-[#fef2f2] p-4
             "
           >
             {deleteStep === 1 && (
@@ -1058,24 +857,18 @@ const AccountManagement = (): React.JSX.Element => {
                 <div className="mb-5">
                   <h4
                     className="
-                      mb-2
-                      text-[1rem]
-                      font-bold
-                      text-[#991b1b]
+                      mb-2 text-[1rem] font-bold text-[#991b1b]
                     "
                   >
-                    Are you sure you want to delete your account?
+                    {t("accountManagement.delete.confirmTitle")}
                   </h4>
 
                   <p
                     className="
-                      text-[0.9rem]
-                      leading-relaxed
-                      text-[#7f1d1d]
+                      text-[0.9rem] leading-relaxed text-[#7f1d1d]
                     "
                   >
-                    This action is permanent and cannot be undone.
-                    Your account and associated data will be deleted.
+                    {t("accountManagement.delete.confirmDescription")}
                   </p>
                 </div>
 
@@ -1085,48 +878,29 @@ const AccountManagement = (): React.JSX.Element => {
                     onClick={handleRequestDeleteOtp}
                     disabled={deleteAccountLoading}
                     className="
-                      flex-1
-                      cursor-pointer
-                      rounded-[10px]
-                      bg-[#dc2626]
-                      px-4
-                      py-3
-                      text-[0.95rem]
-                      font-semibold
-                      text-white
-                      transition-colors
-                      duration-200
-                      hover:bg-[#b91c1c]
-                      cursor-pointer
-                      disabled:cursor-not-allowed
+                      flex-1 rounded-[10px] bg-[#dc2626] px-4 py-3
+                      text-[0.95rem] font-semibold text-white
+                      transition-colors duration-200 hover:bg-[#b91c1c]
+                      cursor-pointer disabled:cursor-not-allowed
                       disabled:bg-gray-300
                     "
                   >
                     {deleteAccountLoading
-                      ? "Sending OTP..."
-                      : "Yes, Continue"}
+                      ? t("accountManagement.delete.sendingOtp")
+                      : t("accountManagement.delete.yesContinue")}
                   </button>
 
                   <button
                     type="button"
                     onClick={handleCancelDelete}
                     className="
-                      flex-1
-                      cursor-pointer
-                      rounded-[10px]
-                      bg-gray-200
-                      px-4
-                      py-3
-                      text-[0.95rem]
-                      font-semibold
-                      text-gray-900
-                      transition-colors
-                      duration-200
-                      cursor-pointer
+                      flex-1 rounded-[10px] bg-gray-200 px-4 py-3
+                      text-[0.95rem] font-semibold text-gray-900
+                      transition-colors duration-200 cursor-pointer
                       hover:bg-gray-300
                     "
                   >
-                    Cancel
+                    {t("accountManagement.delete.cancel")}
                   </button>
                 </div>
               </>
@@ -1136,24 +910,14 @@ const AccountManagement = (): React.JSX.Element => {
               <>
                 <h4
                   className="
-                    mb-2
-                    text-[1rem]
-                    font-bold
-                    text-[#991b1b]
+                    mb-2 text-[1rem] font-bold text-[#991b1b]
                   "
                 >
-                  Confirm Account Deletion
+                  {t("accountManagement.delete.confirmDeletion")}
                 </h4>
 
-                <p
-                  className="
-                    mb-3
-                    text-[0.9rem]
-                    text-[#7f1d1d]
-                  "
-                >
-                  Enter the OTP sent to your email to permanently
-                  delete your account.
+                <p className="mb-3 text-[0.9rem] text-[#7f1d1d]">
+                  {t("accountManagement.delete.otpDescription")}
                 </p>
 
                 <input
@@ -1161,65 +925,41 @@ const AccountManagement = (): React.JSX.Element => {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   maxLength={6}
-                  placeholder="Enter OTP"
+                  placeholder={t("accountManagement.enterOtp")}
                   value={deleteOtp}
-                  onChange={(e) =>
-                    handleOtpChange(e, setDeleteOtp)
-                  }
+                  onChange={(e) => handleOtpChange(e, setDeleteOtp)}
                   required
                   className={inputClassName}
                 />
 
-                <div
-                  className="
-                    mt-3
-                    flex
-                    items-center
-                    gap-3
-                    text-[0.9rem]
-                  "
-                >
+                <div className="mt-3 flex items-center gap-3 text-[0.9rem]">
                   {otpSent && deleteAccountCountdown > 0 && (
                     <span
                       className="
-                        rounded-md
-                        bg-[#ffe6e6]
-                        px-2
-                        py-1
-                        font-bold
-                        text-[#e53935]
+                        rounded-md bg-[#ffe6e6] px-2 py-1
+                        font-bold text-[#e53935]
                       "
                     >
-                      Resend OTP in {deleteAccountCountdown}s
+                      {t("accountManagement.resendOtpIn", {
+                        seconds: deleteAccountCountdown,
+                      })}
                     </span>
                   )}
 
                   <button
                     type="button"
                     onClick={handleResendDeleteAccountOtp}
-                    disabled={
-                      deleteAccountCountdown > 0 ||
-                      resendLoading
-                    }
+                    disabled={deleteAccountCountdown > 0 || resendLoading}
                     className="
-                      cursor-pointer
-                      rounded-md
-                      bg-[#1976d2]
-                      px-3
-                      py-2
-                      font-medium
-                      text-white
-                      transition-colors
-                      duration-200
-                      hover:bg-[#115293]
-                      cursor-pointer
-                      disabled:cursor-not-allowed
-                      disabled:opacity-60
+                      rounded-md bg-[#1976d2] px-3 py-2
+                      font-medium text-white transition-colors
+                      duration-200 hover:bg-[#115293] cursor-pointer
+                      disabled:cursor-not-allowed disabled:opacity-60
                     "
                   >
                     {resendLoading
-                      ? "Resending OTP..."
-                      : "Resend OTP"}
+                      ? t("accountManagement.resendingOtp")
+                      : t("accountManagement.resendOtp")}
                   </button>
                 </div>
 
@@ -1227,52 +967,31 @@ const AccountManagement = (): React.JSX.Element => {
                   <button
                     type="button"
                     onClick={handleCompleteDeleteAccount}
-                    disabled={
-                      deleteAccountLoading || !deleteOtp
-                    }
+                    disabled={deleteAccountLoading || !deleteOtp}
                     className="
-                      flex-1
-                      cursor-pointer
-                      rounded-[10px]
-                      bg-[#dc2626]
-                      px-4
-                      py-3
-                      text-[0.95rem]
-                      font-semibold
-                      text-white
-                      transition-colors
-                      duration-200
-                      hover:bg-[#b91c1c]
-                      cursor-pointer
-                      disabled:cursor-not-allowed
+                      flex-1 rounded-[10px] bg-[#dc2626] px-4 py-3
+                      text-[0.95rem] font-semibold text-white
+                      transition-colors duration-200 hover:bg-[#b91c1c]
+                      cursor-pointer disabled:cursor-not-allowed
                       disabled:bg-gray-300
                     "
                   >
                     {deleteAccountLoading
-                      ? "Deleting Account..."
-                      : "Permanently Delete"}
+                      ? t("accountManagement.delete.deleting")
+                      : t("accountManagement.delete.permanentlyDelete")}
                   </button>
 
                   <button
                     type="button"
                     onClick={handleCancelDelete}
                     className="
-                      flex-1
-                      cursor-pointer
-                      rounded-[10px]
-                      bg-gray-200
-                      px-4
-                      py-3
-                      text-[0.95rem]
-                      font-semibold
-                      text-gray-900
-                      transition-colors
-                      cursor-pointer
-                      duration-200
+                      flex-1 rounded-[10px] bg-gray-200 px-4 py-3
+                      text-[0.95rem] font-semibold text-gray-900
+                      transition-colors duration-200 cursor-pointer
                       hover:bg-gray-300
                     "
                   >
-                    Cancel
+                    {t("accountManagement.delete.cancel")}
                   </button>
                 </div>
               </>
@@ -1284,49 +1003,29 @@ const AccountManagement = (): React.JSX.Element => {
       {isSuperAdmin && (
         <section
           className="
-            mt-6
-            rounded-xl
-            border
-            border-gray-200
-            bg-gradient-to-br
-            from-blue-50
-            to-gray-50
-            p-5
-            text-center
+            mt-6 rounded-xl border border-gray-200
+            bg-gradient-to-br from-blue-50 to-gray-50
+            p-5 text-center
           "
         >
           <h3
             className="
-              mb-2
-              text-base
-              font-semibold
-              text-gray-800
+              mb-2 text-base font-semibold text-gray-800
             "
           >
-            Admin Management
+            {t("accountManagement.admin.title")}
           </h3>
 
           <Link
             to="/admin-management"
             className="
-              inline-flex
-              cursor-pointer
-              items-center
-              justify-center
-              rounded-full
-              bg-[rgb(0,64,128)]
-              px-5
-              py-2.5
-              text-sm
-              font-medium
-              text-white
-              transition-all
-              duration-200
-              hover:opacity-90
-              active:scale-95
+              inline-flex cursor-pointer items-center justify-center
+              rounded-full bg-[rgb(0,64,128)] px-5 py-2.5
+              text-sm font-medium text-white transition-all
+              duration-200 hover:opacity-90 active:scale-95
             "
           >
-            Manage Admin Accounts →
+            {t("accountManagement.admin.manageAccounts")} →
           </Link>
         </section>
       )}

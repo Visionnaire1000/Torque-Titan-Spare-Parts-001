@@ -1,6 +1,9 @@
 import { FaInstagram, FaFacebook } from "react-icons/fa";
+import { useTranslation } from "react-i18next";
 
 const Footer = () => {
+  const { t } = useTranslation();
+
   return (
     <footer
       className="
@@ -25,15 +28,17 @@ const Footer = () => {
           max-[480px]:gap-5
         "
       >
+        {/* Social Media */}
         <div>
           <p className="mb-[5px] text-[medium] font-bold max-[480px]:text-[0.9rem]">
-            Social Media
+            {t("footer.socialMedia")}
           </p>
 
           <a
             href="https://www.instagram.com"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={t("footer.instagram")}
             className="mr-[2px] text-white hover:text-[rgb(0,255,80)]"
           >
             <FaInstagram
@@ -46,6 +51,7 @@ const Footer = () => {
             href="https://www.facebook.com"
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={t("footer.facebook")}
             className="mr-[2px] text-white hover:text-[rgb(0,255,80)]"
           >
             <FaFacebook
@@ -55,39 +61,42 @@ const Footer = () => {
           </a>
         </div>
 
+        {/* Contact */}
         <div>
           <h5 className="text-[medium] max-[480px]:text-[0.9rem]">
-            Contact
+            {t("footer.contact")}
           </h5>
 
-          <li className="list-none">
-            Email: customerservice@torquetitanspares.com
-          </li>
+          <p>
+            {t("footer.email")}: customerservice@torquetitanspares.com
+          </p>
 
-          <li className="list-none">
-            Phone: +254 123 458399
-          </li>
+          <p>
+            {t("footer.phone")}: +254 123 458399
+          </p>
         </div>
 
+        {/* Policies and Information */}
         <div>
           <p className="cursor-pointer hover:text-[rgb(0,255,80)]">
-            Privacy Policy
+            {t("footer.privacyPolicy")}
           </p>
 
           <p className="cursor-pointer hover:text-[rgb(0,255,80)]">
-            About Us
+            {t("footer.aboutUs")}
           </p>
 
           <p className="cursor-pointer hover:text-[rgb(0,255,80)]">
-            Cookies
+            {t("footer.cookies")}
           </p>
 
           <p className="cursor-pointer hover:text-[rgb(0,255,80)]">
-            Terms of Service
+            {t("footer.termsOfService")}
           </p>
         </div>
       </div>
 
+      {/* Copyright */}
       <div
         className="
           mt-8
@@ -100,8 +109,9 @@ const Footer = () => {
         "
       >
         <p>
-          &copy; {new Date().getFullYear()} Torque Titan Spare Parts. All
-          rights reserved.
+          {t("footer.copyright", {
+            year: new Date().getFullYear(),
+          })}
         </p>
       </div>
     </footer>

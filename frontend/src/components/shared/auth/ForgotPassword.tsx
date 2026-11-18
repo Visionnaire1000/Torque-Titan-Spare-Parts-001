@@ -1,35 +1,24 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
 
 const ForgotPassword = (): React.JSX.Element => {
+  const { t } = useTranslation();
+
   const [email, setEmail] = useState<string>("");
   const [otp, setOtp] = useState<string>("");
-  const [newPassword, setNewPassword] =
-    useState<string>("");
-  const [confirmPassword, setConfirmPassword] =
-    useState<string>("");
+  const [newPassword, setNewPassword] = useState<string>("");
+  const [confirmPassword, setConfirmPassword] = useState<string>("");
 
-  const [showNewPassword, setShowNewPassword] =
-    useState<boolean>(false);
+  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
-  const [
-    showConfirmPassword,
-    setShowConfirmPassword,
-  ] = useState<boolean>(false);
-
-  const [otpStep, setOtpStep] =
-    useState<boolean>(false);
-
-  const [isSubmitting, setIsSubmitting] =
-    useState<boolean>(false);
-
-  const [passwordError, setPasswordError] =
-    useState<string>("");
-
-  const [emailError, setEmailError] =
-    useState<string>("");
+  const [otpStep, setOtpStep] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [passwordError, setPasswordError] = useState<string>("");
+  const [emailError, setEmailError] = useState<string>("");
 
   const {
     sendForgotPasswordOtp,
@@ -41,18 +30,15 @@ const ForgotPassword = (): React.JSX.Element => {
 
   const navigate = useNavigate();
 
-  const forgotPasswordCountdown =
-    otpCountdowns.forgot_password;
+  const forgotPasswordCountdown = otpCountdowns.forgot_password;
 
-  const emailPattern =
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   const passwordPattern =
     /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
   const passwordsMatch =
-    newPassword.trim() ===
-    confirmPassword.trim();
+    newPassword.trim() === confirmPassword.trim();
 
   const handleNewPasswordChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -68,7 +54,7 @@ const ForgotPassword = (): React.JSX.Element => {
 
     setPasswordError(
       !passwordPattern.test(value)
-        ? "Password must be at least 8 characters and include one uppercase letter, one number, and one special character."
+        ? t("auth.forgotPassword.passwordRequirements")
         : ""
     );
   };
@@ -82,7 +68,7 @@ const ForgotPassword = (): React.JSX.Element => {
 
     setEmailError(
       !emailPattern.test(value)
-        ? "Enter a valid email address"
+        ? t("auth.forgotPassword.invalidEmail")
         : ""
     );
   };
@@ -104,11 +90,10 @@ const ForgotPassword = (): React.JSX.Element => {
     setIsSubmitting(true);
 
     try {
-      const success =
-        await sendForgotPasswordOtp(
-          email,
-          newPassword
-        );
+      const success = await sendForgotPasswordOtp(
+        email,
+        newPassword
+      );
 
       if (success) {
         setOtpStep(true);
@@ -134,12 +119,11 @@ const ForgotPassword = (): React.JSX.Element => {
     setIsSubmitting(true);
 
     try {
-      const success =
-        await completeForgotPassword(
-          email,
-          otp,
-          newPassword
-        );
+      const success = await completeForgotPassword(
+        email,
+        otp,
+        newPassword
+      );
 
       if (success) {
         navigate("/login", {
@@ -159,10 +143,7 @@ const ForgotPassword = (): React.JSX.Element => {
       return;
     }
 
-    await resendOtp(
-      email,
-      "forgot_password"
-    );
+    await resendOtp(email, "forgot_password");
   };
 
   return (
@@ -190,8 +171,8 @@ const ForgotPassword = (): React.JSX.Element => {
           "
         >
           {otpStep
-            ? "Reset your password"
-            : "Forgot password?"}
+            ? t("auth.forgotPassword.resetTitle")
+            : t("auth.forgotPassword.title")}
         </p>
 
         {!otpStep ? (
@@ -204,9 +185,7 @@ const ForgotPassword = (): React.JSX.Element => {
                 text-gray-600
               "
             >
-              Enter your email and create a new
-              password. We'll send you an OTP to
-              confirm the password reset.
+              {t("auth.forgotPassword.description")}
             </p>
 
             <form
@@ -215,7 +194,7 @@ const ForgotPassword = (): React.JSX.Element => {
             >
               <input
                 type="email"
-                placeholder="email"
+                placeholder={t("auth.forgotPassword.emailPlaceholder")}
                 value={email}
                 onChange={handleEmailChange}
                 required
@@ -255,12 +234,8 @@ const ForgotPassword = (): React.JSX.Element => {
 
               <div className="relative">
                 <input
-                  type={
-                    showNewPassword
-                      ? "text"
-                      : "password"
-                  }
-                  placeholder="new password"
+                  type={showNewPassword ? "text" : "password"}
+                  placeholder={t("auth.forgotPassword.newPasswordPlaceholder")}
                   value={newPassword}
                   onChange={handleNewPasswordChange}
                   required
@@ -283,14 +258,12 @@ const ForgotPassword = (): React.JSX.Element => {
                 <button
                   type="button"
                   onClick={() =>
-                    setShowNewPassword(
-                      (prev) => !prev
-                    )
+                    setShowNewPassword((prev) => !prev)
                   }
                   aria-label={
                     showNewPassword
-                      ? "Hide new password"
-                      : "Show new password"
+                      ? t("auth.forgotPassword.hideNewPassword")
+                      : t("auth.forgotPassword.showNewPassword")
                   }
                   className="
                     absolute
@@ -332,20 +305,12 @@ const ForgotPassword = (): React.JSX.Element => {
 
               <div className="relative">
                 <input
-                  type={
-                    showConfirmPassword
-                      ? "text"
-                      : "password"
-                  }
-                  placeholder="confirm new password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder={t("auth.forgotPassword.confirmNewPasswordPlaceholder")}
                   value={confirmPassword}
                   onChange={(
                     e: React.ChangeEvent<HTMLInputElement>
-                  ) =>
-                    setConfirmPassword(
-                      e.target.value
-                    )
-                  }
+                  ) => setConfirmPassword(e.target.value)}
                   required
                   className="
                     w-full
@@ -366,14 +331,12 @@ const ForgotPassword = (): React.JSX.Element => {
                 <button
                   type="button"
                   onClick={() =>
-                    setShowConfirmPassword(
-                      (prev) => !prev
-                    )
+                    setShowConfirmPassword((prev) => !prev)
                   }
                   aria-label={
                     showConfirmPassword
-                      ? "Hide confirm password"
-                      : "Show confirm password"
+                      ? t("auth.forgotPassword.hideConfirmPassword")
+                      : t("auth.forgotPassword.showConfirmPassword")
                   }
                   className="
                     absolute
@@ -411,7 +374,7 @@ const ForgotPassword = (): React.JSX.Element => {
                       text-[#d9534f]
                     "
                   >
-                    Passwords do not match.
+                    {t("auth.forgotPassword.passwordsDoNotMatch")}
                   </p>
                 )}
 
@@ -443,8 +406,8 @@ const ForgotPassword = (): React.JSX.Element => {
                 "
               >
                 {isSubmitting
-                  ? "Sending OTP..."
-                  : "Send OTP"}
+                  ? t("auth.forgotPassword.sendingOtp")
+                  : t("auth.forgotPassword.sendOtp")}
               </button>
             </form>
           </>
@@ -458,11 +421,11 @@ const ForgotPassword = (): React.JSX.Element => {
                 text-gray-600
               "
             >
-              Enter the OTP sent to{" "}
+              {t("auth.forgotPassword.otpDescription")}{" "}
               <span className="font-semibold">
                 {email}
               </span>{" "}
-              to reset your password.
+              {t("auth.forgotPassword.otpDescriptionEnd")}
             </p>
 
             <form
@@ -473,17 +436,12 @@ const ForgotPassword = (): React.JSX.Element => {
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
-                placeholder="OTP"
+                placeholder={t("auth.forgotPassword.otpPlaceholder")}
                 value={otp}
                 onChange={(
                   e: React.ChangeEvent<HTMLInputElement>
                 ) =>
-                  setOtp(
-                    e.target.value.replace(
-                      /\D/g,
-                      ""
-                    )
-                  )
+                  setOtp(e.target.value.replace(/\D/g, ""))
                 }
                 required
                 className="
@@ -526,8 +484,8 @@ const ForgotPassword = (): React.JSX.Element => {
                 "
               >
                 {isSubmitting
-                  ? "Resetting password..."
-                  : "Reset password"}
+                  ? t("auth.forgotPassword.resettingPassword")
+                  : t("auth.forgotPassword.resetPassword")}
               </button>
 
               <button
@@ -560,10 +518,12 @@ const ForgotPassword = (): React.JSX.Element => {
                 "
               >
                 {forgotPasswordCountdown > 0
-                  ? `Resend OTP in ${forgotPasswordCountdown}s`
+                  ? t("auth.forgotPassword.resendOtpIn", {
+                      seconds: forgotPasswordCountdown,
+                    })
                   : resendLoading
-                    ? "Resending OTP..."
-                    : "Resend OTP"}
+                    ? t("auth.forgotPassword.resendingOtp")
+                    : t("auth.forgotPassword.resendOtp")}
               </button>
             </form>
           </>
@@ -580,7 +540,7 @@ const ForgotPassword = (): React.JSX.Element => {
               hover:underline
             "
           >
-            Back to login
+            {t("auth.forgotPassword.backToLogin")}
           </Link>
         </div>
       </div>

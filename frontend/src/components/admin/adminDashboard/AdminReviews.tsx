@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, type FC, type MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import config from "../../../config";
@@ -58,75 +59,82 @@ const SkeletonCard: FC = () => (
 );
 
 /* ---------------- Error State ---------------- */
-const ErrorState: FC<ErrorStateProps> = ({
-  onRetry,
-}) => (
-  <div
-    className="
-      flex
-      h-[60vh]
-      flex-col
-      items-center
-      justify-center
-      px-5
-      text-center
-    "
-  >
-    <h2 className="mb-2 text-2xl font-semibold text-gray-900">
-      Something went wrong
-    </h2>
+const ErrorState: FC<ErrorStateProps> = ({ onRetry }) => {
+  const { t } = useTranslation();
 
-    <p
+  return (
+    <div
       className="
-        mb-5
-        max-w-[400px]
-        text-[15px]
-        text-gray-500
-      "
-    >
-      Unable to load reviews. Please check your
-      connection and try again.
-    </p>
-
-    <button
-      onClick={onRetry}
-      className="
-        inline-flex
+        flex
+        h-[60vh]
+        flex-col
         items-center
-        gap-2
-        rounded-lg
-        bg-gray-900
-        px-4
-        py-2.5
-        text-white
-        transition
-        hover:bg-gray-800
+        justify-center
+        px-5
+        text-center
       "
     >
-      <RefreshCw size={18} />
-      Retry
-    </button>
-  </div>
-);
+      <h2 className="mb-2 text-2xl font-semibold text-gray-900">
+        {t("adminReviews.somethingWentWrong")}
+      </h2>
+
+      <p
+        className="
+          mb-5
+          max-w-[400px]
+          text-[15px]
+          text-gray-500
+        "
+      >
+        {t("adminReviews.unableToLoadReviews")}
+      </p>
+
+      <button
+        type="button"
+        onClick={onRetry}
+        className="
+          inline-flex
+          items-center
+          gap-2
+          rounded-lg
+          bg-gray-900
+          px-4
+          py-2.5
+          text-white
+          transition
+          hover:bg-gray-800
+        "
+      >
+        <RefreshCw size={18} />
+        {t("adminReviews.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Empty State ---------------- */
-const EmptyState: FC = () => (
-  <div
-    className="
-      mt-[90px]
-      py-10
-      text-center
-      text-base
-      font-medium
-      text-red-600
-    "
-  >
-    No reviews yet.
-  </div>
-);
+const EmptyState: FC = () => {
+  const { t } = useTranslation();
+
+  return (
+    <div
+      className="
+        mt-[90px]
+        py-10
+        text-center
+        text-base
+        font-medium
+        text-red-600
+      "
+    >
+      {t("adminReviews.noReviews")}
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const AdminReviews: FC = () => {
+  const { t } = useTranslation();
   const { authFetch, user } = useAuth();
 
   const location = useLocation();
@@ -136,37 +144,29 @@ const AdminReviews: FC = () => {
     restoreScrollY?: number;
   } | null;
 
-  const restoreScrollYRef =
-    useRef<number | null>(
-      typeof restoreState?.restoreScrollY === "number"
-        ? restoreState.restoreScrollY
-        : null
-    );
+  const restoreScrollYRef = useRef<number | null>(
+    typeof restoreState?.restoreScrollY === "number"
+      ? restoreState.restoreScrollY
+      : null
+  );
 
-  const isRestoringRef =
-    useRef<boolean>(
-      typeof restoreState?.restoreScrollY === "number"
-    );
+  const isRestoringRef = useRef<boolean>(
+    typeof restoreState?.restoreScrollY === "number"
+  );
 
   const [reviews, setReviews] = useState<Review[]>([]);
 
-  const [loading, setLoading] =
-    useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const [error, setError] =
-    useState<string>("");
+  const [error, setError] = useState<string>("");
 
-  const [showAnalytics, setShowAnalytics] =
-    useState<boolean>(false);
+  const [showAnalytics, setShowAnalytics] = useState<boolean>(false);
 
-  const [analytics, setAnalytics] =
-    useState<ReviewAnalyticsGroup[]>([]);
+  const [analytics, setAnalytics] = useState<ReviewAnalyticsGroup[]>([]);
 
-  const [analyticsLoading, setAnalyticsLoading] =
-    useState<boolean>(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState<boolean>(false);
 
-  const [analyticsError, setAnalyticsError] =
-    useState<string>("");
+  const [analyticsError, setAnalyticsError] = useState<string>("");
 
   const [
     selectedVehicleType,
@@ -181,9 +181,7 @@ const AdminReviews: FC = () => {
   const reviewsRef = useRef<Review[]>([]);
 
   /* ---------------- Helpers ---------------- */
-  const formatDate = (
-    dateString: string
-  ): string => {
+  const formatDate = (dateString: string): string => {
     if (!dateString) return "";
 
     const date = new Date(dateString);
@@ -197,127 +195,119 @@ const AdminReviews: FC = () => {
     )}/${date.getFullYear()}`;
   };
 
-  const capitalize = (
-    value: string
-  ): string => {
+  const capitalize = (value: string): string => {
     return value
       .replace(/_/g, " ")
       .replace(/\b\w/g, (character) =>
         character.toUpperCase()
       );
   };
-   
-  
-/* ----------------------------- PROFILE CIRCLE ------------------------- */
-const getProfileInitials = (
-  displayName: string
-): string => {
-  const name = displayName.trim();
 
-  if (!name) {
-    return "U";
-  }
+  const translateAnalyticsValue = (value: string): string => {
+    const normalizedValue = value
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
 
-  const parts = name
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (parts.length === 1) {
-    return parts[0]
-      .charAt(0)
-      .toUpperCase();
-  }
-
-  const firstInitial =
-    parts[0].charAt(0).toUpperCase();
-
-  const lastInitial =
-    parts[parts.length - 1]
-      .charAt(0)
-      .toUpperCase();
-
-  return `${firstInitial}${lastInitial}`;
-};
-
-const getProfileColor = (
-  displayName: string
-): string => {
-  const initials =
-    getProfileInitials(displayName);
-
-  const initial = initials.charAt(0);
-
-  const colors: Record<string, string> = {
-    A: "bg-red-500",
-    B: "bg-orange-500",
-    C: "bg-amber-500",
-    D: "bg-yellow-500",
-    E: "bg-lime-500",
-    F: "bg-green-500",
-    G: "bg-emerald-500",
-    H: "bg-teal-500",
-    I: "bg-cyan-500",
-    J: "bg-sky-500",
-    K: "bg-blue-500",
-    L: "bg-indigo-500",
-    M: "bg-violet-500",
-    N: "bg-purple-500",
-    O: "bg-fuchsia-500",
-    P: "bg-pink-500",
-    Q: "bg-rose-500",
-    R: "bg-red-600",
-    S: "bg-orange-600",
-    T: "bg-yellow-600",
-    U: "bg-green-600",
-    V: "bg-teal-600",
-    W: "bg-cyan-600",
-    X: "bg-blue-600",
-    Y: "bg-indigo-600",
-    Z: "bg-purple-600",
+    return t(`adminReviews.values.${normalizedValue}`, {
+      defaultValue: capitalize(value),
+    });
   };
 
-  return (
-    colors[initial] ??
-    "bg-gray-500"
-  );
-};
+  /* ---------------- Profile Circle ---------------- */
+  const getProfileInitials = (displayName: string): string => {
+    const name = displayName.trim();
 
-const ProfileCircle = ({
-  displayName,
-}: {
-  displayName: string;
-}) => {
-  const initials =
-    getProfileInitials(displayName);
+    if (!name) {
+      return "U";
+    }
 
-  const color =
-    getProfileColor(displayName);
+    const parts = name
+      .split(/\s+/)
+      .filter(Boolean);
 
-  return (
-    <div
-      className={`
-        flex
-        h-10
-        w-10
-        shrink-0
-        items-center
-        justify-center
-        rounded-full
-        text-sm
-        font-bold
-        text-white
-        ${color}
-      `}
-      aria-label={`${displayName} profile`}
-    >
-      {initials}
-    </div>
-  );
- };
+    if (parts.length === 1) {
+      return parts[0].charAt(0).toUpperCase();
+    }
 
-  const hasReviewsChanged = (
-    newData: Review[]
-  ): boolean => {
+    const firstInitial = parts[0].charAt(0).toUpperCase();
+
+    const lastInitial = parts[parts.length - 1]
+      .charAt(0)
+      .toUpperCase();
+
+    return `${firstInitial}${lastInitial}`;
+  };
+
+  const getProfileColor = (displayName: string): string => {
+    const initials = getProfileInitials(displayName);
+    const initial = initials.charAt(0);
+
+    const colors: Record<string, string> = {
+      A: "bg-red-500",
+      B: "bg-orange-500",
+      C: "bg-amber-500",
+      D: "bg-yellow-500",
+      E: "bg-lime-500",
+      F: "bg-green-500",
+      G: "bg-emerald-500",
+      H: "bg-teal-500",
+      I: "bg-cyan-500",
+      J: "bg-sky-500",
+      K: "bg-blue-500",
+      L: "bg-indigo-500",
+      M: "bg-violet-500",
+      N: "bg-purple-500",
+      O: "bg-fuchsia-500",
+      P: "bg-pink-500",
+      Q: "bg-rose-500",
+      R: "bg-red-600",
+      S: "bg-orange-600",
+      T: "bg-yellow-600",
+      U: "bg-green-600",
+      V: "bg-teal-600",
+      W: "bg-cyan-600",
+      X: "bg-blue-600",
+      Y: "bg-indigo-600",
+      Z: "bg-purple-600",
+    };
+
+    return colors[initial] ?? "bg-gray-500";
+  };
+
+  const ProfileCircle = ({
+    displayName,
+  }: {
+    displayName: string;
+  }) => {
+    const initials = getProfileInitials(displayName);
+    const color = getProfileColor(displayName);
+
+    return (
+      <div
+        className={`
+          flex
+          h-10
+          w-10
+          shrink-0
+          items-center
+          justify-center
+          rounded-full
+          text-sm
+          font-bold
+          text-white
+          ${color}
+        `}
+        aria-label={t("adminReviews.profileLabel", {
+          name: displayName,
+        })}
+      >
+        {initials}
+      </div>
+    );
+  };
+
+  const hasReviewsChanged = (newData: Review[]): boolean => {
     const previous = reviewsRef.current;
 
     if (previous.length !== newData.length) {
@@ -334,8 +324,7 @@ const ProfileCircle = ({
     for (const review of newData) {
       if (
         !previousMap.has(review.id) ||
-        previousMap.get(review.id) !==
-          review.created_at
+        previousMap.get(review.id) !== review.created_at
       ) {
         return true;
       }
@@ -368,9 +357,7 @@ const ProfileCircle = ({
       );
 
       if (!res.ok) {
-        throw new Error(
-          "Failed to fetch reviews"
-        );
+        throw new Error(t("adminReviews.fetchReviewsFailed"));
       }
 
       const data: Review[] = await res.json();
@@ -386,16 +373,14 @@ const ProfileCircle = ({
         );
 
         window.dispatchEvent(
-          new Event(
-            "admin_reviews_updated"
-          )
+          new Event("admin_reviews_updated")
         );
       }
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
-          : "Failed to fetch reviews";
+          : t("adminReviews.fetchReviewsFailed");
 
       setError(message);
     } finally {
@@ -418,20 +403,17 @@ const ProfileCircle = ({
       );
 
       if (!res.ok) {
-        throw new Error(
-          "Failed to fetch review analytics"
-        );
+        throw new Error(t("adminReviews.fetchAnalyticsFailed"));
       }
 
-      const data: ReviewAnalyticsGroup[] =
-        await res.json();
+      const data: ReviewAnalyticsGroup[] = await res.json();
 
       setAnalytics(data);
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
-          : "Failed to fetch review analytics";
+          : t("adminReviews.fetchAnalyticsFailed");
 
       setAnalyticsError(message);
     } finally {
@@ -440,20 +422,14 @@ const ProfileCircle = ({
   };
 
   /* ---------------- Seen Reviews ---------------- */
-  const markReviewsAsSeen = (
-    data: Review[]
-  ): void => {
+  const markReviewsAsSeen = (data: Review[]): void => {
     if (!data.length) return;
 
     const existing: string[] = JSON.parse(
-      localStorage.getItem(
-        "admin_seen_review_ids"
-      ) || "[]"
+      localStorage.getItem("admin_seen_review_ids") || "[]"
     );
 
-    const ids = data.map(
-      (review) => review.id
-    );
+    const ids = data.map((review) => review.id);
 
     const hasNew = ids.some(
       (id) => !existing.includes(id)
@@ -467,9 +443,7 @@ const ProfileCircle = ({
     );
 
     window.dispatchEvent(
-      new Event(
-        "admin_reviews_updated"
-      )
+      new Event("admin_reviews_updated")
     );
   };
 
@@ -481,8 +455,7 @@ const ProfileCircle = ({
       fetchReviews(false);
     }, 30000);
 
-    return () =>
-      window.clearInterval(interval);
+    return () => window.clearInterval(interval);
   }, [user]);
 
   useEffect(() => {
@@ -513,8 +486,7 @@ const ProfileCircle = ({
       return;
     }
 
-    const scrollY =
-      restoreScrollYRef.current;
+    const scrollY = restoreScrollYRef.current;
 
     isRestoringRef.current = true;
 
@@ -571,9 +543,7 @@ const ProfileCircle = ({
       });
     };
 
-    const images = Array.from(
-      document.images
-    );
+    const images = Array.from(document.images);
 
     const pendingImages = images.filter(
       (image) => !image.complete
@@ -582,8 +552,7 @@ const ProfileCircle = ({
     if (pendingImages.length === 0) {
       restoreScroll();
     } else {
-      let remaining =
-        pendingImages.length;
+      let remaining = pendingImages.length;
 
       const handleImageLoad = (): void => {
         remaining -= 1;
@@ -594,41 +563,27 @@ const ProfileCircle = ({
       };
 
       pendingImages.forEach((image) => {
-        image.addEventListener(
-          "load",
-          handleImageLoad,
-          { once: true }
-        );
+        image.addEventListener("load", handleImageLoad, {
+          once: true,
+        });
 
-        image.addEventListener(
-          "error",
-          handleImageLoad,
-          { once: true }
-        );
+        image.addEventListener("error", handleImageLoad, {
+          once: true,
+        });
       });
 
-      const fallbackTimer =
-        window.setTimeout(() => {
-          restoreScroll();
-        }, 1500);
+      const fallbackTimer = window.setTimeout(() => {
+        restoreScroll();
+      }, 1500);
 
       return () => {
         cancelled = true;
 
-        window.clearTimeout(
-          fallbackTimer
-        );
+        window.clearTimeout(fallbackTimer);
 
         pendingImages.forEach((image) => {
-          image.removeEventListener(
-            "load",
-            handleImageLoad
-          );
-
-          image.removeEventListener(
-            "error",
-            handleImageLoad
-          );
+          image.removeEventListener("load", handleImageLoad);
+          image.removeEventListener("error", handleImageLoad);
         });
       };
     }
@@ -654,18 +609,14 @@ const ProfileCircle = ({
   };
 
   /* ---------------- Newest To Oldest ---------------- */
-  const orderedReviews = [
-    ...reviews,
-  ].sort(
+  const orderedReviews = [...reviews].sort(
     (a, b) =>
       new Date(b.created_at).getTime() -
       new Date(a.created_at).getTime()
   );
 
   /* ---------------- Rating Width ---------------- */
-  const getRatingWidth = (
-    rating: number
-  ): number => {
+  const getRatingWidth = (rating: number): number => {
     return Math.min(
       Math.max((rating / 5) * 100, 0),
       100
@@ -674,30 +625,23 @@ const ProfileCircle = ({
 
   const vehicleTypes = Array.from(
     new Set(
-      analytics.map(
-        (group) => group.vehicle_type
-      )
+      analytics.map((group) => group.vehicle_type)
     )
   );
 
-  const vehicleCategories =
-    selectedVehicleType
-      ? analytics.filter(
-          (group) =>
-            group.vehicle_type ===
-            selectedVehicleType
-        )
-      : [];
+  const vehicleCategories = selectedVehicleType
+    ? analytics.filter(
+        (group) =>
+          group.vehicle_type === selectedVehicleType
+      )
+    : [];
 
   const selectedAnalyticsGroup =
-    selectedVehicleType &&
-    selectedCategory
+    selectedVehicleType && selectedCategory
       ? analytics.find(
           (group) =>
-            group.vehicle_type ===
-              selectedVehicleType &&
-            group.category ===
-              selectedCategory
+            group.vehicle_type === selectedVehicleType &&
+            group.category === selectedCategory
         )
       : null;
 
@@ -745,13 +689,9 @@ const ProfileCircle = ({
           max-[640px]:p-4
         "
       >
-        {Array.from({ length: 4 }).map(
-          (_, index) => (
-            <SkeletonCard
-              key={index}
-            />
-          )
-        )}
+        {Array.from({ length: 4 }).map((_, index) => (
+          <SkeletonCard key={index} />
+        ))}
       </div>
     );
   }
@@ -760,9 +700,7 @@ const ProfileCircle = ({
   if (error) {
     return (
       <ErrorState
-        onRetry={() =>
-          fetchReviews(true)
-        }
+        onRetry={() => fetchReviews(true)}
       />
     );
   }
@@ -804,12 +742,11 @@ const ProfileCircle = ({
       >
         <div className="flex items-center gap-3">
           {showAnalytics &&
-            (selectedVehicleType ||
-              selectedCategory) && (
+            (selectedVehicleType || selectedCategory) && (
               <button
                 type="button"
                 onClick={handleAnalyticsBack}
-                aria-label="Go back"
+                aria-label={t("adminReviews.goBack")}
                 className="
                   inline-flex
                   h-9
@@ -839,17 +776,15 @@ const ProfileCircle = ({
             "
           >
             {showAnalytics
-              ? "Review Analytics"
-              : "Reviews"}
+              ? t("adminReviews.analyticsTitle")
+              : t("adminReviews.title")}
           </h1>
         </div>
 
         <button
           type="button"
           onClick={() =>
-            setShowAnalytics(
-              (previous) => !previous
-            )
+            setShowAnalytics((previous) => !previous)
           }
           className="
             inline-flex
@@ -872,8 +807,8 @@ const ProfileCircle = ({
           <BarChart3 size={18} />
 
           {showAnalytics
-            ? "View Reviews"
-            : "Reviews Analytics"}
+            ? t("adminReviews.viewReviews")
+            : t("adminReviews.reviewsAnalytics")}
         </button>
       </div>
 
@@ -890,7 +825,7 @@ const ProfileCircle = ({
                 text-gray-500
               "
             >
-              Loading review analytics...
+              {t("adminReviews.loadingAnalytics")}
             </div>
           ) : analyticsError ? (
             <div
@@ -930,7 +865,7 @@ const ProfileCircle = ({
                 "
               >
                 <RefreshCw size={18} />
-                Retry
+                {t("adminReviews.retry")}
               </button>
             </div>
           ) : !analytics.length ? (
@@ -943,7 +878,7 @@ const ProfileCircle = ({
                 text-gray-500
               "
             >
-              No Rating analytics available.
+              {t("adminReviews.noAnalytics")}
             </div>
           ) : (
             <div className="flex flex-col gap-5">
@@ -951,12 +886,11 @@ const ProfileCircle = ({
                 <>
                   <div>
                     <h2 className="text-lg font-bold text-gray-900">
-                      Vehicle Types
+                      {t("adminReviews.vehicleTypes")}
                     </h2>
 
                     <p className="mt-1 text-sm text-gray-500">
-                      Select a vehicle type to view
-                      its rated spare-part categories.
+                      {t("adminReviews.selectVehicleType")}
                     </p>
                   </div>
 
@@ -968,153 +902,132 @@ const ProfileCircle = ({
                       max-[480px]:grid-cols-1
                     "
                   >
-                    {vehicleTypes.map(
-                      (vehicleType) => {
-                        const categoryCount =
-                          analytics.filter(
-                            (group) =>
-                              group.vehicle_type ===
-                              vehicleType
-                          ).length;
+                    {vehicleTypes.map((vehicleType) => {
+                      const categoryCount = analytics.filter(
+                        (group) =>
+                          group.vehicle_type === vehicleType
+                      ).length;
 
-                        return (
-                          <button
-                            key={vehicleType}
-                            type="button"
-                            onClick={() =>
-                              handleVehicleTypeSelect(
-                                vehicleType
-                              )
-                            }
+                      return (
+                        <button
+                          key={vehicleType}
+                          type="button"
+                          onClick={() =>
+                            handleVehicleTypeSelect(vehicleType)
+                          }
+                          className="
+                            rounded-xl
+                            border
+                            border-gray-200
+                            bg-white
+                            p-5
+                            text-left
+                            transition-all
+                            duration-200
+                            cursor-pointer
+                            hover:-translate-y-[1px]
+                            hover:border-[#004080]
+                            hover:shadow-md
+                          "
+                        >
+                          <h3
                             className="
-                              rounded-xl
-                              border
-                              border-gray-200
-                              bg-white
-                              p-5
-                              text-left
-                              transition-all
-                              duration-200
-                              cursor-pointer
-                              hover:-translate-y-[1px]
-                              hover:border-[#004080]
-                              hover:shadow-md
+                              text-lg
+                              font-bold
+                              capitalize
+                              text-[#004080]
                             "
                           >
-                            <h3
-                              className="
-                                text-lg
-                                font-bold
-                                capitalize
-                                text-[#004080]
-                              "
-                            >
-                              {capitalize(
-                                vehicleType
-                              )}
-                            </h3>
+                            {translateAnalyticsValue(vehicleType)}
+                          </h3>
 
-                            <p className="mt-2 text-sm text-gray-500">
-                              {categoryCount}{" "}
-                              {categoryCount === 1
-                                ? "rated category"
-                                : "rated categories"}
-                            </p>
-                          </button>
-                        );
-                      }
-                    )}
+                          <p className="mt-2 text-sm text-gray-500">
+                            {t("adminReviews.ratedCategories", {
+                              count: categoryCount,
+                            })}
+                          </p>
+                        </button>
+                      );
+                    })}
                   </div>
                 </>
               )}
 
               {/* CATEGORIES */}
-              {selectedVehicleType &&
-                !selectedCategory && (
-                  <>
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">
-                        {capitalize(
-                          selectedVehicleType
-                        )}
-                      </p>
+              {selectedVehicleType && !selectedCategory && (
+                <>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">
+                      {translateAnalyticsValue(selectedVehicleType)}
+                    </p>
 
-                      <h2
-                        className="
-                          mt-1
-                          text-lg
-                          font-bold
-                          text-gray-900
-                        "
-                      >
-                        Rated Categories
-                      </h2>
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        Select a category to compare
-                        its rated brands.
-                      </p>
-                    </div>
-
-                    <div
+                    <h2
                       className="
-                        grid
-                        grid-cols-2
-                        gap-4
-                        max-[480px]:grid-cols-1
+                        mt-1
+                        text-lg
+                        font-bold
+                        text-gray-900
                       "
                     >
-                      {vehicleCategories.map(
-                        (group) => (
-                          <button
-                            key={`${group.vehicle_type}-${group.category}`}
-                            type="button"
-                            onClick={() =>
-                              handleCategorySelect(
-                                group.category
-                              )
-                            }
-                            className="
-                              rounded-xl
-                              border
-                              border-gray-200
-                              bg-white
-                              p-5
-                              text-left
-                              transition-all
-                              duration-200
-                              cursor-pointer
-                              hover:-translate-y-[1px]
-                              hover:border-[#004080]
-                              hover:shadow-md
-                            "
-                          >
-                            <h3
-                              className="
-                                text-lg
-                                font-bold
-                                capitalize
-                                text-[#004080]
-                              "
-                            >
-                              {capitalize(
-                                group.category
-                              )}
-                            </h3>
+                      {t("adminReviews.ratedCategoriesTitle")}
+                    </h2>
 
-                            <p className="mt-2 text-sm text-gray-500">
-                              {group.brands.length}{" "}
-                              {group.brands.length ===
-                              1
-                                ? "rated brand"
-                                : "rated brands"}
-                            </p>
-                          </button>
-                        )
-                      )}
-                    </div>
-                  </>
-                )}
+                    <p className="mt-1 text-sm text-gray-500">
+                      {t("adminReviews.selectCategory")}
+                    </p>
+                  </div>
+
+                  <div
+                    className="
+                      grid
+                      grid-cols-2
+                      gap-4
+                      max-[480px]:grid-cols-1
+                    "
+                  >
+                    {vehicleCategories.map((group) => (
+                      <button
+                        key={`${group.vehicle_type}-${group.category}`}
+                        type="button"
+                        onClick={() =>
+                          handleCategorySelect(group.category)
+                        }
+                        className="
+                          rounded-xl
+                          border
+                          border-gray-200
+                          bg-white
+                          p-5
+                          text-left
+                          transition-all
+                          duration-200
+                          cursor-pointer
+                          hover:-translate-y-[1px]
+                          hover:border-[#004080]
+                          hover:shadow-md
+                        "
+                      >
+                        <h3
+                          className="
+                            text-lg
+                            font-bold
+                            capitalize
+                            text-[#004080]
+                          "
+                        >
+                          {translateAnalyticsValue(group.category)}
+                        </h3>
+
+                        <p className="mt-2 text-sm text-gray-500">
+                          {t("adminReviews.ratedBrands", {
+                            count: group.brands.length,
+                          })}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* BRAND COMPARISON */}
               {selectedVehicleType &&
@@ -1123,9 +1036,7 @@ const ProfileCircle = ({
                   <>
                     <div>
                       <p className="text-sm font-medium text-gray-500">
-                        {capitalize(
-                          selectedVehicleType
-                        )}
+                        {translateAnalyticsValue(selectedVehicleType)}
                       </p>
 
                       <h2
@@ -1137,21 +1048,22 @@ const ProfileCircle = ({
                           text-gray-900
                         "
                       >
-                        {capitalize(
-                          selectedCategory
-                        )}{" "}
-                        Ratings
+                        {t("adminReviews.categoryRatings", {
+                          category: translateAnalyticsValue(
+                            selectedCategory
+                          ),
+                        })}
                       </h2>
 
                       <p className="mt-1 text-sm text-gray-500">
-                        Brand rating comparison for{" "}
-                        {capitalize(
-                          selectedVehicleType
-                        )}{" "}
-                        {capitalize(
-                          selectedCategory
-                        )}
-                        .
+                        {t("adminReviews.brandComparisonDescription", {
+                          vehicle: translateAnalyticsValue(
+                            selectedVehicleType
+                          ),
+                          category: translateAnalyticsValue(
+                            selectedCategory
+                          ),
+                        })}
                       </p>
                     </div>
 
@@ -1173,7 +1085,7 @@ const ProfileCircle = ({
                               text-[#004080]
                             "
                           >
-                            Brand Comparison
+                            {t("adminReviews.brandComparison")}
                           </h3>
 
                           <span
@@ -1183,123 +1095,105 @@ const ProfileCircle = ({
                               text-gray-500
                             "
                           >
-                            {
-                              selectedAnalyticsGroup
-                                .brands.length
-                            }{" "}
-                            {selectedAnalyticsGroup
-                              .brands.length === 1
-                              ? "brand"
-                              : "brands"}
+                            {t("adminReviews.brandsCount", {
+                              count:
+                                selectedAnalyticsGroup.brands.length,
+                            })}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex flex-col gap-6">
-                        {selectedAnalyticsGroup.brands.map(
-                          (brand) => (
+                        {selectedAnalyticsGroup.brands.map((brand) => (
+                          <div
+                            key={brand.brand}
+                            className="flex flex-col gap-2"
+                          >
                             <div
-                              key={brand.brand}
                               className="
                                 flex
-                                flex-col
-                                gap-2
+                                items-center
+                                justify-between
+                                gap-3
                               "
                             >
+                              <span
+                                className="
+                                  min-w-0
+                                  break-words
+                                  text-[15px]
+                                  font-semibold
+                                  text-gray-800
+                                "
+                              >
+                                {brand.brand}
+                              </span>
+
                               <div
                                 className="
                                   flex
+                                  shrink-0
                                   items-center
-                                  justify-between
                                   gap-3
+                                  text-sm
                                 "
                               >
                                 <span
                                   className="
-                                    min-w-0
-                                    break-words
-                                    text-[15px]
+                                    flex
+                                    items-center
+                                    gap-1
                                     font-semibold
-                                    text-gray-800
+                                    text-gray-700
                                   "
                                 >
-                                  {brand.brand}
+                                  <Star
+                                    size={16}
+                                    className="
+                                      fill-yellow-400
+                                      stroke-yellow-400
+                                    "
+                                  />
+
+                                  {Number(
+                                    brand.average_rating
+                                  ).toFixed(1)}
                                 </span>
 
-                                <div
-                                  className="
-                                    flex
-                                    shrink-0
-                                    items-center
-                                    gap-3
-                                    text-sm
-                                  "
-                                >
-                                  <span
-                                    className="
-                                      flex
-                                      items-center
-                                      gap-1
-                                      font-semibold
-                                      text-gray-700
-                                    "
-                                  >
-                                    <Star
-                                      size={16}
-                                      className="
-                                        fill-yellow-400
-                                        stroke-yellow-400
-                                      "
-                                    />
-
-                                    {Number(
-                                      brand.average_rating
-                                    ).toFixed(1)}
-                                  </span>
-
-                                  <span className="text-gray-500">
-                                    (
-                                    {
-                                      brand.total_reviews
-                                    }{" "}
-                                    {brand.total_reviews ===
-                                    1
-                                      ? "review"
-                                      : "reviews"}
-                                    )
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div
-                                className="
-                                  h-3
-                                  w-full
-                                  overflow-hidden
-                                  rounded-full
-                                  bg-gray-100
-                                "
-                              >
-                                <div
-                                  className="
-                                    h-full
-                                    rounded-full
-                                    bg-[#004080]
-                                    transition-all
-                                    duration-500
-                                  "
-                                  style={{
-                                    width: `${getRatingWidth(
-                                      Number(
-                                        brand.average_rating
-                                      )
-                                    )}%`,
-                                  }}
-                                />
+                                <span className="text-gray-500">
+                                  ({t("adminReviews.reviewsCount", {
+                                    count: brand.total_reviews,
+                                  })})
+                                </span>
                               </div>
                             </div>
-                          )
-                        )}
+
+                            <div
+                              className="
+                                h-3
+                                w-full
+                                overflow-hidden
+                                rounded-full
+                                bg-gray-100
+                              "
+                            >
+                              <div
+                                className="
+                                  h-full
+                                  rounded-full
+                                  bg-[#004080]
+                                  transition-all
+                                  duration-500
+                                "
+                                style={{
+                                  width: `${getRatingWidth(
+                                    Number(brand.average_rating)
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </>
@@ -1318,8 +1212,7 @@ const ProfileCircle = ({
                       text-gray-500
                     "
                   >
-                    No ratings available for this
-                    combination.
+                    {t("adminReviews.noRatingsForCombination")}
                   </div>
                 )}
             </div>
@@ -1330,7 +1223,7 @@ const ProfileCircle = ({
         <>
           {/* ---------- Summary ---------- */}
           <div className="text-[15px] font-medium text-gray-700">
-            <strong>Total Reviews:</strong>{" "}
+            <strong>{t("adminReviews.totalReviews")}:</strong>{" "}
             {reviews.length}
           </div>
 
@@ -1344,10 +1237,7 @@ const ProfileCircle = ({
                 key={review.id}
                 to={`/items/${review.sparepart_id}`}
                 onClick={(event) =>
-                  handleReviewClick(
-                    event,
-                    review.sparepart_id
-                  )
+                  handleReviewClick(event, review.sparepart_id)
                 }
                 className="text-inherit no-underline"
               >
@@ -1384,10 +1274,10 @@ const ProfileCircle = ({
                     >
                       <ProfileCircle
                         displayName={
-                        review.user_display_name?.trim() ||
-                         "User"
+                          review.user_display_name?.trim() || "User"
                         }
                       />
+
                       <div className="min-w-0">
                         <strong
                           className="
@@ -1413,9 +1303,7 @@ const ProfileCircle = ({
                         text-gray-500
                       "
                     >
-                      {formatDate(
-                        review.created_at
-                      )}
+                      {formatDate(review.created_at)}
                     </span>
                   </div>
 
@@ -1430,10 +1318,8 @@ const ProfileCircle = ({
                       "
                     >
                       <img
-                        src={
-                          review.sparepart_image
-                        }
-                        alt="review"
+                        src={review.sparepart_image}
+                        alt={t("adminReviews.reviewImageAlt")}
                         className="
                           max-h-[13%]
                           max-w-[13%]
@@ -1451,22 +1337,21 @@ const ProfileCircle = ({
                       items-center
                       gap-1
                     "
+                    aria-label={t("adminReviews.ratingLabel", {
+                      rating: review.rating,
+                    })}
                   >
-                    {Array.from({
-                      length: 5,
-                    }).map(
-                      (_, index) => (
-                        <Star
-                          key={index}
-                          size={18}
-                          className={
-                            index < review.rating
-                              ? "fill-yellow-400 stroke-yellow-400"
-                              : "fill-none stroke-gray-300"
-                          }
-                        />
-                      )
-                    )}
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Star
+                        key={index}
+                        size={18}
+                        className={
+                          index < review.rating
+                            ? "fill-yellow-400 stroke-yellow-400"
+                            : "fill-none stroke-gray-300"
+                        }
+                      />
+                    ))}
 
                     <span
                       className="
@@ -1508,6 +1393,9 @@ const ProfileCircle = ({
                         items-center
                         gap-1
                       "
+                      aria-label={t("adminReviews.likes", {
+                        count: review.total_likes,
+                      })}
                     >
                       <ThumbsUp size={18} />
                       {review.total_likes}
@@ -1519,6 +1407,9 @@ const ProfileCircle = ({
                         items-center
                         gap-1
                       "
+                      aria-label={t("adminReviews.dislikes", {
+                        count: review.total_dislikes,
+                      })}
                     >
                       <ThumbsDown size={18} />
                       {review.total_dislikes}

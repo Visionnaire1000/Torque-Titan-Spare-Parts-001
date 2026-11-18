@@ -146,6 +146,16 @@ def mark_order_as_paid(
             )
         )
 
+        if (
+            order.payment_reference
+            and payment_reference
+            and order.payment_reference != payment_reference
+        ):
+
+            raise ValueError(
+                "Payment reference does not match order."
+            )
+
         if order.paid:
 
             if (
@@ -192,6 +202,10 @@ def mark_order_as_paid(
             "paid",
         ]
 
+        if order.status in ["failed", "expired"]:
+            order.status = "pending"
+            update_fields.append("status")
+
         if payment_reference:
 
             order.payment_reference = (
@@ -226,6 +240,40 @@ def mark_order_as_paid(
         print(
             f"ORDER {order.id} "
             "MARKED AS PAID BY PAYSTACK"
+        )
+
+        return order
+
+
+def mark_order_as_failed(order_id):
+
+    with transaction.atomic():
+
+        order = (
+            Orders.objects
+            .select_for_update()
+            .get(
+                pk=order_id
+            )
+        )
+
+        if order.paid:
+            return order
+
+        if order.status != "pending":
+            return order
+
+        order.status = "failed"
+
+        order.save(
+            update_fields=[
+                "status",
+            ]
+        )
+
+        print(
+            f"ORDER {order_id} "
+            "MARKED AS FAILED BY PAYSTACK"
         )
 
         return order
@@ -774,6 +822,14 @@ class CreatePaystackSessionView(APIView):
                     f"TT-{order.id}"
                 )
 
+                order.payment_reference = paystack_reference
+
+                order.save(
+                    update_fields=[
+                        "payment_reference",
+                    ]
+                )
+
                 payload = {
                     "email": current_user.email,
                     "amount": amount_subunit,
@@ -865,6 +921,12 @@ class CreatePaystackSessionView(APIView):
                         "Paystack did not return a payment reference"
                     )
 
+                if reference != order.payment_reference:
+
+                    raise ValueError(
+                        "Paystack returned a different payment reference"
+                    )
+
                 payment_status = (
                     payment_data.get(
                         "status"
@@ -925,14 +987,15 @@ class CreatePaystackSessionView(APIView):
 
             try:
 
-                mark_order_as_expired(
-                    order.id
-                )
+                if payment_status == "failed":
+                    mark_order_as_failed(order.id)
+                else:
+                    mark_order_as_expired(order.id)
 
             except Exception as exc:
 
                 print(
-                    "PAYSTACK EXPIRATION ERROR:",
+                    "PAYSTACK PAYMENT STATUS ERROR:",
                     repr(exc),
                 )
 
@@ -1131,6 +1194,20 @@ class VerifyPaystackSessionView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
+            if (
+                not order.payment_reference
+                or order.payment_reference != reference
+            ):
+
+                return Response(
+                    {
+                        "error": (
+                            "Payment reference does not match order"
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             if order.paid:
 
                 if (
@@ -1148,10 +1225,6 @@ class VerifyPaystackSessionView(APIView):
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
-
-                clear_user_cart(
-                    order.user
-                )
 
                 return Response(
                     {
@@ -1299,15 +1372,17 @@ class VerifyPaystackSessionView(APIView):
                 "timeout",
             ]:
 
-                order = mark_order_as_expired(
-                    order.id
-                )
+                if payment_status == "failed":
+                    order = mark_order_as_failed(order.id)
+                else:
+                    order = mark_order_as_expired(order.id)
 
                 return Response(
                     {
                         "success": False,
                         "paid": False,
-                        "expired": True,
+                        "failed": payment_status == "failed",
+                        "expired": payment_status == "timeout",
                         "status": order.status,
                         "order_id": str(
                             order.id
@@ -1564,6 +1639,23 @@ class PaystackWebhookView(APIView):
             )
 
             if (
+                not order.payment_reference
+                or order.payment_reference != reference
+            ):
+
+                print(
+                    "PAYSTACK WEBHOOK ERROR: "
+                    f"Payment reference mismatch for order {order.id}"
+                )
+
+                return Response(
+                    {
+                        "error": "Payment reference does not match order"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if (
                 not payment_method
                 or payment_method
                 != order.payment_method
@@ -1608,10 +1700,6 @@ class PaystackWebhookView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                clear_user_cart(
-                    order.user
-                )
-
                 return Response(
                     {
                         "success": True
@@ -1623,14 +1711,14 @@ class PaystackWebhookView(APIView):
 
                 if order.status == "pending":
 
-                    order = mark_order_as_expired(
+                    order = mark_order_as_failed(
                         order.id
                     )
 
                     print(
                         f"PAYSTACK PAYMENT {reference} "
                         f"FAILED FOR ORDER {order.id}. "
-                        "ORDER MARKED AS EXPIRED."
+                        "ORDER MARKED AS FAILED."
                     )
 
                 return Response(
@@ -1649,15 +1737,16 @@ class PaystackWebhookView(APIView):
 
                     if order.status == "pending":
 
-                        order = mark_order_as_expired(
-                            order.id
-                        )
+                        if payment_status == "failed":
+                            order = mark_order_as_failed(order.id)
+                        else:
+                            order = mark_order_as_expired(order.id)
 
                         print(
                             f"PAYSTACK PAYMENT {reference} "
                             f"STATUS={payment_status} "
                             f"FOR ORDER {order.id}. "
-                            "ORDER MARKED AS EXPIRED."
+                            f"ORDER MARKED AS {order.status.upper()}."
                         )
 
                 return Response(

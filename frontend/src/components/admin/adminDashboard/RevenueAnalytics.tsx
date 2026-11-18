@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, BarChart3, BusFront, CalendarDays, Car, CarFront, ChevronRight,
-         Package, RefreshCw, ShoppingCart, TrendingUp, Truck } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { ArrowLeft, BarChart3, BusFront, CalendarDays, Car, CarFront, ChevronRight, Package,
+         RefreshCw, ShoppingCart, TrendingUp, Truck } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
-
 
 type Period = "daily" | "weekly" | "monthly" | "yearly";
 type VehicleType = "sedan" | "suv" | "truck" | "bus";
@@ -92,16 +92,20 @@ const normalizeCategory = (value: string): Category | null => {
     : null;
 };
 
-const formatCurrency = (value: number): string =>
-  `KSh ${value.toLocaleString("en-KE", {
+const formatCurrency = (value: number, locale: string): string =>
+  `KSh ${value.toLocaleString(locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
 
-const formatNumber = (value: number): string =>
-  value.toLocaleString("en-KE");
+const formatNumber = (value: number, locale: string): string =>
+  value.toLocaleString(locale);
 
-const formatPeriodLabel = (value: string, period: Period): string => {
+const formatPeriodLabel = (
+  value: string,
+  period: Period,
+  locale: string
+): string => {
   if (!value) return "";
 
   if (period === "yearly") return value.substring(0, 4);
@@ -111,20 +115,7 @@ const formatPeriodLabel = (value: string, period: Period): string => {
 
     return Number.isNaN(date.getTime())
       ? value
-      : date.toLocaleDateString("en-KE", {
-          month: "short",
-          year: "numeric",
-          timeZone: "Africa/Nairobi",
-        });
-  }
-
-  if (period === "weekly") {
-    const date = new Date(`${value}T12:00:00`);
-
-    return Number.isNaN(date.getTime())
-      ? value
-      : date.toLocaleDateString("en-KE", {
-          day: "numeric",
+      : date.toLocaleDateString(locale, {
           month: "short",
           year: "numeric",
           timeZone: "Africa/Nairobi",
@@ -133,20 +124,33 @@ const formatPeriodLabel = (value: string, period: Period): string => {
 
   const date = new Date(`${value}T12:00:00`);
 
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString("en-KE", {
-        day: "numeric",
-        month: "short",
-        timeZone: "Africa/Nairobi",
-      });
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleDateString(
+    locale,
+    period === "weekly"
+      ? {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "Africa/Nairobi",
+        }
+      : {
+          day: "numeric",
+          month: "short",
+          timeZone: "Africa/Nairobi",
+        }
+  );
 };
 
-const getSelectedPeriodLabel = (period: Period): string => {
+const getSelectedPeriodLabel = (
+  period: Period,
+  locale: string
+): string => {
   const now = new Date();
 
   if (period === "daily") {
-    return now.toLocaleDateString("en-KE", {
+    return now.toLocaleDateString(locale, {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -165,7 +169,7 @@ const getSelectedPeriodLabel = (period: Period): string => {
     end.setDate(end.getDate() + 6);
 
     const formatDate = (date: Date) =>
-      date.toLocaleDateString("en-KE", {
+      date.toLocaleDateString(locale, {
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -176,53 +180,58 @@ const getSelectedPeriodLabel = (period: Period): string => {
   }
 
   if (period === "monthly") {
-    return now.toLocaleDateString("en-KE", {
+    return now.toLocaleDateString(locale, {
       month: "long",
       year: "numeric",
       timeZone: "Africa/Nairobi",
     });
   }
 
-  return now.toLocaleDateString("en-KE", {
+  return now.toLocaleDateString(locale, {
     year: "numeric",
     timeZone: "Africa/Nairobi",
   });
 };
 
-const getVehicleTypeLabel = (value: string): string => {
+const getVehicleTypeLabel = (
+  value: string,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string => {
   switch (normalizeVehicleType(value)) {
     case "sedan":
-      return "Sedan";
+      return t("productCategories.sedan", { defaultValue: "Sedan" });
     case "suv":
-      return "SUV";
+      return t("productCategories.suv", { defaultValue: "SUV" });
     case "truck":
-      return "Truck";
+      return t("productCategories.truck", { defaultValue: "Truck" });
     case "bus":
-      return "Bus";
+      return t("productCategories.bus", { defaultValue: "Bus" });
     default:
-      return value || "Unknown";
+      return value || t("common.unknown", { defaultValue: "Unknown" });
   }
 };
 
-const getCategoryLabel = (value: string): string => {
+const getCategoryLabel = (
+  value: string,
+  t: (key: string, options?: Record<string, unknown>) => string
+): string => {
   switch (normalizeCategory(value)) {
     case "tyre":
-      return "Tyres";
+      return t("productCategories.tyre", { defaultValue: "Tyres" });
     case "rim":
-      return "Rims";
+      return t("productCategories.rim", { defaultValue: "Rims" });
     case "battery":
-      return "Batteries";
+      return t("productCategories.battery", { defaultValue: "Batteries" });
     case "oil filter":
-      return "Oil Filters";
+      return t("productCategories.filter", {
+        defaultValue: "Oil Filters",
+      });
     default:
-      return value || "Unknown";
+      return value || t("common.unknown", { defaultValue: "Unknown" });
   }
 };
 
-const getVehicleIcon = (
-  vehicleType: string,
-  size = 32
-): ReactNode => {
+const getVehicleIcon = (vehicleType: string, size = 32): ReactNode => {
   switch (normalizeVehicleType(vehicleType)) {
     case "sedan":
       return <CarFront size={size} />;
@@ -245,6 +254,7 @@ function CustomDropdown({
   icon,
   disabled = false,
 }: CustomDropdownProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -290,7 +300,10 @@ function CustomDropdown({
       >
         <span className="flex min-w-0 items-center gap-2">
           {icon && <span className="flex-shrink-0 text-gray-400">{icon}</span>}
-          <span className="truncate">{selectedOption?.label ?? "Select"}</span>
+          <span className="truncate">
+            {selectedOption?.label ??
+              t("revenueAnalytics.select", { defaultValue: "Select" })}
+          </span>
         </span>
 
         <ChevronRight
@@ -327,7 +340,14 @@ function CustomDropdown({
 }
 
 export default function RevenueAnalytics() {
+  const { t, i18n } = useTranslation();
   const { user, authFetch } = useAuth();
+
+  const activeLanguage = (
+    i18n.resolvedLanguage ||
+    i18n.language ||
+    "en"
+  ).split("-")[0];
 
   const [period, setPeriod] = useState<Period>("monthly");
   const [selectedVehicleType, setSelectedVehicleType] =
@@ -352,10 +372,10 @@ export default function RevenueAnalytics() {
   const hasAnalyticsRef = useRef(false);
 
   const periodOptions: DropdownOption[] = [
-    { value: "daily", label: "Daily" },
-    { value: "weekly", label: "Weekly" },
-    { value: "monthly", label: "Monthly" },
-    { value: "yearly", label: "Yearly" },
+    { value: "daily", label: t("revenueAnalytics.periods.daily") },
+    { value: "weekly", label: t("revenueAnalytics.periods.weekly") },
+    { value: "monthly", label: t("revenueAnalytics.periods.monthly") },
+    { value: "yearly", label: t("revenueAnalytics.periods.yearly") },
   ];
 
   useEffect(() => {
@@ -420,7 +440,7 @@ export default function RevenueAnalytics() {
         );
 
         if (!response.ok) {
-          let message = "Failed to load analytics.";
+          let message = t("revenueAnalytics.loadError");
 
           try {
             const errorData = await response.json();
@@ -431,7 +451,7 @@ export default function RevenueAnalytics() {
               message = errorData.error;
             }
           } catch {
-            message = "Failed to load analytics.";
+            message = t("revenueAnalytics.loadError");
           }
 
           throw new Error(message);
@@ -511,7 +531,9 @@ export default function RevenueAnalytics() {
         console.error("Failed to fetch analytics:", err);
 
         setError(
-          err instanceof Error ? err.message : "Failed to load analytics."
+          err instanceof Error
+            ? err.message
+            : t("revenueAnalytics.loadError")
         );
       } finally {
         if (requestId === requestIdRef.current) {
@@ -520,7 +542,14 @@ export default function RevenueAnalytics() {
         }
       }
     },
-    [authFetch, period, selectedVehicleType, selectedCategory, user]
+    [
+      authFetch,
+      period,
+      selectedVehicleType,
+      selectedCategory,
+      user,
+      t,
+    ]
   );
 
   useEffect(() => {
@@ -574,7 +603,6 @@ export default function RevenueAnalytics() {
     [analytics]
   );
 
-
   const sortedAllTimeBrands = useMemo(
     () =>
       [...(analytics?.all_time_brands ?? [])].sort(
@@ -582,7 +610,6 @@ export default function RevenueAnalytics() {
       ),
     [analytics]
   );
-
 
   const maxAllTimeBrandRevenue = useMemo(
     () => Math.max(0, ...sortedAllTimeBrands.map((item) => item.revenue)),
@@ -616,15 +643,30 @@ export default function RevenueAnalytics() {
     setSelectedCategory(null);
   };
 
+  const vehicleLabel = (value: string) =>
+    getVehicleTypeLabel(value, t);
+
+  const categoryLabel = (value: string) =>
+    getCategoryLabel(value, t);
+
+  const currency = (value: number) =>
+    formatCurrency(value, activeLanguage);
+
+  const number = (value: number) =>
+    formatNumber(value, activeLanguage);
+
+  const periodLabel = (value: string, selectedPeriod: Period) =>
+    formatPeriodLabel(value, selectedPeriod, activeLanguage);
+
   if (!user || user.role === "buyer") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-800">
-            Access denied
+            {t("revenueAnalytics.accessDenied")}
           </h2>
           <p className="mt-2 text-gray-500">
-            You do not have permission to view analytics.
+            {t("revenueAnalytics.noPermission")}
           </p>
         </div>
       </div>
@@ -638,7 +680,9 @@ export default function RevenueAnalytics() {
           <div className="flex min-h-[400px] items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <RefreshCw size={32} className="animate-spin text-blue-700" />
-              <p className="text-gray-500">Loading analytics...</p>
+              <p className="text-gray-500">
+                {t("revenueAnalytics.loading")}
+              </p>
             </div>
           </div>
         </div>
@@ -656,10 +700,10 @@ export default function RevenueAnalytics() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                Revenue Analytics
+                {t("revenueAnalytics.title")}
               </h1>
               <p className="mt-1 text-sm text-gray-500">
-                Track sparepart sales performance.
+                {t("revenueAnalytics.subtitle")}
               </p>
             </div>
           </div>
@@ -674,7 +718,9 @@ export default function RevenueAnalytics() {
               size={17}
               className={refreshing ? "animate-spin" : ""}
             />
-            {refreshing ? "Refreshing..." : "Refresh"}
+            {refreshing
+              ? t("revenueAnalytics.refreshing")
+              : t("revenueAnalytics.refresh")}
           </button>
         </div>
 
@@ -685,10 +731,10 @@ export default function RevenueAnalytics() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500">
-                      Spareparts Sold
+                      {t("revenueAnalytics.sparepartsSold")}
                     </p>
                     <p className="mt-2 text-2xl font-bold text-gray-900">
-                      {formatNumber(analytics.summary.parts_sold)}
+                      {number(analytics.summary.parts_sold)}
                     </p>
                   </div>
                   <div className="rounded-lg bg-blue-100 p-3">
@@ -697,7 +743,7 @@ export default function RevenueAnalytics() {
                 </div>
                 <div className="mt-4 flex items-center gap-2 text-xs text-gray-500">
                   <TrendingUp size={14} />
-                  <span>Total quantities sold</span>
+                  <span>{t("revenueAnalytics.totalQuantitiesSold")}</span>
                 </div>
               </div>
 
@@ -705,10 +751,10 @@ export default function RevenueAnalytics() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-500">
-                      Revenue
+                      {t("revenueAnalytics.revenue")}
                     </p>
                     <p className="mt-2 text-2xl font-bold text-gray-900">
-                      {formatCurrency(analytics.summary.revenue)}
+                      {currency(analytics.summary.revenue)}
                     </p>
                   </div>
                   <div className="rounded-lg bg-green-100 p-3">
@@ -716,16 +762,18 @@ export default function RevenueAnalytics() {
                   </div>
                 </div>
                 <div className="mt-4 text-xs text-gray-500">
-                  Based on matching paid orders
+                  {t("revenueAnalytics.basedOnPaidOrders")}
                 </div>
               </div>
 
               <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-500">Orders</p>
+                    <p className="text-sm font-medium text-gray-500">
+                      {t("revenueAnalytics.orders")}
+                    </p>
                     <p className="mt-2 text-2xl font-bold text-gray-900">
-                      {formatNumber(analytics.summary.orders)}
+                      {number(analytics.summary.orders)}
                     </p>
                   </div>
                   <div className="rounded-lg bg-purple-100 p-3">
@@ -733,14 +781,14 @@ export default function RevenueAnalytics() {
                   </div>
                 </div>
                 <div className="mt-4 text-xs text-gray-500">
-                  Matching paid orders
+                  {t("revenueAnalytics.matchingPaidOrders")}
                 </div>
               </div>
             </div>
 
             <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <CustomDropdown
-                label="Period"
+                label={t("revenueAnalytics.period")}
                 value={period}
                 options={periodOptions}
                 onChange={(value) => setPeriod(value as Period)}
@@ -757,16 +805,16 @@ export default function RevenueAnalytics() {
             <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
               <div className="mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Sales Trend
+                  {t("revenueAnalytics.salesTrend")}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                  Revenue and units sold over the selected period.
+                  {t("revenueAnalytics.salesTrendDescription")}
                 </p>
               </div>
 
               {analytics.timeline.length === 0 ? (
                 <div className="flex min-h-[220px] items-center justify-center text-sm text-gray-500">
-                  No sales data available for this period.
+                  {t("revenueAnalytics.noSalesData")}
                 </div>
               ) : (
                 <div className="overflow-x-auto pb-2">
@@ -791,10 +839,12 @@ export default function RevenueAnalytics() {
                         >
                           <div className="mb-2 text-center">
                             <p className="text-[11px] font-semibold text-gray-700">
-                              {formatCurrency(revenue)}
+                              {currency(revenue)}
                             </p>
                             <p className="text-[10px] text-gray-400">
-                              {formatNumber(item.parts_sold)} sold
+                              {t("revenueAnalytics.soldCount", {
+                                count: number(item.parts_sold),
+                              })}
                             </p>
                           </div>
                           <div
@@ -802,7 +852,7 @@ export default function RevenueAnalytics() {
                             style={{ height: `${height}px` }}
                           />
                           <div className="mt-3 w-full text-center text-[11px] text-gray-500">
-                            {formatPeriodLabel(item.period, displayedPeriod)}
+                            {periodLabel(item.period, displayedPeriod)}
                           </div>
                         </div>
                       );
@@ -816,16 +866,16 @@ export default function RevenueAnalytics() {
               <div className="mb-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Vehicle Type Performance
+                    {t("revenueAnalytics.vehiclePerformance")}
                   </h2>
                   <p className="mt-1 text-sm text-gray-500">
-                    Select a vehicle type to view its spareparts.
+                    {t("revenueAnalytics.selectVehicle")}
                   </p>
                 </div>
 
                 {sortedVehicleTypes.length === 0 ? (
                   <div className="flex min-h-[220px] items-center justify-center text-sm text-gray-500">
-                    No vehicle type data available.
+                    {t("revenueAnalytics.noVehicleData")}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -855,13 +905,15 @@ export default function RevenueAnalytics() {
                             />
                           </div>
                           <h3 className="mt-5 text-lg font-bold text-gray-900">
-                            {getVehicleTypeLabel(vehicle)}
+                            {vehicleLabel(vehicle)}
                           </h3>
                           <p className="mt-1 text-sm text-gray-500">
-                            {formatNumber(item.parts_sold)} spareparts sold
+                            {t("revenueAnalytics.sparepartsSoldCount", {
+                              count: number(item.parts_sold),
+                            })}
                           </p>
                           <p className="mt-4 text-base font-semibold text-gray-800">
-                            {formatCurrency(item.revenue)}
+                            {currency(item.revenue)}
                           </p>
                           <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
                             <div
@@ -886,28 +938,28 @@ export default function RevenueAnalytics() {
                     <button
                       type="button"
                       onClick={handleBackToVehicles}
-                      aria-label="Back to vehicle types"
+                      aria-label={t("revenueAnalytics.backToVehicleTypes")}
                       className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                     >
                       <ArrowLeft size={19} />
                     </button>
                     <div>
                       <h2 className="text-lg font-semibold text-gray-900">
-                        {getVehicleTypeLabel(displayedVehicleType)}
+                        {vehicleLabel(displayedVehicleType)}
                       </h2>
                       <p className="mt-1 text-sm text-gray-500">
-                        Select a sparepart category.
+                        {t("revenueAnalytics.selectCategory")}
                       </p>
                     </div>
                   </div>
                   <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
-                    Vehicle Type
+                    {t("revenueAnalytics.vehicleType")}
                   </span>
                 </div>
 
                 {sortedCategories.length === 0 ? (
                   <div className="flex min-h-[220px] items-center justify-center text-sm text-gray-500">
-                    No sparepart categories available for this vehicle.
+                    {t("revenueAnalytics.noCategoryData")}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -929,7 +981,7 @@ export default function RevenueAnalytics() {
                         >
                           <div className="flex items-start justify-between gap-3">
                             <h3 className="text-lg font-bold text-gray-900 transition group-hover:text-blue-700">
-                              {getCategoryLabel(category)}
+                              {categoryLabel(category)}
                             </h3>
                             <ChevronRight
                               size={21}
@@ -937,10 +989,12 @@ export default function RevenueAnalytics() {
                             />
                           </div>
                           <p className="mt-3 text-sm text-gray-500">
-                            {formatNumber(item.parts_sold)} sold
+                            {t("revenueAnalytics.soldCount", {
+                              count: number(item.parts_sold),
+                            })}
                           </p>
                           <p className="mt-4 text-base font-semibold text-gray-800">
-                            {formatCurrency(item.revenue)}
+                            {currency(item.revenue)}
                           </p>
                           <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
                             <div
@@ -965,7 +1019,7 @@ export default function RevenueAnalytics() {
                     <button
                       type="button"
                       onClick={handleBackToCategories}
-                      aria-label="Back to sparepart categories"
+                      aria-label={t("revenueAnalytics.backToCategories")}
                       className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
                     >
                       <ArrowLeft size={19} />
@@ -973,48 +1027,62 @@ export default function RevenueAnalytics() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-medium text-gray-500">
-                          {getVehicleTypeLabel(displayedVehicleType)}
+                          {vehicleLabel(displayedVehicleType)}
                         </span>
                         <ChevronRight size={16} className="text-gray-400" />
                         <h2 className="text-lg font-semibold text-gray-900">
-                          {getCategoryLabel(displayedCategory)}
+                          {categoryLabel(displayedCategory)}
                         </h2>
                       </div>
                       <p className="mt-1 text-sm text-gray-500">
-                        Brand sales performance for this vehicle and sparepart.
+                        {t("revenueAnalytics.brandSalesDescription")}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
-                      {getVehicleTypeLabel(displayedVehicleType)}
+                      {vehicleLabel(displayedVehicleType)}
                     </span>
                     <span className="rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700">
-                      {getCategoryLabel(displayedCategory)}
+                      {categoryLabel(displayedCategory)}
                     </span>
                   </div>
                 </div>
 
                 <BrandComparisonChart
-                  title="Total Brand Sales"
-                  description="All-time sales from paid orders. This graph is independent of the selected time period."
+                  title={t("revenueAnalytics.totalBrandSales")}
+                  description={t("revenueAnalytics.allTimeBrandDescription")}
                   brands={sortedAllTimeBrands}
                   maxRevenue={maxAllTimeBrandRevenue}
+                  locale={activeLanguage}
+                  soldLabel={t("revenueAnalytics.sold")}
+                  noDataLabel={t("revenueAnalytics.noBrandData")}
+                  unknownBrandLabel={t("revenueAnalytics.unknownBrand")}
                 />
 
                 <div className="mt-8 border-t border-gray-200 pt-6">
                   <BrandTimelineComparisonChart
-                    title={`Brand Sales — ${
-                      displayedPeriod.charAt(0).toUpperCase() +
-                      displayedPeriod.slice(1)
-                    }`}
-                    description="Compare brand revenue and units sold across each date in the selected timeline."
+                    title={t("revenueAnalytics.brandSalesPeriod", {
+                      period: t(`revenueAnalytics.periods.${displayedPeriod}`),
+                    })}
+                    description={t(
+                      "revenueAnalytics.brandTimelineDescription"
+                    )}
                     items={analytics.brand_timeline}
                     maxRevenue={maxBrandTimelineRevenue}
                     period={displayedPeriod}
-                    footerLabel={getSelectedPeriodLabel(displayedPeriod)}
+                    locale={activeLanguage}
+                    soldLabel={t("revenueAnalytics.sold")}
+                    noDataLabel={t("revenueAnalytics.noBrandData")}
+                    unknownBrandLabel={t("revenueAnalytics.unknownBrand")}
                   />
+                  <p className="mt-3 border-t border-gray-100 pt-3 text-center text-xs font-medium text-gray-500">
+                    {getSelectedPeriodLabel(
+                      displayedPeriod,
+                      activeLanguage
+                    )}
+                  </p>
                 </div>
               </div>
             )}
@@ -1023,12 +1091,12 @@ export default function RevenueAnalytics() {
               <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50 p-4">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-medium text-blue-700">
-                    Current selection:
+                    {t("revenueAnalytics.currentSelection")}
                   </span>
 
                   {displayedVehicleType && (
                     <span className="rounded-full bg-white px-3 py-1 font-medium text-blue-700">
-                      {getVehicleTypeLabel(displayedVehicleType)}
+                      {vehicleLabel(displayedVehicleType)}
                     </span>
                   )}
 
@@ -1036,7 +1104,7 @@ export default function RevenueAnalytics() {
                     <>
                       <ChevronRight size={15} className="text-blue-400" />
                       <span className="rounded-full bg-white px-3 py-1 font-medium text-blue-700">
-                        {getCategoryLabel(displayedCategory)}
+                        {categoryLabel(displayedCategory)}
                       </span>
                     </>
                   )}
@@ -1055,7 +1123,10 @@ interface BrandComparisonChartProps {
   description: string;
   brands: BrandItem[];
   maxRevenue: number;
-  footerLabel?: string;
+  locale: string;
+  soldLabel: string;
+  noDataLabel: string;
+  unknownBrandLabel: string;
 }
 
 function BrandComparisonChart({
@@ -1063,7 +1134,10 @@ function BrandComparisonChart({
   description,
   brands,
   maxRevenue,
-  footerLabel,
+  locale,
+  soldLabel,
+  noDataLabel,
+  unknownBrandLabel,
 }: BrandComparisonChartProps) {
   return (
     <section>
@@ -1074,65 +1148,58 @@ function BrandComparisonChart({
 
       {brands.length === 0 ? (
         <div className="flex min-h-[180px] items-center justify-center text-center text-sm text-gray-500">
-          No brand sales data available for this comparison.
+          {noDataLabel}
         </div>
       ) : (
-        <>
-          <div className="overflow-x-auto pb-4">
-            <div className="flex min-w-max items-end justify-start gap-5 px-2 sm:gap-7">
-              {brands.map((item, index) => {
-                const revenue = Number(item.revenue) || 0;
-                const partsSold = Number(item.parts_sold) || 0;
+        <div className="overflow-x-auto pb-4">
+          <div className="flex min-w-max items-end justify-start gap-5 px-2 sm:gap-7">
+            {brands.map((item, index) => {
+              const revenue = Number(item.revenue) || 0;
+              const partsSold = Number(item.parts_sold) || 0;
 
-                const barHeight =
-                  maxRevenue > 0 && revenue > 0
-                    ? Math.max((revenue / maxRevenue) * 220, 12)
-                    : 0;
+              const barHeight =
+                maxRevenue > 0 && revenue > 0
+                  ? Math.max((revenue / maxRevenue) * 220, 12)
+                  : 0;
 
-                return (
-                  <div
-                    key={`${item.brand}-${index}`}
-                    className="flex w-24 flex-shrink-0 flex-col items-center"
-                  >
-                    <div className="mb-2 w-full text-center">
-                      <p className="whitespace-nowrap text-xs font-semibold text-gray-700">
-                        {formatCurrency(revenue)}
-                      </p>
-                      <p className="mt-1 text-[10px] text-gray-400">
-                        {formatNumber(partsSold)} sold
-                      </p>
-                    </div>
+              const brand = item.brand || unknownBrandLabel;
 
-                    <div className="flex h-[220px] w-full items-end justify-center">
-                      <div
-                        className="w-12 rounded-t-md bg-blue-600 transition-colors hover:bg-blue-700"
-                        style={{ height: `${barHeight}px` }}
-                        title={`${item.brand || "Unknown brand"}: ${formatCurrency(revenue)}; ${formatNumber(partsSold)} sold`}
-                      />
-                    </div>
-
-                    <div className="mt-3 w-full text-center">
-                      <p className="break-words text-xs font-semibold text-gray-800">
-                        {item.brand || "Unknown brand"}
-                      </p>
-                    </div>
+              return (
+                <div
+                  key={`${item.brand}-${index}`}
+                  className="flex w-24 flex-shrink-0 flex-col items-center"
+                >
+                  <div className="mb-2 w-full text-center">
+                    <p className="whitespace-nowrap text-xs font-semibold text-gray-700">
+                      {formatCurrency(revenue, locale)}
+                    </p>
+                    <p className="mt-1 text-[10px] text-gray-400">
+                      {formatNumber(partsSold, locale)} {soldLabel}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {footerLabel && (
-            <p className="mt-3 border-t border-gray-100 pt-3 text-center text-xs font-medium text-gray-500">
-              {footerLabel}
-            </p>
-          )}
-        </>
+                  <div className="flex h-[220px] w-full items-end justify-center">
+                    <div
+                      className="w-12 rounded-t-md bg-blue-600 transition-colors hover:bg-blue-700"
+                      style={{ height: `${barHeight}px` }}
+                      title={`${brand}: ${formatCurrency(revenue, locale)}; ${formatNumber(partsSold, locale)} ${soldLabel}`}
+                    />
+                  </div>
+
+                  <div className="mt-3 w-full text-center">
+                    <p className="break-words text-xs font-semibold text-gray-800">
+                      {brand}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </section>
   );
 }
-
 
 interface BrandTimelineComparisonChartProps {
   title: string;
@@ -1140,7 +1207,10 @@ interface BrandTimelineComparisonChartProps {
   items: BrandTimelineItem[];
   maxRevenue: number;
   period: Period;
-  footerLabel?: string;
+  locale: string;
+  soldLabel: string;
+  noDataLabel: string;
+  unknownBrandLabel: string;
 }
 
 function BrandTimelineComparisonChart({
@@ -1149,6 +1219,10 @@ function BrandTimelineComparisonChart({
   items,
   maxRevenue,
   period,
+  locale,
+  soldLabel,
+  noDataLabel,
+  unknownBrandLabel,
 }: BrandTimelineComparisonChartProps) {
   const chartData = useMemo(() => {
     const grouped = new Map<string, Map<string, BrandTimelineItem>>();
@@ -1156,7 +1230,7 @@ function BrandTimelineComparisonChart({
     for (const item of items) {
       if (!item.period) continue;
 
-      const brand = item.brand.trim() || "Unknown brand";
+      const brand = item.brand.trim() || unknownBrandLabel;
 
       if (!grouped.has(item.period)) {
         grouped.set(item.period, new Map());
@@ -1185,7 +1259,7 @@ function BrandTimelineComparisonChart({
       }))
       .filter((group) => group.brands.length > 0)
       .sort((a, b) => a.date.localeCompare(b.date));
-  }, [items]);
+  }, [items, unknownBrandLabel]);
 
   return (
     <section>
@@ -1196,7 +1270,7 @@ function BrandTimelineComparisonChart({
 
       {chartData.length === 0 ? (
         <div className="flex min-h-[180px] items-center justify-center text-center text-sm text-gray-500">
-          No brand sales data available for this comparison.
+          {noDataLabel}
         </div>
       ) : (
         <div className="overflow-x-auto pb-4">
@@ -1223,10 +1297,10 @@ function BrandTimelineComparisonChart({
                       >
                         <div className="mb-2 min-h-[42px] w-full text-center">
                           <p className="whitespace-nowrap text-[11px] font-semibold text-gray-700">
-                            {formatCurrency(revenue)}
+                            {formatCurrency(revenue, locale)}
                           </p>
                           <p className="mt-1 text-[10px] text-gray-500">
-                            {formatNumber(partsSold)} sold
+                            {formatNumber(partsSold, locale)} {soldLabel}
                           </p>
                         </div>
 
@@ -1234,7 +1308,7 @@ function BrandTimelineComparisonChart({
                           <div
                             className="w-10 rounded-t-md bg-blue-600 transition-colors hover:bg-blue-700"
                             style={{ height: `${barHeight}px` }}
-                            title={`${item.brand}: ${formatCurrency(revenue)}, ${formatNumber(partsSold)} sold on ${formatPeriodLabel(group.date, period)}`}
+                            title={`${item.brand}: ${formatCurrency(revenue, locale)}, ${formatNumber(partsSold, locale)} ${soldLabel} on ${formatPeriodLabel(group.date, period, locale)}`}
                           />
                         </div>
 
@@ -1249,7 +1323,7 @@ function BrandTimelineComparisonChart({
                 </div>
 
                 <p className="mt-3 text-center text-xs font-semibold text-gray-600">
-                  {formatPeriodLabel(group.date, period)}
+                  {formatPeriodLabel(group.date, period, locale)}
                 </p>
               </div>
             ))}
@@ -1258,4 +1332,4 @@ function BrandTimelineComparisonChart({
       )}
     </section>
   );
- }
+}

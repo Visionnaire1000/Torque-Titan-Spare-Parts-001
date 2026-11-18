@@ -14,6 +14,17 @@ def send_otp_email(
             "If you did not create this account, you can ignore this email."
         )
 
+    elif otp_type == "forgot_password":
+        subject = "Forgot Password OTP"
+        email_title = "PASSWORD RESET"
+
+        message = (
+            "Your Torque Titan Spares password reset OTP is:\n\n"
+            f"{otp_code}\n\n"
+            "This OTP expires in 5 minutes.\n"
+            "If you did not request a password reset, you can ignore this email."
+        )
+
     elif otp_type == "change_password":
         subject = "Password Change OTP"
         email_title = "PASSWORD CHANGE"

@@ -1,6 +1,27 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactElement } from "react";
-import { ArrowLeft, Edit, Trash2, X, Image as ImageIcon, Clock, Search } from "lucide-react";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+  type SyntheticEvent,
+} from "react";
+import {
+  ArrowLeft,
+  Edit,
+  Trash2,
+  X,
+  Image as ImageIcon,
+  Clock,
+  Search,
+} from "lucide-react";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import config from "../../config";
 
@@ -51,6 +72,168 @@ const emptyForm: FormData = {
   image: null,
 };
 
+const normalizeBasicText = (text: string): string =>
+  text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const CATEGORY_ALIAS_GROUPS: Record<string, string[]> = {
+  tyre: [
+    "tyre", "tyres", "tire", "tires",
+    "pneu", "pneus",
+    "neumatico", "neumaticos",
+    "reifen",
+    "pneumatico", "pneumatici",
+    "タイヤ", "타이어",
+    "шина", "шины",
+    "lastik", "lastikler",
+    "band", "banden",
+    "轮胎",
+    "टायर",
+  ],
+  rim: [
+    "rim", "rims",
+    "jante", "jantes",
+    "llanta", "llantas",
+    "aro", "aros", "roda", "rodas",
+    "felge", "felgen",
+    "cerchio", "cerchi",
+    "ホイール", "リム",
+    "휠", "림",
+    "диск", "диски", "обод",
+    "jant", "jantlar",
+    "velg", "velgen",
+    "轮毂", "轮圈",
+    "पहिया",
+  ],
+  battery: [
+    "battery", "batteries",
+    "batterie", "batería", "baterías",
+    "bateria", "baterias",
+    "akku",
+    "batteria", "batterie",
+    "バッテリー",
+    "배터리",
+    "аккумулятор", "аккумуляторы",
+    "akü", "aku",
+    "accu", "accu's",
+    "电池",
+    "बैटरी",
+  ],
+  "oil filter": [
+    "oil filter", "oil filters",
+    "filtre a huile", "filtres a huile",
+    "filtre huile", "filtres huile",
+    "filtro de aceite", "filtros de aceite",
+    "filtro de oleo", "filtros de oleo",
+    "olfilter", "ol filter",
+    "filtro olio", "filtro dell olio",
+    "オイルフィルター",
+    "오일 필터", "오일필터",
+    "масляный фильтр", "масляные фильтры",
+    "yag filtresi",
+    "oliefilter",
+    "机油滤清器", "机油滤芯",
+    "ऑयल फिल्टर", "तेल फ़िल्टर",
+  ],
+};
+
+const VEHICLE_ALIAS_GROUPS: Record<string, string[]> = {
+  sedan: [
+    "sedan", "sedans",
+    "berline", "berlines",
+    "sedán", "sedanes",
+    "sedã", "sedas",
+    "limousine", "limousinen",
+    "berlina",
+    "セダン",
+    "세단",
+    "седан", "седаны",
+    "轿车",
+    "सेडान",
+  ],
+  suv: [
+    "suv", "suvs",
+    "4x4",
+    "vehicule utilitaire sport",
+    "todoterreno", "todoterrenos",
+    "vehiculo todoterreno",
+    "utilitario esportivo",
+    "gelandewagen", "gelande",
+    "fuoristrada",
+    "スポーツユーティリティビークル",
+    "스포츠 유틸리티 차량",
+    "внедорожник", "внедорожники",
+    "arazi araci",
+    "terreinwagen", "terreinwagens",
+    "越野车", "运动型多用途汽车",
+    "एसयूवी",
+  ],
+  truck: [
+    "truck", "trucks",
+    "camion", "camions",
+    "camión", "camiones",
+    "caminhao", "caminhoes",
+    "lastwagen", "lkw",
+    "トラック",
+    "트럭",
+    "грузовик", "грузовики",
+    "kamyon", "kamyonlar",
+    "vrachtwagen", "vrachtwagens",
+    "卡车", "货车",
+    "ट्रक",
+  ],
+  bus: [
+    "bus", "buses",
+    "autobus", "autobuses",
+    "ônibus", "onibus",
+    "バス",
+    "버스",
+    "автобус", "автобусы",
+    "otobus",
+    "bussen",
+    "公交车", "公共汽车",
+    "बस",
+  ],
+};
+
+const createAliasMap = (
+  groups: Record<string, string[]>
+): Record<string, string> => {
+  const result: Record<string, string> = {};
+
+  Object.entries(groups).forEach(([canonical, aliases]) => {
+    [canonical, ...aliases].forEach((alias) => {
+      const normalized = normalizeBasicText(alias);
+
+      if (normalized) {
+        result[normalized] = canonical;
+      }
+    });
+  });
+
+  return result;
+};
+
+const NORMALIZED_CATEGORY_ALIASES =
+  createAliasMap(CATEGORY_ALIAS_GROUPS);
+
+const NORMALIZED_VEHICLE_ALIASES =
+  createAliasMap(VEHICLE_ALIAS_GROUPS);
+
+const ALL_ALIASES: Record<string, string> = {
+  ...NORMALIZED_CATEGORY_ALIASES,
+  ...NORMALIZED_VEHICLE_ALIASES,
+};
+
+const ALIAS_ENTRIES = Object.entries(ALL_ALIASES).sort(
+  ([a], [b]) => b.length - a.length
+);
+
 const singularizeWord = (word: string): string => {
   if (word === "tires" || word === "tyres") {
     return "tyre";
@@ -60,29 +243,82 @@ const singularizeWord = (word: string): string => {
     return `${word.slice(0, -3)}y`;
   }
 
-  if (word.endsWith("ses") && word.length > 3) {
-    return word.slice(0, -2);
-  }
-
-  if (
-    word.endsWith("s") &&
-    !word.endsWith("ss") &&
-    word.length > 2
-  ) {
+  if (word.endsWith("s") && !word.endsWith("ss") && word.length > 2) {
     return word.slice(0, -1);
   }
 
   return word;
 };
 
+const normalizeTerm = (
+  value: string,
+  aliases: Record<string, string>
+): string => {
+  const normalized = normalizeBasicText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (aliases[normalized]) {
+    return aliases[normalized];
+  }
+
+  const partialMatch = Object.entries(aliases).find(
+    ([alias]) =>
+      alias.length >= 3 &&
+      normalized.length >= 3 &&
+      alias.startsWith(normalized)
+  );
+
+  if (partialMatch) {
+    return partialMatch[1];
+  }
+
+  return singularizeWord(normalized);
+};
+
+
 const normalizeSearchText = (text: string): string => {
-  return text
-    .toLowerCase()
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(singularizeWord)
-    .join(" ");
+  const normalized = normalizeBasicText(text);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const words = normalized.split(/\s+/).filter(Boolean);
+  const result: string[] = [];
+
+  for (let index = 0; index < words.length; index += 1) {
+    let matched = false;
+
+    for (const [alias, canonical] of ALIAS_ENTRIES) {
+      const aliasWords = alias.split(" ");
+
+      if (aliasWords.length > words.length - index) {
+        continue;
+      }
+
+      const candidate = words
+        .slice(index, index + aliasWords.length)
+        .join(" ");
+
+      if (candidate === alias) {
+        result.push(canonical);
+        index += aliasWords.length - 1;
+        matched = true;
+        break;
+      }
+    }
+
+    if (matched) {
+      continue;
+    }
+
+    result.push(singularizeWord(words[index]));
+  }
+
+  return result.join(" ");
 };
 
 const normalizePrice = (
@@ -103,16 +339,56 @@ const normalizePrice = (
 
 const ItemsManagement = (): ReactElement => {
   const { authFetch } = useAuth();
+  const { t, i18n } = useTranslation();
+
+  const translateCategory = useCallback(
+    (value: string): string => {
+      const canonical = normalizeTerm(
+        value,
+        NORMALIZED_CATEGORY_ALIASES
+      );
+
+      const key = canonical === "oil filter" ? "filter" : canonical;
+
+      return t(`productCategories.${key}`, {
+        defaultValue: value,
+      });
+    },
+    [t, i18n.language]
+  );
+
+  const translateVehicleType = useCallback(
+    (value: string): string => {
+      const canonical = normalizeTerm(
+        value,
+        NORMALIZED_VEHICLE_ALIASES
+      );
+
+      return t(`productCategories.${canonical}`, {
+        defaultValue: value,
+      });
+    },
+    [t, i18n.language]
+  );
+
+  const translateColour = useCallback(
+    (value: string): string => {
+      const key = normalizeBasicText(value).replace(/\s+/g, "_");
+
+      return t(`categoriesCommon.colours.${key}`, {
+        defaultValue: value,
+      });
+    },
+    [t, i18n.language]
+  );
 
   const [spareParts, setSpareParts] = useState<SparePart[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [inputValue, setInputValue] = useState("");
   const [historyOptions, setHistoryOptions] = useState<SearchOption[]>([]);
-  const [selectedSearchValue, setSelectedSearchValue] =
-    useState<string | null>(null);
-  const [selectedPart, setSelectedPart] =
-    useState<SparePart | null>(null);
+  const [selectedSearchValue, setSelectedSearchValue] = useState<string | null>(null);
+  const [selectedPart, setSelectedPart] = useState<SparePart | null>(null);
 
   const [form, setForm] = useState<FormData>(emptyForm);
   const [imagePreview, setImagePreview] = useState("");
@@ -126,7 +402,7 @@ const ItemsManagement = (): ReactElement => {
   const editScrollPositionRef = useRef<number | null>(null);
   const searchContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const loadHistory = () => {
+  const loadHistory = useCallback(() => {
     try {
       const stored = localStorage.getItem(HISTORY_KEY);
 
@@ -166,18 +442,18 @@ const ItemsManagement = (): ReactElement => {
     } catch {
       setHistoryOptions([]);
     }
-  };
+  }, []);
 
-  const fetchSpareParts = async () => {
+  const fetchSpareParts = useCallback(async () => {
     try {
       setLoading(true);
 
       const response = await authFetch(
-        `${config.API_BASE_URL}/spareparts?per_page=1000`
+        `${config.API_BASE_URL}/spareparts/?per_page=1000`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch spare parts");
+        throw new Error(t("adminItems.messages.loadFailed"));
       }
 
       const data: SparePartsResponse = await response.json();
@@ -190,16 +466,16 @@ const ItemsManagement = (): ReactElement => {
       );
     } catch (error) {
       console.error(error);
-      toast.error("Failed to load spare parts");
+      toast.error(t("adminItems.messages.loadFailed"));
     } finally {
       setLoading(false);
     }
-  };
+  }, [authFetch, t]);
 
   useEffect(() => {
     loadHistory();
-    fetchSpareParts();
-  }, []);
+    void fetchSpareParts();
+  }, [loadHistory, fetchSpareParts]);
 
   useEffect(() => {
     return () => {
@@ -210,12 +486,10 @@ const ItemsManagement = (): ReactElement => {
   }, [imagePreview]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: globalThis.MouseEvent) => {
       if (
         searchContainerRef.current &&
-        !searchContainerRef.current.contains(
-          event.target as Node
-        )
+        !searchContainerRef.current.contains(event.target as Node)
       ) {
         setShowSearchDropdown(false);
       }
@@ -224,10 +498,7 @@ const ItemsManagement = (): ReactElement => {
     document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -235,25 +506,65 @@ const ItemsManagement = (): ReactElement => {
     const groupedMap = new Map<string, SearchOption>();
 
     spareParts.forEach((part) => {
-      const rawKey = `${part.brand} ${part.vehicle_type} ${part.category}`;
-      const key = normalizeSearchText(rawKey);
+      const brand = part.brand ?? "";
+      const vehicle = part.vehicle_type ?? "";
+      const category = part.category ?? "";
+
+      const canonicalVehicle = normalizeTerm(
+        vehicle,
+        NORMALIZED_VEHICLE_ALIASES
+      );
+
+      const canonicalCategory = normalizeTerm(
+        category,
+        NORMALIZED_CATEGORY_ALIASES
+      );
+
+      const key = normalizeBasicText(
+        `${brand} ${canonicalVehicle} ${canonicalCategory}`
+      );
+
+      const translatedVehicle = translateVehicleType(vehicle);
+      const translatedCategory = translateCategory(category);
+
+      const displayLabel =
+        `${brand} ${translatedVehicle} ${translatedCategory}`.trim();
+
+      const searchableText = [
+        brand,
+        vehicle,
+        category,
+        translatedVehicle,
+        translatedCategory,
+        canonicalVehicle,
+        canonicalCategory,
+        key,
+      ].join(" ");
 
       if (!groupedMap.has(key)) {
         groupedMap.set(key, {
-          label: rawKey,
+          label: displayLabel,
           value: key,
-          searchableText: key,
+          searchableText,
           isGroup: true,
           isHistory: false,
           parts: [],
         });
       }
 
-      groupedMap.get(key)!.parts.push(part);
+      const group = groupedMap.get(key)!;
+
+      group.parts.push(part);
+      group.searchableText += ` ${searchableText}`;
     });
 
     return Array.from(groupedMap.values());
-  }, [spareParts]);
+  }, [
+    spareParts,
+    translateVehicleType,
+    translateCategory,
+    i18n.language,
+  ]);
 
   const hydratedHistoryOptions = useMemo<SearchOption[]>(() => {
     const hydrated: SearchOption[] = [];
@@ -288,23 +599,39 @@ const ItemsManagement = (): ReactElement => {
     );
   }, [searchOptions, selectedSearchValue]);
 
-  const filteredSearchOptions = useMemo<SearchOption[]>(() => {
-    const normalizedInput = normalizeSearchText(inputValue);
+ const filteredSearchOptions = useMemo<SearchOption[]>(() => {
+  const normalizedInput = normalizeBasicText(inputValue);
 
-    if (!normalizedInput) {
-      return [];
-    }
+  if (!normalizedInput) {
+    return [];
+  }
 
-    const words = normalizedInput
+  const queryWords = normalizedInput.split(/\s+/).filter(Boolean);
+
+  return searchOptions.filter((option) => {
+    const searchable = normalizeBasicText(option.searchableText);
+    const searchableWords = searchable.split(/\s+/).filter(Boolean);
+
+    const canonicalSearchable = normalizeSearchText(
+      option.searchableText
+    );
+
+    const canonicalWords = canonicalSearchable
       .split(/\s+/)
       .filter(Boolean);
 
-    return searchOptions.filter((option) =>
-      words.every((word) =>
-        normalizeSearchText(option.searchableText).includes(word)
-      )
-    );
-  }, [inputValue, searchOptions]);
+    return queryWords.every((queryWord) => {
+      const canonicalQuery = normalizeSearchText(queryWord);
+
+      return (
+        searchableWords.some((word) => word.startsWith(queryWord)) ||
+        canonicalWords.some((word) =>
+          word.startsWith(canonicalQuery)
+        )
+      );
+    });
+  });
+ }, [inputValue, searchOptions]);
 
   const saveToHistory = (option: SearchOption) => {
     const historyItem: SearchOption = {
@@ -326,31 +653,23 @@ const ItemsManagement = (): ReactElement => {
         HISTORY_LIMIT
       );
 
-      localStorage.setItem(
-        HISTORY_KEY,
-        JSON.stringify(updated)
-      );
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
 
       return updated;
     });
   };
 
   const removeHistory = (
-    event: React.MouseEvent<HTMLButtonElement>,
+    event: MouseEvent<HTMLButtonElement>,
     value: string
   ) => {
     event.preventDefault();
     event.stopPropagation();
 
     setHistoryOptions((previous) => {
-      const updated = previous.filter(
-        (item) => item.value !== value
-      );
+      const updated = previous.filter((item) => item.value !== value);
 
-      localStorage.setItem(
-        HISTORY_KEY,
-        JSON.stringify(updated)
-      );
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
 
       return updated;
     });
@@ -377,7 +696,6 @@ const ItemsManagement = (): ReactElement => {
     resetForm();
 
     const scrollPosition = editScrollPositionRef.current;
-
     editScrollPositionRef.current = null;
 
     if (scrollPosition === null) {
@@ -459,7 +777,7 @@ const ItemsManagement = (): ReactElement => {
   };
 
   const handleSearchKeyDown = (
-    event: React.KeyboardEvent<HTMLInputElement>
+    event: KeyboardEvent<HTMLInputElement>
   ) => {
     if (event.key === "Escape") {
       setShowSearchDropdown(false);
@@ -484,10 +802,7 @@ const ItemsManagement = (): ReactElement => {
   ) => {
     const { name, value } = event.target;
 
-    if (
-      name === "buying_price" ||
-      name === "marked_price"
-    ) {
+    if (name === "buying_price" || name === "marked_price") {
       const wholeNumberValue = value.replace(/\D/g, "");
 
       setForm((previous) => ({
@@ -514,7 +829,7 @@ const ItemsManagement = (): ReactElement => {
     }
 
     if (!file.type.startsWith("image/")) {
-      toast.error("Please select a valid image file");
+      toast.error(t("adminItems.validation.invalidImage"));
       event.target.value = "";
       return;
     }
@@ -522,7 +837,7 @@ const ItemsManagement = (): ReactElement => {
     const maxSize = 5 * 1024 * 1024;
 
     if (file.size > maxSize) {
-      toast.error("Image must be 5 MB or smaller");
+      toast.error(t("adminItems.validation.imageTooLarge"));
       event.target.value = "";
       return;
     }
@@ -536,17 +851,11 @@ const ItemsManagement = (): ReactElement => {
       image: file,
     }));
 
-    const objectUrl = URL.createObjectURL(file);
-    setImagePreview(objectUrl);
+    setImagePreview(URL.createObjectURL(file));
   };
 
-  const isValidPrice = (value: string): boolean => {
-    return (
-      value !== "" &&
-      /^\d+$/.test(value) &&
-      Number(value) >= 0
-    );
-  };
+  const isValidPrice = (value: string): boolean =>
+    value !== "" && /^\d+$/.test(value) && Number(value) >= 0;
 
   const isCreateFormComplete =
     form.brand.trim() !== "" &&
@@ -562,34 +871,20 @@ const ItemsManagement = (): ReactElement => {
       return false;
     }
 
-    const originalBrand = selectedPart.brand ?? "";
-    const originalCategory = selectedPart.category ?? "";
-    const originalVehicleType =
-      selectedPart.vehicle_type ?? "";
-    const originalColour = selectedPart.colour ?? "";
-    const originalBuyingPrice = normalizePrice(
-      selectedPart.buying_price
-    );
-    const originalMarkedPrice = normalizePrice(
-      selectedPart.marked_price
-    );
-
     const textOrPriceChanged =
-      form.brand.trim() !== originalBrand.trim() ||
-      form.category.trim() !== originalCategory.trim() ||
+      form.brand.trim() !== (selectedPart.brand ?? "").trim() ||
+      form.category.trim() !== (selectedPart.category ?? "").trim() ||
       form.vehicle_type.trim() !==
-        originalVehicleType.trim() ||
-      form.colour.trim() !== originalColour.trim() ||
-      form.buying_price !== originalBuyingPrice ||
-      form.marked_price !== originalMarkedPrice;
+        (selectedPart.vehicle_type ?? "").trim() ||
+      form.colour.trim() !== (selectedPart.colour ?? "").trim() ||
+      form.buying_price !== normalizePrice(selectedPart.buying_price) ||
+      form.marked_price !== normalizePrice(selectedPart.marked_price);
 
-    const imageChanged = form.image !== null;
-
-    return textOrPriceChanged || imageChanged;
+    return textOrPriceChanged || form.image !== null;
   }, [form, selectedPart]);
 
   const handleSubmit = async (
-    event: React.SyntheticEvent<HTMLFormElement>
+    event: SyntheticEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
 
@@ -598,37 +893,37 @@ const ItemsManagement = (): ReactElement => {
     }
 
     if (!form.brand.trim()) {
-      toast.error("Brand is required");
+      toast.error(t("adminItems.validation.brandRequired"));
       return;
     }
 
     if (!form.category.trim()) {
-      toast.error("Category is required");
+      toast.error(t("adminItems.validation.categoryRequired"));
       return;
     }
 
     if (!form.vehicle_type.trim()) {
-      toast.error("Vehicle type is required");
+      toast.error(t("adminItems.validation.vehicleTypeRequired"));
       return;
     }
 
     if (!form.colour.trim()) {
-      toast.error("Colour is required");
+      toast.error(t("adminItems.validation.colourRequired"));
       return;
     }
 
     if (!isValidPrice(form.buying_price)) {
-      toast.error("Enter a valid buying price");
+      toast.error(t("adminItems.validation.buyingPriceRequired"));
       return;
     }
 
     if (!isValidPrice(form.marked_price)) {
-      toast.error("Enter a valid marked price");
+      toast.error(t("adminItems.validation.markedPriceRequired"));
       return;
     }
 
     if (!selectedPart && !form.image) {
-      toast.error("Image is required");
+      toast.error(t("adminItems.validation.imageRequired"));
       return;
     }
 
@@ -639,10 +934,7 @@ const ItemsManagement = (): ReactElement => {
 
       formData.append("brand", form.brand.trim());
       formData.append("category", form.category.trim());
-      formData.append(
-        "vehicle_type",
-        form.vehicle_type.trim()
-      );
+      formData.append("vehicle_type", form.vehicle_type.trim());
       formData.append("colour", form.colour.trim());
       formData.append("buying_price", form.buying_price);
       formData.append("marked_price", form.marked_price);
@@ -674,23 +966,22 @@ const ItemsManagement = (): ReactElement => {
             ? data.detail
             : typeof data.error === "string"
               ? data.error
-              : "Failed to save spare part";
+              : t("adminItems.messages.saveFailed");
 
         throw new Error(message);
       }
 
       toast.success(
         selectedPart
-          ? "Spare part updated successfully"
-          : "Spare part created successfully"
+          ? t("adminItems.messages.updated")
+          : t("adminItems.messages.created")
       );
 
       await fetchSpareParts();
 
       if (selectedPart) {
         const updatedPart =
-          data.sparepart &&
-          typeof data.sparepart === "object"
+          data.sparepart && typeof data.sparepart === "object"
             ? (data.sparepart as SparePart)
             : null;
 
@@ -705,15 +996,10 @@ const ItemsManagement = (): ReactElement => {
           setForm({
             brand: normalizedPart.brand ?? "",
             category: normalizedPart.category ?? "",
-            vehicle_type:
-              normalizedPart.vehicle_type ?? "",
+            vehicle_type: normalizedPart.vehicle_type ?? "",
             colour: normalizedPart.colour ?? "",
-            buying_price: normalizePrice(
-              normalizedPart.buying_price
-            ),
-            marked_price: normalizePrice(
-              normalizedPart.marked_price
-            ),
+            buying_price: normalizePrice(normalizedPart.buying_price),
+            marked_price: normalizePrice(normalizedPart.marked_price),
             image: null,
           });
 
@@ -732,7 +1018,7 @@ const ItemsManagement = (): ReactElement => {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to save spare part"
+          : t("adminItems.messages.saveFailed")
       );
     } finally {
       setSaving(false);
@@ -740,19 +1026,15 @@ const ItemsManagement = (): ReactElement => {
   };
 
   const openDeleteDialog = () => {
-    if (!selectedPart) {
-      return;
+    if (selectedPart) {
+      setShowDeleteDialog(true);
     }
-
-    setShowDeleteDialog(true);
   };
 
   const closeDeleteDialog = () => {
-    if (deleting) {
-      return;
+    if (!deleting) {
+      setShowDeleteDialog(false);
     }
-
-    setShowDeleteDialog(false);
   };
 
   const handleDelete = async () => {
@@ -765,9 +1047,7 @@ const ItemsManagement = (): ReactElement => {
 
       const response = await authFetch(
         `${config.API_BASE_URL}/admin/spareparts/${selectedPart.id}/`,
-        {
-          method: "DELETE",
-        }
+        { method: "DELETE" }
       );
 
       let data: Record<string, unknown> = {};
@@ -784,7 +1064,7 @@ const ItemsManagement = (): ReactElement => {
             ? data.detail
             : typeof data.error === "string"
               ? data.error
-              : "Failed to delete spare part";
+              : t("adminItems.messages.deleteFailed");
 
         throw new Error(message);
       }
@@ -792,7 +1072,7 @@ const ItemsManagement = (): ReactElement => {
       toast.success(
         typeof data.message === "string"
           ? data.message
-          : "Spare part deleted successfully"
+          : t("adminItems.messages.deleted")
       );
 
       setShowDeleteDialog(false);
@@ -812,7 +1092,7 @@ const ItemsManagement = (): ReactElement => {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to delete spare part"
+          : t("adminItems.messages.deleteFailed")
       );
     } finally {
       setDeleting(false);
@@ -832,21 +1112,18 @@ const ItemsManagement = (): ReactElement => {
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                Items Management
+                {t("adminItems.title")}
               </h1>
 
               <p className="mt-1 text-sm text-gray-500">
-                Search spare parts by brand, vehicle type,
-                and category.
+                {t("adminItems.description")}
               </p>
             </div>
           </div>
 
           <div
             ref={searchContainerRef}
-            onMouseDown={() => {
-              setShowSearchDropdown(true);
-            }}
+            onMouseDown={() => setShowSearchDropdown(true)}
             className="relative z-30 mb-6 rounded-2xl bg-white p-4 shadow-[0_10px_30px_rgba(0,0,0,0.08)] sm:p-6"
           >
             <div className="relative">
@@ -860,33 +1137,13 @@ const ItemsManagement = (): ReactElement => {
                 <input
                   type="text"
                   value={inputValue}
-                  placeholder="Search spare part..."
-                  onFocus={() => {
-                    setShowSearchDropdown(true);
-                  }}
+                  placeholder={t("adminItems.searchPlaceholder")}
+                  onFocus={() => setShowSearchDropdown(true)}
                   onChange={(event) =>
                     handleInputChange(event.target.value)
                   }
                   onKeyDown={handleSearchKeyDown}
-                  className="
-                    h-[42px]
-                    w-full
-                    rounded-[10px]
-                    border
-                    border-gray-300
-                    bg-white
-                    pl-10
-                    pr-10
-                    text-[14px]
-                    text-black
-                    outline-none
-                    transition
-                    placeholder:text-gray-400
-                    hover:border-[#004080]
-                    focus:border-[#004080]
-                    focus:ring-1
-                    focus:ring-[#004080]
-                  "
+                  className="h-[42px] w-full rounded-[10px] border border-gray-300 bg-white pl-10 pr-10 text-[14px] text-black outline-none transition placeholder:text-gray-400 hover:border-[#004080] focus:border-[#004080] focus:ring-1 focus:ring-[#004080]"
                 />
 
                 {inputValue && (
@@ -897,21 +1154,8 @@ const ItemsManagement = (): ReactElement => {
                       event.stopPropagation();
                       clearSearch();
                     }}
-                    className="
-                      absolute
-                      right-2
-                      flex
-                      h-8
-                      w-8
-                      items-center
-                      justify-center
-                      rounded-md
-                      text-gray-400
-                      transition
-                      hover:bg-gray-100
-                      hover:text-gray-700
-                    "
-                    aria-label="Clear search"
+                    className="absolute right-2 flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                    aria-label={t("adminItems.accessibility.clearSearch")}
                   >
                     <X size={17} />
                   </button>
@@ -920,53 +1164,21 @@ const ItemsManagement = (): ReactElement => {
 
               {showSearchDropdown && (
                 <div
-                  className="
-                    absolute
-                    left-0
-                    right-0
-                    top-[calc(100%+6px)]
-                    overflow-hidden
-                    rounded-[10px]
-                    border
-                    border-gray-200
-                    bg-[#1b1b1b]
-                    shadow-2xl
-                  "
-                  onMouseDown={(event) => {
-                    event.stopPropagation();
-                  }}
+                  className="absolute left-0 right-0 top-[calc(100%+6px)] overflow-hidden rounded-[10px] border border-gray-200 bg-[#1b1b1b] shadow-2xl"
+                  onMouseDown={(event) => event.stopPropagation()}
                 >
                   <div className="max-h-80 overflow-y-auto">
                     {!inputValue.trim() ? (
                       hydratedHistoryOptions.length > 0 ? (
                         <>
-                          <div
-                            className="
-                              bg-[#161616]
-                              px-[15px]
-                              py-[10px]
-                              text-xs
-                              font-bold
-                              text-gray-400
-                            "
-                          >
-                            Recent Searches
+                          <div className="bg-[#161616] px-[15px] py-[10px] text-xs font-bold text-gray-400">
+                            {t("adminItems.recentSearches")}
                           </div>
 
                           {hydratedHistoryOptions.map((option) => (
                             <div
                               key={option.value}
-                              className="
-                                flex
-                                cursor-pointer
-                                items-center
-                                gap-3
-                                px-[15px]
-                                py-3
-                                text-gray-200
-                                transition
-                                hover:bg-[#004080]
-                              "
+                              className="flex cursor-pointer items-center gap-3 px-[15px] py-3 text-gray-200 transition hover:bg-[#004080]"
                               onMouseDown={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
@@ -985,53 +1197,29 @@ const ItemsManagement = (): ReactElement => {
 
                               <button
                                 type="button"
-                                className="
-                                  flex
-                                  h-7
-                                  w-7
-                                  shrink-0
-                                  items-center
-                                  justify-center
-                                  rounded-md
-                                  text-gray-300
-                                  transition
-                                  hover:bg-white/10
-                                  hover:text-white
-                                "
-                                onMouseDown={(event) => {
-                                  removeHistory(
-                                    event,
-                                    option.value
-                                  );
-                                }}
-                                aria-label={`Remove ${option.label} from search history`}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-300 transition hover:bg-white/10 hover:text-white"
+                                onMouseDown={(event) =>
+                                  removeHistory(event, option.value)
+                                }
+                                aria-label={t(
+                                  "adminItems.accessibility.removeHistory",
+                                  { label: option.label }
+                                )}
                               >
-                                <X
-                                  size={16}
-                                  strokeWidth={2}
-                                />
+                                <X size={16} strokeWidth={2} />
                               </button>
                             </div>
                           ))}
                         </>
                       ) : (
                         <div className="px-4 py-4 text-sm text-gray-400">
-                          No recent searches
+                          {t("adminItems.noRecentSearches")}
                         </div>
                       )
                     ) : filteredSearchOptions.length > 0 ? (
                       <>
-                        <div
-                          className="
-                            bg-[#161616]
-                            px-[15px]
-                            py-[10px]
-                            text-xs
-                            font-bold
-                            text-gray-400
-                          "
-                        >
-                          All Results
+                        <div className="bg-[#161616] px-[15px] py-[10px] text-xs font-bold text-gray-400">
+                          {t("adminItems.allResults")}
                         </div>
 
                         {dropdownOptions.map((option) => (
@@ -1043,20 +1231,7 @@ const ItemsManagement = (): ReactElement => {
                               event.stopPropagation();
                               handleSelectSearchOption(option);
                             }}
-                            className="
-                              block
-                              w-full
-                              cursor-pointer
-                              px-[15px]
-                              py-3
-                              text-left
-                              text-[14px]
-                              font-semibold
-                              text-gray-200
-                              transition
-                              hover:bg-[#004080]
-                              hover:text-white
-                            "
+                            className="block w-full cursor-pointer px-[15px] py-3 text-left text-[14px] font-semibold text-gray-200 transition hover:bg-[#004080] hover:text-white"
                           >
                             <span className="block truncate">
                               {option.label}
@@ -1066,7 +1241,7 @@ const ItemsManagement = (): ReactElement => {
                       </>
                     ) : (
                       <div className="px-4 py-4 text-sm text-gray-400">
-                        No spare parts found
+                        {t("adminItems.noSparePartsFound")}
                       </div>
                     )}
                   </div>
@@ -1080,7 +1255,7 @@ const ItemsManagement = (): ReactElement => {
               <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[#004080]" />
 
               <p className="text-sm text-gray-500">
-                Loading spare parts...
+                {t("adminItems.loading")}
               </p>
             </div>
           ) : selectedSearch && !selectedPart ? (
@@ -1090,20 +1265,8 @@ const ItemsManagement = (): ReactElement => {
                   <button
                     type="button"
                     onClick={goBackToSearch}
-                    className="
-                      flex
-                      h-9
-                      w-9
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-full
-                      text-gray-600
-                      transition
-                      hover:bg-gray-100
-                      hover:text-[#004080]
-                    "
-                    aria-label="Back to search"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-[#004080]"
+                    aria-label={t("adminItems.accessibility.backToSearch")}
                   >
                     <ArrowLeft size={20} />
                   </button>
@@ -1114,10 +1277,9 @@ const ItemsManagement = (): ReactElement => {
                     </h2>
 
                     <p className="text-sm text-gray-500">
-                      {selectedParts.length}{" "}
-                      {selectedParts.length === 1
-                        ? "matching spare part"
-                        : "matching spare parts"}
+                      {t("adminItems.matchingSpareParts", {
+                        count: selectedParts.length,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -1125,22 +1287,9 @@ const ItemsManagement = (): ReactElement => {
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="
-                    hidden
-                    rounded-[10px]
-                    border
-                    border-gray-300
-                    px-3
-                    py-2
-                    text-sm
-                    font-medium
-                    text-gray-700
-                    transition
-                    hover:bg-gray-50
-                    sm:block
-                  "
+                  className="hidden rounded-[10px] border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:block"
                 >
-                  Clear Search
+                  {t("adminItems.clearSearch")}
                 </button>
               </div>
 
@@ -1152,72 +1301,24 @@ const ItemsManagement = (): ReactElement => {
                   />
 
                   <p className="text-sm text-gray-500">
-                    No spare parts found for this search.
+                    {t("adminItems.noPartsForSearch")}
                   </p>
                 </div>
               ) : (
-                <div
-                  className="
-                    grid
-                    grid-cols-2
-                    gap-2.5
-                    min-[480px]:gap-3
-                    sm:grid-cols-3
-                    sm:gap-4
-                    lg:grid-cols-4
-                    xl:grid-cols-5
-                  "
-                >
+                <div className="grid grid-cols-2 gap-2.5 min-[480px]:gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
                   {selectedParts.map((part) => (
                     <button
                       key={part.id}
                       type="button"
                       onClick={() => handleSelectPart(part)}
-                      className="
-                        group
-                        min-w-0
-                        overflow-hidden
-                        rounded-xl
-                        border
-                        border-gray-200
-                        bg-white
-                        text-left
-                        shadow-sm
-                        transition
-                        hover:-translate-y-0.5
-                        hover:border-[#004080]
-                        hover:shadow-md
-                      "
+                      className="group min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#004080] hover:shadow-md"
                     >
-                      <div
-                        className="
-                          relative
-                          flex
-                          h-28
-                          items-center
-                          justify-center
-                          overflow-hidden
-                          bg-gray-50
-                          min-[480px]:h-32
-                          sm:h-36
-                          lg:h-40
-                        "
-                      >
+                      <div className="relative flex h-28 items-center justify-center overflow-hidden bg-gray-50 min-[480px]:h-32 sm:h-36 lg:h-40">
                         {part.image ? (
                           <img
                             src={part.image}
-                            alt={`${part.brand} ${part.vehicle_type} ${part.category}`}
-                            className="
-                              h-full
-                              w-full
-                              object-contain
-                              p-2
-                              transition
-                              duration-300
-                              group-hover:scale-105
-                              min-[480px]:p-2.5
-                              sm:p-3
-                            "
+                            alt={`${part.brand} ${translateVehicleType(part.vehicle_type)} ${translateCategory(part.category)}`}
+                            className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105 min-[480px]:p-2.5 sm:p-3"
                           />
                         ) : (
                           <div className="flex flex-col items-center justify-center text-gray-400">
@@ -1227,28 +1328,12 @@ const ItemsManagement = (): ReactElement => {
                             />
 
                             <span className="mt-1 text-[10px] sm:mt-2 sm:text-xs">
-                              No image
+                              {t("adminItems.noImage")}
                             </span>
                           </div>
                         )}
 
-                        <div
-                          className="
-                            absolute
-                            right-1.5
-                            top-1.5
-                            rounded-full
-                            bg-white/95
-                            p-1.5
-                            text-gray-500
-                            shadow-sm
-                            transition
-                            group-hover:text-[#004080]
-                            sm:right-2.5
-                            sm:top-2.5
-                            sm:p-2
-                          "
-                        >
+                        <div className="absolute right-1.5 top-1.5 rounded-full bg-white/95 p-1.5 text-gray-500 shadow-sm transition group-hover:text-[#004080] sm:right-2.5 sm:top-2.5 sm:p-2">
                           <Edit
                             size={13}
                             className="sm:h-[15px] sm:w-[15px]"
@@ -1257,45 +1342,34 @@ const ItemsManagement = (): ReactElement => {
                       </div>
 
                       <div className="min-w-0 p-2.5 sm:p-3">
-                        <h3
-                          className="
-                            truncate
-                            text-[12px]
-                            font-bold
-                            capitalize
-                            text-gray-900
-                            sm:text-[14px]
-                            lg:text-[15px]
-                          "
-                        >
-                          {part.brand} {part.vehicle_type}{" "}
-                          {part.category}
+                        <h3 className="truncate text-[12px] font-bold capitalize text-gray-900 sm:text-[14px] lg:text-[15px]">
+                          {part.brand}{" "}
+                          {translateVehicleType(part.vehicle_type)}{" "}
+                          {translateCategory(part.category)}
                         </h3>
 
                         {part.colour && (
                           <p className="mt-1 truncate text-[10px] text-gray-500 sm:text-xs">
-                            Colour:{" "}
+                            {t("adminItems.colour")}:{" "}
                             <span className="font-medium text-gray-700">
-                              {part.colour}
+                              {translateColour(part.colour)}
                             </span>
                           </p>
                         )}
 
                         <div className="mt-2 border-t border-gray-100 pt-2 sm:mt-3 sm:pt-3">
                           <p className="text-[9px] text-gray-400 sm:text-xs">
-                            Selling price
+                            {t("adminItems.sellingPrice")}
                           </p>
 
                           <div className="mt-0.5 flex items-center justify-between gap-1">
                             <p className="truncate text-sm font-bold text-red-600 sm:text-base lg:text-lg">
                               KES{" "}
-                              {Number(
-                                part.marked_price
-                              ).toLocaleString()}
+                              {Number(part.marked_price).toLocaleString()}
                             </p>
 
                             <span className="hidden text-xs font-semibold text-[#004080] sm:inline">
-                              Manage
+                              {t("adminItems.manage")}
                             </span>
                           </div>
                         </div>
@@ -1313,24 +1387,8 @@ const ItemsManagement = (): ReactElement => {
                     type="button"
                     onClick={goBackToSearchResults}
                     disabled={saving || deleting}
-                    className="
-                      mt-0.5
-                      flex
-                      h-9
-                      w-9
-                      shrink-0
-                      items-center
-                      justify-center
-                      rounded-full
-                      text-gray-600
-                      transition
-                      hover:bg-gray-100
-                      hover:text-[#004080]
-                      cursor-pointer
-                      disabled:cursor-not-allowed
-                      disabled:opacity-50
-                    "
-                    aria-label="Back to search results"
+                    className="mt-0.5 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-600 transition hover:bg-gray-100 hover:text-[#004080] disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={t("adminItems.accessibility.backToResults")}
                   >
                     <ArrowLeft size={20} />
                   </button>
@@ -1339,14 +1397,14 @@ const ItemsManagement = (): ReactElement => {
                 <div>
                   <h2 className="text-[22px] font-semibold text-[#222]">
                     {selectedPart
-                      ? "Edit Spare Part"
-                      : "Create Spare Part"}
+                      ? t("adminItems.editTitle")
+                      : t("adminItems.createTitle")}
                   </h2>
 
                   <p className="mt-1 text-sm text-gray-500">
                     {selectedPart
-                      ? "Update the selected spare part."
-                      : "Add a new spare part to your inventory."}
+                      ? t("adminItems.editDescription")
+                      : t("adminItems.createDescription")}
                   </p>
                 </div>
               </div>
@@ -1355,35 +1413,20 @@ const ItemsManagement = (): ReactElement => {
                 <div className="my-5 text-center">
                   <img
                     src={imagePreview}
-                    alt={`${form.brand} ${form.vehicle_type}`}
-                    className="
-                      mx-auto
-                      my-[15px]
-                      max-h-[150px]
-                      max-w-[160px]
-                      rounded-[10px]
-                      border
-                      border-gray-300
-                      object-contain
-                    "
+                    alt={`${form.brand} ${translateVehicleType(form.vehicle_type)}`}
+                    className="mx-auto my-[15px] max-h-[150px] max-w-[160px] rounded-[10px] border border-gray-300 object-contain"
                   />
                 </div>
               )}
 
               <form
                 onSubmit={handleSubmit}
-                className="
-                  mt-[15px]
-                  grid
-                  grid-cols-2
-                  gap-[14px]
-                  max-[640px]:grid-cols-1
-                "
+                className="mt-[15px] grid grid-cols-2 gap-[14px] max-[640px]:grid-cols-1"
               >
                 <input
                   className="w-full rounded-[10px] border border-gray-300 px-3 py-[10px] text-[14px] transition focus:border-[#004080] focus:outline-none focus:ring-2 focus:ring-[#004080]/20"
                   name="category"
-                  placeholder="Category"
+                  placeholder={t("adminItems.fields.category")}
                   value={form.category}
                   onChange={handleFormChange}
                 />
@@ -1391,7 +1434,7 @@ const ItemsManagement = (): ReactElement => {
                 <input
                   className="w-full rounded-[10px] border border-gray-300 px-3 py-[10px] text-[14px] transition focus:border-[#004080] focus:outline-none focus:ring-2 focus:ring-[#004080]/20"
                   name="vehicle_type"
-                  placeholder="Vehicle Type"
+                  placeholder={t("adminItems.fields.vehicleType")}
                   value={form.vehicle_type}
                   onChange={handleFormChange}
                 />
@@ -1399,7 +1442,7 @@ const ItemsManagement = (): ReactElement => {
                 <input
                   className="w-full rounded-[10px] border border-gray-300 px-3 py-[10px] text-[14px] transition focus:border-[#004080] focus:outline-none focus:ring-2 focus:ring-[#004080]/20"
                   name="brand"
-                  placeholder="Brand"
+                  placeholder={t("adminItems.fields.brand")}
                   value={form.brand}
                   onChange={handleFormChange}
                 />
@@ -1407,7 +1450,7 @@ const ItemsManagement = (): ReactElement => {
                 <input
                   className="w-full rounded-[10px] border border-gray-300 px-3 py-[10px] text-[14px] transition focus:border-[#004080] focus:outline-none focus:ring-2 focus:ring-[#004080]/20"
                   name="colour"
-                  placeholder="Colour"
+                  placeholder={t("adminItems.fields.colour")}
                   value={form.colour}
                   onChange={handleFormChange}
                 />
@@ -1418,7 +1461,7 @@ const ItemsManagement = (): ReactElement => {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder="Buying Price"
+                  placeholder={t("adminItems.fields.buyingPrice")}
                   value={form.buying_price}
                   onChange={handleFormChange}
                 />
@@ -1429,7 +1472,7 @@ const ItemsManagement = (): ReactElement => {
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder="Marked Price"
+                  placeholder={t("adminItems.fields.markedPrice")}
                   value={form.marked_price}
                   onChange={handleFormChange}
                 />
@@ -1439,100 +1482,80 @@ const ItemsManagement = (): ReactElement => {
                     htmlFor="image"
                     className="mb-2 block text-[14px] font-medium text-gray-700"
                   >
-                    Image
+                    {t("adminItems.fields.image")}
                   </label>
 
-                  <input
-                    id="image"
-                    name="image"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="
-                      w-full
-                      cursor-pointer
-                      rounded-[10px]
-                      border
-                      border-gray-300
-                      bg-white
-                      px-3
-                      py-[8px]
-                      text-[14px]
-                      transition
-                      file:mr-3
-                      file:rounded-md
-                      file:border-0
-                      file:bg-[#004080]
-                      file:px-3
-                      file:py-2
-                      file:text-[13px]
-                      file:font-medium
-                      file:text-white
-                      hover:file:bg-[#004080]/80
-                      focus:border-[#004080]
-                      focus:outline-none
-                      focus:ring-2
-                      focus:ring-[#004080]/20
-                    "
-                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label
+                      htmlFor="image"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-[10px] bg-[#004080] px-4 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#004080]/80"
+                    >
+                      {t("adminItems.chooseFile")}
+                    </label>
 
-                  <p className="mt-1 text-[11px] text-gray-500">
-                    JPG, JPEG, PNG, WEBP or GIF · Max 5 MB
+                    <span className="min-w-0 break-all text-[13px] text-gray-500">
+                      {form.image
+                        ? form.image.name
+                        : t("adminItems.noFileChosen")}
+                    </span>
+
+                    <input
+                      id="image"
+                      name="image"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="hidden"
+                    />
+                  </div>
+
+                  <p className="mt-2 text-[11px] text-gray-500">
+                    {t("adminItems.imageRequirements")}
                   </p>
                 </div>
 
-                <div
-                  className="
-                    col-span-2
-                    mt-[10px]
-                    flex
-                    justify-center
-                    gap-[10px]
-                    max-[640px]:col-span-1
-                    max-[640px]:flex-col
-                  "
-                >
+                <div className="col-span-2 mt-[10px] flex justify-center gap-[10px] max-[640px]:col-span-1 max-[640px]:flex-col">
                   {selectedPart ? (
                     <>
                       <button
                         type="submit"
-                        disabled={
-                          saving ||
-                          deleting ||
-                          !hasEditChanges
-                        }
-                        className="flex-1 rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition cursor-pointer hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={saving || deleting || !hasEditChanges}
+                        className="flex-1 cursor-pointer rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {saving ? "Updating..." : "Update"}
+                        {saving
+                          ? t("adminItems.updating")
+                          : t("adminItems.update")}
                       </button>
 
                       <button
                         type="button"
                         onClick={openDeleteDialog}
                         disabled={saving || deleting}
-                        className="flex-1 rounded-[10px] bg-red-600 py-[10px] font-medium text-white transition cursor-pointer hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex-1 cursor-pointer rounded-[10px] bg-red-600 py-[10px] font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {deleting ? "Deleting..." : "Delete"}
+                        {deleting
+                          ? t("adminItems.deleting")
+                          : t("adminItems.delete")}
                       </button>
 
                       <button
                         type="button"
                         onClick={goBackToSearchResults}
                         disabled={saving || deleting}
-                        className="flex-1 rounded-[10px] border border-gray-300 bg-white py-[10px] font-medium text-gray-700 transition cursor-pointer hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex-1 cursor-pointer rounded-[10px] border border-gray-300 bg-white py-[10px] font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </button>
                     </>
                   ) : (
                     <button
                       type="submit"
-                      disabled={
-                        saving || !isCreateFormComplete
-                      }
-                      className="flex-1 rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition cursor-pointer hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={saving || !isCreateFormComplete}
+                      className="flex-1 cursor-pointer rounded-[10px] bg-[#004080] py-[10px] font-medium text-white transition hover:bg-[#004080]/70 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {saving ? "Creating..." : "Create"}
+                      {saving
+                        ? t("adminItems.creating")
+                        : t("adminItems.create")}
                     </button>
                   )}
                 </div>
@@ -1555,17 +1578,13 @@ const ItemsManagement = (): ReactElement => {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
-                  Delete spare part?
+                  {t("adminItems.deleteTitle")}
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Are you sure you want to delete{" "}
-                  <span className="font-semibold text-gray-900">
-                    {selectedPart.brand}{" "}
-                    {selectedPart.vehicle_type}{" "}
-                    {selectedPart.category}
-                  </span>
-                  ? This action cannot be undone.
+                  {t("adminItems.deleteDescription", {
+                    item: `${selectedPart.brand} ${translateVehicleType(selectedPart.vehicle_type)} ${translateCategory(selectedPart.category)}`,
+                  })}
                 </p>
               </div>
 
@@ -1573,8 +1592,8 @@ const ItemsManagement = (): ReactElement => {
                 type="button"
                 onClick={closeDeleteDialog}
                 disabled={deleting}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition cursor-pointer hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Close delete dialog"
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={t("adminItems.accessibility.closeDeleteDialog")}
               >
                 <X size={18} />
               </button>
@@ -1585,22 +1604,22 @@ const ItemsManagement = (): ReactElement => {
                 type="button"
                 onClick={closeDeleteDialog}
                 disabled={deleting}
-                className="rounded-[10px] border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition cursor-pointer hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="cursor-pointer rounded-[10px] border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
 
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition cursor-pointer hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 size={16} />
 
                 {deleting
-                  ? "Deleting..."
-                  : "Delete Spare Part"}
+                  ? t("adminItems.deleting")
+                  : t("adminItems.deleteSparePart")}
               </button>
             </div>
           </div>

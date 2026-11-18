@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useCart } from "../../../contexts/CartContext";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import config from "../../../config";
@@ -9,6 +10,7 @@ import config from "../../../config";
 const PaymentSuccess = () => {
   const { authFetch } = useAuth();
   const { loadCart } = useCart();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
 
   const hasRun = useRef(false);
@@ -26,7 +28,6 @@ const PaymentSuccess = () => {
     const paypalOrderId = searchParams.get("token");
     const paymentMethod = searchParams.get("method");
 
-    // -------------- PAYPAL --------------
     const handlePayment = async () => {
       if (paypalOrderId) {
         setProcessing(true);
@@ -50,7 +51,7 @@ const PaymentSuccess = () => {
           if (!response.ok || !data.success) {
             throw new Error(
               data.error ||
-                "PayPal payment could not be completed."
+                t("paymentSuccess.errors.paypalPaymentFailed")
             );
           }
 
@@ -58,15 +59,12 @@ const PaymentSuccess = () => {
 
           setPaymentSuccess(true);
         } catch (error) {
-          console.error(
-            "PayPal capture error:",
-            error
-          );
+          console.error("PayPal capture error:", error);
 
           toast.error(
             error instanceof Error
               ? error.message
-              : "There was a problem completing your PayPal payment."
+              : t("paymentSuccess.errors.paypalCompletionFailed")
           );
         } finally {
           setProcessing(false);
@@ -75,7 +73,6 @@ const PaymentSuccess = () => {
         return;
       }
 
-      // ------------- PAYSTACK -------------
       if (paymentMethod === "paystack") {
         setProcessing(true);
 
@@ -83,15 +80,11 @@ const PaymentSuccess = () => {
           await loadCart();
 
           setPaymentSuccess(true);
-
         } catch (error) {
-          console.error(
-            "Paystack payment success error:",
-            error
-          );
+          console.error("Paystack payment success error:", error);
 
           toast.error(
-            "There was a problem completing your Mobile payment."
+            t("paymentSuccess.errors.mobilePaymentCompletionFailed")
           );
         } finally {
           setProcessing(false);
@@ -100,7 +93,6 @@ const PaymentSuccess = () => {
         return;
       }
 
-      // --------------- STRIPE -------------
       try {
         setProcessing(true);
 
@@ -108,13 +100,10 @@ const PaymentSuccess = () => {
 
         setPaymentSuccess(true);
       } catch (error) {
-        console.error(
-          "Stripe payment success error:",
-          error
-        );
+        console.error("Stripe payment success error:", error);
 
         toast.error(
-          "There was a problem completing your payment."
+          t("paymentSuccess.errors.paymentCompletionFailed")
         );
       } finally {
         setProcessing(false);
@@ -122,7 +111,7 @@ const PaymentSuccess = () => {
     };
 
     void handlePayment();
-  }, [authFetch, loadCart, searchParams]);
+  }, [authFetch, loadCart, searchParams, t]);
 
   if (processing) {
     return (
@@ -139,11 +128,11 @@ const PaymentSuccess = () => {
           "
         >
           <h1 className="mb-3 text-3xl font-bold">
-            Completing Payment...
+            {t("paymentSuccess.completingPayment")}
           </h1>
 
           <p className="leading-relaxed text-gray-500">
-            Please wait while we confirm your payment.
+            {t("paymentSuccess.confirmingPayment")}
           </p>
         </div>
       </div>
@@ -165,11 +154,11 @@ const PaymentSuccess = () => {
           "
         >
           <h1 className="mb-3 text-3xl font-bold">
-            Payment Could Not Be Completed
+            {t("paymentSuccess.paymentFailedTitle")}
           </h1>
 
           <p className="mb-6 leading-relaxed text-gray-500">
-            We could not confirm your payment. Your cart has not been cleared.
+            {t("paymentSuccess.paymentFailedDescription")}
           </p>
 
           <Link
@@ -186,7 +175,7 @@ const PaymentSuccess = () => {
               hover:bg-blue-700
             "
           >
-            Return to Checkout
+            {t("paymentSuccess.returnToCheckout")}
           </Link>
         </div>
       </div>
@@ -207,12 +196,11 @@ const PaymentSuccess = () => {
         "
       >
         <h1 className="mb-3 text-3xl font-bold">
-          Payment Successful!
+          {t("paymentSuccess.paymentSuccessfulTitle")}
         </h1>
 
         <p className="mb-6 leading-relaxed text-gray-500">
-          Thank you for your purchase. Your order has been received and is
-          being processed.
+          {t("paymentSuccess.paymentSuccessfulDescription")}
         </p>
 
         <Link
@@ -229,7 +217,7 @@ const PaymentSuccess = () => {
             hover:bg-blue-700
           "
         >
-          Continue Shopping
+          {t("paymentSuccess.continueShopping")}
         </Link>
       </div>
     </div>

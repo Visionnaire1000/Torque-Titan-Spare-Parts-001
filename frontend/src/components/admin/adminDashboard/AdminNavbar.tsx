@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
-import {Menu, Home, User, Package, MessageSquare, ChartNoAxesCombined } from "lucide-react";
+import { Menu, Home, User, Package, MessageSquare, ChartNoAxesCombined } from "lucide-react";
+
 import { useAuth } from "../../../contexts/AuthContext";
 import config from "../../../config";
+import LanguageSelector from "../../buyer/buyerDashboard/LanguageSelector";
 import "../../../styles/admin/adminNavbar.css";
 
 interface Order {
@@ -22,6 +25,7 @@ interface SeenOrderIds {
 }
 
 const AdminNavbar = () => {
+  const { t } = useTranslation();
   const { logout, authFetch, user } = useAuth();
 
   const [showDropdown, setShowDropdown] =
@@ -36,7 +40,6 @@ const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // -------------------- ORDER NOTIFICATIONS --------------------
   const calculateOrderNotifications = (): void => {
     const orders: Order[] = JSON.parse(
       localStorage.getItem("admin_orders_cache") || "[]"
@@ -106,20 +109,17 @@ const AdminNavbar = () => {
     );
   };
 
-   // -------------------- REVIEW NOTIFICATIONS --------------------
   const calculateReviewNotifications = (
     data: Review[] | null = null
   ): void => {
     const reviews: Review[] =
       data ??
       JSON.parse(
-        localStorage.getItem("admin_reviews_cache") ||
-          "[]"
+        localStorage.getItem("admin_reviews_cache") || "[]"
       );
 
     const seen: string[] = JSON.parse(
-      localStorage.getItem("admin_seen_review_ids") ||
-        "[]"
+      localStorage.getItem("admin_seen_review_ids") || "[]"
     );
 
     const seenSet = new Set(seen);
@@ -176,9 +176,7 @@ const AdminNavbar = () => {
       console.error(err);
     }
   };
-  
 
-  // -------------------- INIT --------------------
   useEffect(() => {
     calculateOrderNotifications();
     fetchReviewNotifications();
@@ -217,10 +215,7 @@ const AdminNavbar = () => {
       }
     };
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+    window.addEventListener("storage", handleStorage);
 
     return () => {
       window.removeEventListener(
@@ -240,22 +235,17 @@ const AdminNavbar = () => {
     };
   }, [user]);
 
-  // -------------------- ACTIVE TAB LOGIC --------------------
   const getActiveTabClass = (
     tabRoute: string
   ): string => {
     if (tabRoute === "/admin-orders") {
-      return location.pathname.startsWith(
-        "/admin-orders"
-      )
+      return location.pathname.startsWith("/admin-orders")
         ? "active-tab"
         : "";
     }
 
     if (tabRoute === "/admin-reviews") {
-      return location.pathname.startsWith(
-        "/admin-reviews"
-      )
+      return location.pathname.startsWith("/admin-reviews")
         ? "active-tab"
         : "";
     }
@@ -267,23 +257,19 @@ const AdminNavbar = () => {
     }
 
     if (tabRoute === "/analytics") {
-      return location.pathname.startsWith(
-        "/analytics"
-      )
+      return location.pathname.startsWith("/analytics")
         ? "active-tab"
         : "";
     }
 
     if (tabRoute === "/super-admin-account") {
-      return location.pathname ===
-        "/super-admin-account"
+      return location.pathname === "/super-admin-account"
         ? "active-tab"
         : "";
     }
 
     if (tabRoute === "/account-management") {
-      return location.pathname ===
-        "/account-management"
+      return location.pathname === "/account-management"
         ? "active-tab"
         : "";
     }
@@ -291,8 +277,8 @@ const AdminNavbar = () => {
     return "";
   };
 
-   return (
-    <nav className="navbar admin-navbar">
+  return (
+    <nav className={`navbar admin-navbar ${user ? "logged-in" : "logged-out"}`}>
       <div className="logo">
         <img
           src="https://i.imgur.com/wVCDyd7.png"
@@ -300,12 +286,14 @@ const AdminNavbar = () => {
         />
       </div>
 
+      <LanguageSelector />
+
       <div className="dashboard-dropdown">
         <button
           className="dashboard-button"
-          onClick={() =>
-            setShowDropdown(!showDropdown)
-          }
+          onClick={() => setShowDropdown(!showDropdown)}
+          title={t("adminNavbar.dashboard")}
+          aria-label={t("adminNavbar.dashboard")}
         >
           <Menu />
         </button>
@@ -316,7 +304,8 @@ const AdminNavbar = () => {
               to="/"
               className={`tab ${getActiveTabClass("/")}`}
             >
-              <Home size={18} /> Home
+              <Home size={18} />
+              {t("adminNavbar.home")}
             </NavLink>
 
             <div
@@ -325,9 +314,7 @@ const AdminNavbar = () => {
               )}`}
               onClick={() => {
                 markPendingOrdersAsSeen();
-                navigate(
-                  "/admin-orders?tab=pending"
-                );
+                navigate("/admin-orders?tab=pending");
               }}
             >
               <div className="orders-icon-wrapper">
@@ -342,7 +329,7 @@ const AdminNavbar = () => {
                 )}
               </div>
 
-              Orders
+              {t("adminNavbar.orders")}
             </div>
 
             <NavLink
@@ -364,55 +351,54 @@ const AdminNavbar = () => {
                 )}
               </div>
 
-              Reviews
+              {t("adminNavbar.reviews")}
             </NavLink>
-            <NavLink 
+
+            <NavLink
               to="/analytics"
               className={`tab ${getActiveTabClass(
-                  "/analytics"
-                )}`}
+                "/analytics"
+              )}`}
             >
-              <ChartNoAxesCombined size={18} /> Revenue Analytics
+              <ChartNoAxesCombined size={18} />
+              {t("adminNavbar.revenueAnalytics")}
             </NavLink>
-    
+
             <NavLink
               to="/account-management"
               className={`tab ${getActiveTabClass(
-               "/account-management"
+                "/account-management"
               )}`}
             >
-              <User size={18} /> Account
+              <User size={18} />
+              {t("adminNavbar.account")}
             </NavLink>
-    
+
             <button
               onClick={() => {
                 logout();
                 navigate("/login");
               }}
             >
-              Logout
+              {t("adminNavbar.logout")}
             </button>
           </div>
         )}
       </div>
 
-      {!user && (
-        <Link
-          to="/login"
-          className="login"
-        >
-          Login
-        </Link>
-      )}
+      <div className="right-section">
+        {!user && (
+          <Link to="/login" className="login">
+            {t("adminNavbar.login")}
+          </Link>
+        )}
 
-      {!user && (
-        <Link
-          to="/register"
-          className="register"
-        >
-          Register
-        </Link>
-      )}
+        {!user && (
+          <Link to="/register" className="register">
+            {t("adminNavbar.register")}
+          </Link>
+        )}
+      </div>
     </nav>
   );
 };

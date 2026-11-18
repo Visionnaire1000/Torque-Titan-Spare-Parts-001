@@ -1,5 +1,6 @@
 import { createContext, useState, useContext, useEffect, useCallback, type ReactNode } from "react";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthContext";
 import config from "../config";
 
@@ -42,31 +43,13 @@ interface CartResponse {
 
 interface CartContextType {
   items: CartItem[];
-
-  addItem: (
-    item: SparePart,
-    qty?: number
-  ) => Promise<void>;
-
-  removeItem: (
-    id: string
-  ) => Promise<void>;
-
-  updateQuantity: (
-    id: string,
-    quantity: number
-  ) => Promise<void>;
-
-  clearCart: (
-    showToast?: boolean
-  ) => Promise<boolean>;
-
+  addItem: (item: SparePart, qty?: number) => Promise<void>;
+  removeItem: (id: string) => Promise<void>;
+  updateQuantity: (id: string, quantity: number) => Promise<void>;
+  clearCart: (showToast?: boolean) => Promise<boolean>;
   loadCart: () => Promise<void>;
-
   total: number;
-
   itemCount: number;
-
   loading: boolean;
 }
 
@@ -74,273 +57,150 @@ interface CartProviderProps {
   children: ReactNode;
 }
 
-const CartContext =
-  createContext<CartContextType | undefined>(
-    undefined
-  );
+const CartContext = createContext<CartContextType | undefined>(
+  undefined
+);
 
 const CartProvider = ({
   children,
 }: CartProviderProps): React.JSX.Element => {
   const { user, authFetch } = useAuth();
+  const { t } = useTranslation();
 
-  const [items, setItems] = useState<CartItem[]>(
-    []
-  );
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const [loading, setLoading] =
-    useState<boolean>(false);
+  const translateCategory = (value: string): string => {
+    const normalized = value.trim().toLowerCase();
+
+    const aliases: Record<string, string> = {
+      tyre: "tyre",
+      tyres: "tyre",
+      rim: "rim",
+      rims: "rim",
+      battery: "battery",
+      batteries: "battery",
+      filter: "filter",
+      filters: "filter",
+      "oil filter": "filter",
+      "oil filters": "filter",
+      sedan: "sedan",
+      saloon: "sedan",
+      suv: "suv",
+      truck: "truck",
+      lorry: "truck",
+      bus: "bus",
+    };
+
+    const key = aliases[normalized] ?? normalized;
+    const translationKey = `productCategories.${key}`;
+    const translated = t(translationKey);
+
+    return translated === translationKey ? value : translated;
+  };
 
   const mapCartItems = (
     backendItems: BackendCartItem[]
-  ): CartItem[] => {
-    return backendItems.map((cartItem) => ({
+  ): CartItem[] =>
+    backendItems.map((cartItem) => ({
       id: cartItem.id,
       sparepart_id: cartItem.sparepart.id,
       brand: cartItem.sparepart.brand,
       category: cartItem.sparepart.category,
-      vehicle_type:
-        cartItem.sparepart.vehicle_type,
-      buying_price:
-        cartItem.unit_price,
+      vehicle_type: cartItem.sparepart.vehicle_type,
+      buying_price: cartItem.unit_price,
       image: cartItem.sparepart.image,
       quantity: cartItem.quantity,
     }));
-  };
 
-  const loadCart = useCallback(
-    async (): Promise<void> => {
-      if (!user) {
-        setItems([]);
-        return;
-      }
-
-      setLoading(true);
-
-      try {
-        const response = await authFetch(
-          `${config.API_BASE_URL}/cart/`,
-          {
-            method: "GET",
-          }
-        );
-
-        let data: CartResponse = {};
-
-        try {
-          data =
-            (await response.json()) as CartResponse;
-        } catch {
-          data = {};
-        }
-
-        if (!response.ok) {
-          toast.error(
-            data.message ||
-              data.error ||
-              "Failed to load cart"
-          );
-
-          return;
-        }
-
-        setItems(
-          Array.isArray(data.items)
-            ? mapCartItems(data.items)
-            : []
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load cart:",
-          error
-        );
-
-        toast.error("Failed to load cart");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [user, authFetch]
-  );
-
-  useEffect(() => {
-    void loadCart();
-  }, [loadCart]);
-
-  
-const addItem = async (
-  item: SparePart,
-  qty: number = 1
-): Promise<void> => {
-  if (!user) {
-    toast.error(
-      "Please log in to add items to your cart"
-    );
-    return;
-  }
-
-  if (!Number.isInteger(qty) || qty < 1) {
-    toast.error(
-      "Quantity must be greater than zero"
-    );
-    return;
-  }
-
-  const alreadyInCart = items.some(
-    (cartItem) => cartItem.sparepart_id === item.id
-  );
-
-  if (alreadyInCart) {
-    toast.info("Item already in cart");
-    return;
-  }
-
-  try {
-    const response = await authFetch(
-      `${config.API_BASE_URL}/cart/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sparepart_id: item.id,
-          quantity: qty,
-        }),
-      }
-    );
-
-    let data: BackendCartItem | CartResponse = {};
-
-    try {
-      data = (await response.json()) as
-        | BackendCartItem
-        | CartResponse;
-    } catch {
-      data = {};
-    }
-
-    if (!response.ok) {
-      toast.error(
-        "message" in data && data.message
-          ? data.message
-          : "error" in data && data.error
-            ? data.error
-            : "Failed to add item to cart"
-      );
-      return;
-    }
-
-    await loadCart();
-
-    toast.success(
-      `${item.brand} ${item.category} for ${item.vehicle_type} added to cart`
-    );
-  } catch (error) {
-    console.error(
-      "Failed to add item to cart:",
-      error
-    );
-
-    toast.error("Failed to add item to cart");
-  }
- };
-
-  const removeItem = async (
-    id: string
-  ): Promise<void> => {
+  const loadCart = useCallback(async (): Promise<void> => {
     if (!user) {
+      setItems([]);
       return;
     }
+
+    setLoading(true);
 
     try {
       const response = await authFetch(
-        `${config.API_BASE_URL}/cart/${id}/`,
-        {
-          method: "DELETE",
-        }
+        `${config.API_BASE_URL}/cart/`,
+        { method: "GET" }
       );
 
       let data: CartResponse = {};
 
       try {
-        data =
-          (await response.json()) as CartResponse;
+        data = (await response.json()) as CartResponse;
       } catch {
         data = {};
       }
 
       if (!response.ok) {
         toast.error(
-          data.message ||
-            data.error ||
-            "Failed to remove item from cart"
+          data.message || data.error || t("cart.loadFailed")
         );
-
         return;
       }
 
-      setItems((previousItems) =>
-        previousItems.filter(
-          (item) => item.id !== id
-        )
-      );
-
-      toast.success(
-        "Item removed from cart"
+      setItems(
+        Array.isArray(data.items) ? mapCartItems(data.items) : []
       );
     } catch (error) {
-      console.error(
-        "Failed to remove cart item:",
-        error
-      );
-
-      toast.error(
-        "Failed to remove item from cart"
-      );
+      console.error("Failed to load cart:", error);
+      toast.error(t("cart.loadFailed"));
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [user, authFetch, t]);
 
-  const updateQuantity = async (
-    id: string,
-    quantity: number
+  useEffect(() => {
+    void loadCart();
+  }, [loadCart]);
+
+  const addItem = async (
+    item: SparePart,
+    qty: number = 1
   ): Promise<void> => {
     if (!user) {
+      toast.error(t("cart.loginRequired"));
       return;
     }
 
-    if (
-      !Number.isInteger(quantity) ||
-      quantity < 1
-    ) {
-      await removeItem(id);
+    if (!Number.isInteger(qty) || qty < 1) {
+      toast.error(t("cart.invalidQuantity"));
+      return;
+    }
+
+    const alreadyInCart = items.some(
+      (cartItem) => cartItem.sparepart_id === item.id
+    );
+
+    if (alreadyInCart) {
+      toast.info(t("cart.itemAlreadyInCart"));
       return;
     }
 
     try {
       const response = await authFetch(
-        `${config.API_BASE_URL}/cart/${id}/`,
+        `${config.API_BASE_URL}/cart/`,
         {
-          method: "PATCH",
+          method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            quantity,
+            sparepart_id: item.id,
+            quantity: qty,
           }),
         }
       );
 
-      let data:
-        | BackendCartItem
-        | CartResponse = {};
+      let data: BackendCartItem | CartResponse = {};
 
       try {
-        data =
-          (await response.json()) as
-            | BackendCartItem
-            | CartResponse;
+        data = (await response.json()) as
+          | BackendCartItem
+          | CartResponse;
       } catch {
         data = {};
       }
@@ -351,9 +211,100 @@ const addItem = async (
             ? data.message
             : "error" in data && data.error
               ? data.error
-              : "Failed to update cart quantity"
+              : t("cart.addFailed")
         );
+        return;
+      }
 
+      await loadCart();
+
+      toast.success(
+        t("cart.addSuccess", {
+          item: `${item.brand} ${translateCategory(item.category)} ${t("common.for")} ${translateCategory(item.vehicle_type)}`,
+        })
+      );
+    } catch (error) {
+      console.error("Failed to add item to cart:", error);
+      toast.error(t("cart.addFailed"));
+    }
+  };
+
+  const removeItem = async (id: string): Promise<void> => {
+    if (!user) return;
+
+    try {
+      const response = await authFetch(
+        `${config.API_BASE_URL}/cart/${id}/`,
+        { method: "DELETE" }
+      );
+
+      let data: CartResponse = {};
+
+      try {
+        data = (await response.json()) as CartResponse;
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok) {
+        toast.error(
+          data.message || data.error || t("cart.removeFailed")
+        );
+        return;
+      }
+
+      setItems((previousItems) =>
+        previousItems.filter((item) => item.id !== id)
+      );
+
+      toast.success(t("cart.removeSuccess"));
+    } catch (error) {
+      console.error("Failed to remove cart item:", error);
+      toast.error(t("cart.removeFailed"));
+    }
+  };
+
+  const updateQuantity = async (
+    id: string,
+    quantity: number
+  ): Promise<void> => {
+    if (!user) return;
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      await removeItem(id);
+      return;
+    }
+
+    try {
+      const response = await authFetch(
+        `${config.API_BASE_URL}/cart/${id}/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quantity }),
+        }
+      );
+
+      let data: BackendCartItem | CartResponse = {};
+
+      try {
+        data = (await response.json()) as
+          | BackendCartItem
+          | CartResponse;
+      } catch {
+        data = {};
+      }
+
+      if (!response.ok) {
+        toast.error(
+          "message" in data && data.message
+            ? data.message
+            : "error" in data && data.error
+              ? data.error
+              : t("cart.updateQuantityFailed")
+        );
         return;
       }
 
@@ -370,24 +321,15 @@ const addItem = async (
                 ...item,
                 quantity,
                 ...(updatedUnitPrice !== null
-                  ? {
-                      buying_price:
-                        updatedUnitPrice,
-                    }
+                  ? { buying_price: updatedUnitPrice }
                   : {}),
               }
             : item
         )
       );
     } catch (error) {
-      console.error(
-        "Failed to update cart quantity:",
-        error
-      );
-
-      toast.error(
-        "Failed to update cart quantity"
-      );
+      console.error("Failed to update cart quantity:", error);
+      toast.error(t("cart.updateQuantityFailed"));
     }
   };
 
@@ -409,26 +351,21 @@ const addItem = async (
     try {
       const responses = await Promise.all(
         cartItems.map((item) =>
-          authFetch(
-            `${config.API_BASE_URL}/cart/${item.id}/`,
-            {
-              method: "DELETE",
-            }
-          )
+          authFetch(`${config.API_BASE_URL}/cart/${item.id}/`, {
+            method: "DELETE",
+          })
         )
       );
 
-      const failedResponse =
-        responses.find(
-          (response) => !response.ok
-        );
+      const failedResponse = responses.find(
+        (response) => !response.ok
+      );
 
       if (failedResponse) {
         let data: CartResponse = {};
 
         try {
-          data =
-            (await failedResponse.json()) as CartResponse;
+          data = (await failedResponse.json()) as CartResponse;
         } catch {
           data = {};
         }
@@ -436,9 +373,7 @@ const addItem = async (
         await loadCart();
 
         toast.error(
-          data.message ||
-            data.error ||
-            "Failed to clear cart"
+          data.message || data.error || t("cart.clearFailed")
         );
 
         return false;
@@ -447,38 +382,29 @@ const addItem = async (
       setItems([]);
 
       if (showToast) {
-        toast.success("Cart cleared", {
+        toast.success(t("cart.clearSuccess"), {
           autoClose: 1000,
         });
       }
 
       return true;
     } catch (error) {
-      console.error(
-        "Failed to clear cart:",
-        error
-      );
+      console.error("Failed to clear cart:", error);
 
       await loadCart();
-
-      toast.error(
-        "Failed to clear cart"
-      );
+      toast.error(t("cart.clearFailed"));
 
       return false;
     }
   };
 
-  const total: number = items.reduce(
-    (sum, item) =>
-      sum +
-      item.buying_price * item.quantity,
+  const total = items.reduce(
+    (sum, item) => sum + item.buying_price * item.quantity,
     0
   );
 
-  const itemCount: number = items.reduce(
-    (sum, item) =>
-      sum + item.quantity,
+  const itemCount = items.reduce(
+    (sum, item) => sum + item.quantity,
     0
   );
 
@@ -503,16 +429,14 @@ const addItem = async (
 
 export { CartProvider };
 
-export const useCart =
-  (): CartContextType => {
-    const context =
-      useContext(CartContext);
+export const useCart = (): CartContextType => {
+  const context = useContext(CartContext);
 
-    if (!context) {
-      throw new Error(
-        "useCart must be used within a CartProvider"
-      );
-    }
+  if (!context) {
+    throw new Error(
+      "useCart must be used within a CartProvider"
+    );
+  }
 
-    return context;
-  };
+  return context;
+};

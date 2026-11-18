@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, type ReactElement } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import config from "../../../config";
+import { useTranslation } from "react-i18next";
 import { ChevronUp, ChevronDown, RefreshCw, PackageOpen, Search, X } from "lucide-react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -143,34 +144,84 @@ const SkeletonOrderCard = (): ReactElement => (
 
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="flex h-[60vh] flex-col items-center justify-center px-5 text-center animate-[fadeIn_0.3s_ease]">
-    <h2 className="mb-2 text-2xl font-semibold text-[#111827]">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 max-w-[400px] text-[0.95rem] text-[#6b7280]">
-      Unable to load orders. Please check your connection and try again.
-    </p>
+  return (
+    <div className="flex h-[60vh] flex-col items-center justify-center px-5 text-center animate-[fadeIn_0.3s_ease]">
+      <h2 className="mb-2 text-2xl font-semibold text-[#111827]">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      type="button"
-      onClick={() => void onRetry()}
-      className="group inline-flex items-center gap-2 rounded-lg bg-[#111827] px-4 py-[10px] text-white transition-all duration-200 hover:-translate-y-px hover:bg-[#1f2933]"
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300 group-hover:rotate-90"
-      />
-      Retry
-    </button>
-  </div>
-);
+      <p className="mb-5 max-w-[400px] text-[0.95rem] text-[#6b7280]">
+        {t("adminOrders.loadError")}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        className="group inline-flex items-center gap-2 rounded-lg bg-[#111827] px-4 py-[10px] text-white transition-all duration-200 hover:-translate-y-px hover:bg-[#1f2933]"
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-300 group-hover:rotate-90"
+        />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
+
+const normalizeLanguage = (language: string): string =>
+  language.trim().toLowerCase().replace(/_/g, "-").split("-")[0] || "en";
+
+const translateOrderStatus = (
+  status: OrderStatus,
+  t: (key: string) => string
+): string => t(`adminOrders.status.${status}`);
+
+const translateProductCategory = (
+  value: string,
+  t: (key: string, options?: { defaultValue?: string }) => string
+): string => {
+  const normalized = value.trim().toLowerCase();
+
+  const categoryKeys: Record<string, string> = {
+    tyre: "productCategories.tyres",
+    tyres: "productCategories.tyres",
+    tire: "productCategories.tyres",
+    tires: "productCategories.tyres",
+    rim: "productCategories.rims",
+    rims: "productCategories.rims",
+    battery: "productCategories.batteries",
+    batteries: "productCategories.batteries",
+    filter: "productCategories.filters",
+    filters: "productCategories.filters",
+    "oil filter": "productCategories.oilFilters",
+    "oil filters": "productCategories.oilFilters",
+    sedan: "productCategories.sedan",
+    saloon: "productCategories.sedan",
+    suv: "productCategories.suv",
+    truck: "productCategories.truck",
+    lorry: "productCategories.truck",
+    bus: "productCategories.bus",
+  };
+
+  const key = categoryKeys[normalized];
+
+  return key ? t(key, { defaultValue: value }) : value;
+};
 
 const AdminOrders = (): ReactElement => {
   const { authFetch } = useAuth();
+  const { t, i18n } = useTranslation();
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  const activeLanguage = normalizeLanguage(
+    i18n.resolvedLanguage || i18n.language || "en"
+  );
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -235,29 +286,41 @@ const AdminOrders = (): ReactElement => {
     }
   }, [location.search]);
 
-   
-const formatOrderTime = (dateString: string): string => {
-  if (!dateString) {
-    return "";
-  }
+  const formatOrderTime = (dateString: string): string => {
+    if (!dateString) {
+      return "";
+    }
 
-  const parsedDate = new Date(dateString);
+    const parsedDate = new Date(dateString);
 
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "";
-  }
+    if (Number.isNaN(parsedDate.getTime())) {
+      return "";
+    }
 
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Nairobi",
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  }).format(parsedDate);
- };
+    try {
+      return new Intl.DateTimeFormat(activeLanguage, {
+        timeZone: "Africa/Nairobi",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).format(parsedDate);
+    } catch {
+      return new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Africa/Nairobi",
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+      }).format(parsedDate);
+    }
+  };
 
   const hasOrdersChanged = (
     oldOrders: Order[],
@@ -349,7 +412,7 @@ const formatOrderTime = (dateString: string): string => {
       );
 
       if (!res.ok) {
-        let message = "Failed to fetch orders";
+        let message = t("adminOrders.fetchFailed");
 
         try {
           const data = (await res.json()) as ErrorResponse;
@@ -389,7 +452,7 @@ const formatOrderTime = (dateString: string): string => {
       }
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to fetch orders";
+        err instanceof Error ? err.message : t("adminOrders.fetchFailed");
 
       setError(message);
 
@@ -432,15 +495,21 @@ const formatOrderTime = (dateString: string): string => {
 
       if (!res.ok) {
         throw new Error(
-          data.message || data.error || "Failed to update order"
+          data.message || data.error || t("adminOrders.updateFailed")
         );
       }
 
-      toast.success(`Order #${orderId} marked as ${newStatus}`);
+      toast.success(
+        t("adminOrders.statusUpdated", {
+          orderId,
+          status: translateOrderStatus(newStatus, t),
+        })
+      );
+
       await fetchOrders(true);
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : "Failed to update order";
+        err instanceof Error ? err.message : t("adminOrders.updateFailed");
 
       toast.error(message);
     }
@@ -458,8 +527,6 @@ const formatOrderTime = (dateString: string): string => {
     };
   }, []);
 
-
-  /* ---------------- Restores Search,Expanded Order,Scroll Position ---------------- */
   useEffect(() => {
     if (loading || restorationAppliedRef.current) {
       return;
@@ -536,9 +603,6 @@ const formatOrderTime = (dateString: string): string => {
     };
   }, [loading, expandedOrderId, visibleOrders.length]);
 
-
-
-  // Tab Navigation
   const handleTabClick = (tab: OrderStatus): void => {
     setActiveTab(tab);
 
@@ -603,11 +667,11 @@ const formatOrderTime = (dateString: string): string => {
           />
 
           <h2 className="mb-[10px] mt-[40px] text-2xl font-semibold text-[#111827]">
-            No orders yet
+            {t("adminOrders.noOrdersYet")}
           </h2>
 
           <p className="text-[0.95rem] text-[#6b7280]">
-            No customer orders have been placed yet.
+            {t("adminOrders.noCustomerOrders")}
           </p>
         </div>
       </div>
@@ -636,20 +700,15 @@ const formatOrderTime = (dateString: string): string => {
               className="text-lg font-semibold text-[#111827] sm:text-xl"
             >
               {confirmation.newStatus === "shipped"
-                ? "Mark order as shipped?"
-                : "Mark order as delivered?"}
+                ? t("adminOrders.confirmShipped")
+                : t("adminOrders.confirmDelivered")}
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-[#6b7280]">
-              Are you sure you want to mark order{" "}
-              <span className="font-semibold text-[#004080]">
-                #{confirmation.orderId}
-              </span>{" "}
-              as{" "}
-              <span className="font-semibold capitalize text-[#111827]">
-                {confirmation.newStatus}
-              </span>
-              ?
+              {t("adminOrders.confirmStatusMessage", {
+                orderId: confirmation.orderId,
+                status: translateOrderStatus(confirmation.newStatus, t),
+              })}
             </p>
 
             <div className="mt-6 flex justify-end gap-3">
@@ -658,7 +717,7 @@ const formatOrderTime = (dateString: string): string => {
                 onClick={() => setConfirmation(null)}
                 className="rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-300"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
 
               <button
@@ -666,20 +725,19 @@ const formatOrderTime = (dateString: string): string => {
                 onClick={confirmUpdateOrderStatus}
                 className="rounded-md bg-[#004080] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#003366] hover:shadow-md"
               >
-                Confirm
+                {t("common.confirm")}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ---------------- SEARCH ORDERS ---------------- */}
       <div className="mb-5">
         <label
           htmlFor="order-id-search"
           className="mb-2 block text-sm font-semibold text-gray-700"
         >
-          Search orders by ID
+          {t("adminOrders.searchOrders")}
         </label>
 
         <div className="relative">
@@ -693,7 +751,7 @@ const formatOrderTime = (dateString: string): string => {
             type="text"
             value={orderSearch}
             onChange={(event) => setOrderSearch(event.target.value)}
-            placeholder="Enter full ID..."
+            placeholder={t("adminOrders.searchPlaceholder")}
             autoComplete="off"
             className="
               w-full rounded-lg border border-gray-300 bg-white
@@ -706,7 +764,7 @@ const formatOrderTime = (dateString: string): string => {
             <button
               type="button"
               onClick={() => setOrderSearch("")}
-              aria-label="Clear order ID search"
+              aria-label={t("adminOrders.clearSearch")}
               className="
                 absolute right-3 top-1/2 -translate-y-1/2
                 rounded p-1 text-gray-500 transition
@@ -720,14 +778,14 @@ const formatOrderTime = (dateString: string): string => {
 
         {orderSearch.trim() && (
           <p className="mt-2 text-sm text-gray-500">
-            {visibleOrders.length} matching{" "}
-            {visibleOrders.length === 1 ? "order" : "orders"} in{" "}
-            {activeTab}.
+            {t("adminOrders.matchingOrders", {
+              count: visibleOrders.length,
+              status: translateOrderStatus(activeTab, t),
+            })}
           </p>
         )}
       </div>
 
-      {/* ---------------- TABS ---------------- */}
       <div className="mb-5 flex border-b-2 border-[#ccc]">
         {tabs.map((tab) => {
           const ordersInTab = groupedOrders[tab] ?? [];
@@ -756,7 +814,7 @@ const formatOrderTime = (dateString: string): string => {
                 }
               `}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {translateOrderStatus(tab, t)}
 
               {count > 0 && (
                 <span
@@ -776,7 +834,6 @@ const formatOrderTime = (dateString: string): string => {
         })}
       </div>
 
-      {/* ---------------- ORDERS ---------------- */}
       <div>
         {visibleOrders.length > 0 ? (
           visibleOrders.map((order) => (
@@ -797,8 +854,10 @@ const formatOrderTime = (dateString: string): string => {
                 className="mb-[10px] flex cursor-pointer items-center justify-between gap-3 text-base"
               >
                 <div className="min-w-0 break-all">
-                  <strong>Order #{order.id}</strong>{" "}
-                  — {order.status.toUpperCase()}
+                  <strong>
+                    {t("adminOrders.orderNumber", { orderId: order.id })}
+                  </strong>{" "}
+                  — {translateOrderStatus(order.status, t).toUpperCase()}
                 </div>
 
                 <span className="shrink-0 cursor-pointer font-bold">
@@ -812,52 +871,69 @@ const formatOrderTime = (dateString: string): string => {
 
               <div className="space-y-1 text-sm sm:text-base">
                 <div>
-                  <span className="font-semibold">Customer:</span>{" "}
-                  {order.customer?.name || "N/A"}
+                  <span className="font-semibold">
+                    {t("adminOrders.customer")}:
+                  </span>{" "}
+                  {order.customer?.name || t("common.notAvailable")}
                 </div>
 
                 <div>
-                  <span className="font-semibold">Email:</span>{" "}
-                  {order.customer?.email || "N/A"}
+                  <span className="font-semibold">
+                    {t("adminOrders.email")}:
+                  </span>{" "}
+                  {order.customer?.email || t("common.notAvailable")}
                 </div>
 
                 <div>
-                  <span className="font-semibold">Phone:</span>{" "}
-                  {order.customer?.profile?.phone_number || "N/A"}
+                  <span className="font-semibold">
+                    {t("adminOrders.phone")}:
+                  </span>{" "}
+                  {order.customer?.profile?.phone_number ||
+                    t("common.notAvailable")}
                 </div>
 
                 <div>
-                  <span className="font-semibold">National ID:</span>{" "}
-                  {order.customer?.profile?.national_id || "N/A"}
-                </div>
-
-                <div>Total Items: {order.total_quantity}</div>
-
-                <div>
-                  Total Cost: KES {order.total_price?.toLocaleString()}
+                  <span className="font-semibold">
+                    {t("adminOrders.nationalId")}:
+                  </span>{" "}
+                  {order.customer?.profile?.national_id ||
+                    t("common.notAvailable")}
                 </div>
 
                 <div>
-                  <span className="font-semibold">Payment Method:</span>{" "}
+                  {t("adminOrders.totalItems")}: {order.total_quantity}
+                </div>
+
+                <div>
+                  {t("adminOrders.totalCost")}: KES{" "}
+                  {order.total_price?.toLocaleString(activeLanguage)}
+                </div>
+
+                <div>
+                  <span className="font-semibold">
+                    {t("adminOrders.paymentMethod")}:
+                  </span>{" "}
                   <span className="font-medium uppercase text-[#004080]">
                     {order.payment_method === "stripe"
-                      ? "Card"
+                      ? t("adminOrders.paymentMethods.card")
                       : order.payment_method === "mpesa"
-                      ? "M-PESA"
+                      ? t("adminOrders.paymentMethods.mpesa")
                       : order.payment_method === "airtel"
-                      ? "Airtel Money"
+                      ? t("adminOrders.paymentMethods.airtel")
                       : order.payment_method === "paypal"
-                      ? "PayPal"
-                      : order.payment_method || "N/A"}
+                      ? t("adminOrders.paymentMethods.paypal")
+                      : order.payment_method || t("common.notAvailable")}
                   </span>
                 </div>
 
                 <div className="break-words">
-                  Shipping Address: {order.address || "N/A"}
+                  {t("adminOrders.shippingAddress")}:{" "}
+                  {order.address || t("common.notAvailable")}
                 </div>
 
                 <div>
-                  Created At: {formatOrderTime(order.created_at)}
+                  {t("adminOrders.createdAt")}:{" "}
+                  {formatOrderTime(order.created_at)}
                   <small className="ml-1.5 text-xs opacity-70">
                     ({timeZone})
                   </small>
@@ -868,9 +944,7 @@ const formatOrderTime = (dateString: string): string => {
                 <div>
                   <button
                     type="button"
-                    onClick={() =>
-                      updateOrderStatus(order.id, "shipped")
-                    }
+                    onClick={() => updateOrderStatus(order.id, "shipped")}
                     className="
                       mt-[16px] cursor-pointer rounded-[5px]
                       border-0 bg-[#004080] px-[14px] py-2
@@ -880,7 +954,7 @@ const formatOrderTime = (dateString: string): string => {
                       active:text-[#ccc] max-[640px]:w-full
                     "
                   >
-                    Mark as Shipped
+                    {t("adminOrders.markShipped")}
                   </button>
                 </div>
               )}
@@ -889,9 +963,7 @@ const formatOrderTime = (dateString: string): string => {
                 <div>
                   <button
                     type="button"
-                    onClick={() =>
-                      updateOrderStatus(order.id, "delivered")
-                    }
+                    onClick={() => updateOrderStatus(order.id, "delivered")}
                     className="
                       mt-[16px] cursor-pointer rounded-[5px]
                       border-0 bg-[#004080] px-[14px] py-2
@@ -901,12 +973,11 @@ const formatOrderTime = (dateString: string): string => {
                       active:text-[#ccc] max-[640px]:w-full
                     "
                   >
-                    Mark as Delivered
+                    {t("adminOrders.markDelivered")}
                   </button>
                 </div>
               )}
 
-              {/* ---------------- ORDER ITEMS ---------------- */}
               {expandedOrderId === order.id &&
                 Array.isArray(order.items) &&
                 order.items.length > 0 && (
@@ -946,7 +1017,7 @@ const formatOrderTime = (dateString: string): string => {
                           >
                             <img
                               src={item.sparepart.image}
-                              alt={item.sparepart.brand || "Spare part"}
+                              alt={item.sparepart.brand || t("adminOrders.sparePart")}
                               className="
                                 h-20 w-20 rounded object-cover
                                 max-[500px]:h-[70px] max-[500px]:w-[70px]
@@ -961,27 +1032,37 @@ const formatOrderTime = (dateString: string): string => {
                           {item.sparepart ? (
                             <strong className="block break-words">
                               {item.sparepart.brand}{" "}
-                              {item.sparepart.category}{" "}
+                              {translateProductCategory(
+                                item.sparepart.category,
+                                t
+                              )}{" "}
                               {item.sparepart.vehicle_type
-                                ? `for ${item.sparepart.vehicle_type}`
+                                ? t("adminOrders.forVehicle", {
+                                    vehicle: translateProductCategory(
+                                      item.sparepart.vehicle_type,
+                                      t
+                                    ),
+                                  })
                                 : ""}
                             </strong>
                           ) : (
                             <strong className="block break-words">
-                              Spare part unavailable
+                              {t("adminOrders.sparePartUnavailable")}
                             </strong>
                           )}
 
-                          <p>Quantity: {item.quantity}</p>
-
                           <p>
-                            Unit Price: KES{" "}
-                            {item.unit_price?.toLocaleString()}
+                            {t("adminOrders.quantity")}: {item.quantity}
                           </p>
 
                           <p>
-                            Subtotal: KES{" "}
-                            {item.subtotal?.toLocaleString()}
+                            {t("adminOrders.unitPrice")}: KES{" "}
+                            {item.unit_price?.toLocaleString(activeLanguage)}
+                          </p>
+
+                          <p>
+                            {t("adminOrders.subtotal")}: KES{" "}
+                            {item.subtotal?.toLocaleString(activeLanguage)}
                           </p>
                         </div>
                       </div>
@@ -1004,20 +1085,19 @@ const formatOrderTime = (dateString: string): string => {
 
             <h3 className="mt-[10px] text-[1.2rem] font-semibold text-[#111827]">
               {orderSearch.trim()
-                ? "No matching orders"
-                : `No ${activeTab} orders`}
+                ? t("adminOrders.noMatchingOrders")
+                : t("adminOrders.noStatusOrders", {
+                    status: translateOrderStatus(activeTab, t),
+                  })}
             </h3>
 
             <p className="mt-1.5 text-[0.9rem]">
               {orderSearch.trim()
-                ? `No ${activeTab} orders match "${orderSearch.trim()}". Try another order ID.`
-                : activeTab === "pending"
-                ? "No pending orders to process."
-                : activeTab === "shipped"
-                ? "No orders currently in transit."
-                : activeTab === "delivered"
-                ? "No completed deliveries yet."
-                : "No cancelled orders."}
+                ? t("adminOrders.noOrdersMatchSearch", {
+                    status: translateOrderStatus(activeTab, t),
+                    search: orderSearch.trim(),
+                  })
+                : t(`adminOrders.emptyStatus.${activeTab}`)}
             </p>
           </div>
         )}

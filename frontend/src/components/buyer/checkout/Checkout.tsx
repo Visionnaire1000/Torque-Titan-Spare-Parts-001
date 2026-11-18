@@ -1,11 +1,12 @@
-
 import { useState, useEffect, type SyntheticEvent } from "react";
 import { CreditCard, Smartphone } from "lucide-react";
 import { useCart, type CartItem } from "../../../contexts/CartContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import config from "../../../config";
+
 
 interface Address {
   street: string;
@@ -39,6 +40,7 @@ const Checkout = (): React.JSX.Element => {
   const { items } = useCart();
   const { authFetch, user } = useAuth();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
 
   const [loading, setLoading] = useState(false);
   const [addressLoading, setAddressLoading] = useState(true);
@@ -96,7 +98,7 @@ const Checkout = (): React.JSX.Element => {
           toast.error(
             data.message ||
               data.error ||
-              "Failed to load your saved address"
+              t("checkout.errors.loadAddress")
           );
 
           return;
@@ -109,28 +111,20 @@ const Checkout = (): React.JSX.Element => {
           country: data.country ?? "",
         });
       } catch (error) {
-        console.error(
-          "Failed to load address:",
-          error
-        );
+        console.error("Failed to load address:", error);
 
-        toast.error(
-          "Failed to load your saved address"
-        );
+        toast.error(t("checkout.errors.loadAddress"));
       } finally {
         setAddressLoading(false);
       }
     };
 
     void loadAddress();
-  }, [user, authFetch]);
+  }, [user, authFetch, t]);
 
   const wait = (): Promise<void> =>
     new Promise<void>((resolve) =>
-      setTimeout(
-        resolve,
-        PAYSTACK_POLL_INTERVAL
-      )
+      setTimeout(resolve, PAYSTACK_POLL_INTERVAL)
     );
 
   const verifyPaystackPayment = async (
@@ -169,7 +163,7 @@ const Checkout = (): React.JSX.Element => {
         if (data.expired === true) {
           toast.error(
             data.message ||
-              "The payment request expired. Your cart has been kept."
+              t("checkout.errors.paymentExpired")
           );
 
           return false;
@@ -187,7 +181,7 @@ const Checkout = (): React.JSX.Element => {
     }
 
     toast.error(
-      "Payment could not be confirmed. Your cart has been kept."
+      t("checkout.errors.paymentUnconfirmed")
     );
 
     return false;
@@ -203,7 +197,7 @@ const Checkout = (): React.JSX.Element => {
     }
 
     if (!items || items.length === 0) {
-      toast.error("Your cart is empty");
+      toast.error(t("checkout.errors.emptyCart"));
       return;
     }
 
@@ -213,7 +207,7 @@ const Checkout = (): React.JSX.Element => {
       !address.country.trim()
     ) {
       toast.error(
-        "Please set up your shipping address before checking out."
+        t("checkout.errors.missingAddress")
       );
 
       return;
@@ -224,7 +218,7 @@ const Checkout = (): React.JSX.Element => {
       !mobileMoneyPhone.trim()
     ) {
       toast.error(
-        "Please enter the mobile money phone number."
+        t("checkout.errors.missingPhone")
       );
 
       return;
@@ -236,14 +230,11 @@ const Checkout = (): React.JSX.Element => {
       let endpoint = "";
 
       if (paymentMethod === "stripe") {
-        endpoint =
-          "/checkout/create-stripe-session/";
+        endpoint = "/checkout/create-stripe-session/";
       } else if (paymentMethod === "paystack") {
-        endpoint =
-          "/checkout/create-paystack-session/";
+        endpoint = "/checkout/create-paystack-session/";
       } else {
-        endpoint =
-          "/checkout/create-paypal-session/";
+        endpoint = "/checkout/create-paypal-session/";
       }
 
       const requestBody: Record<string, unknown> = {
@@ -251,14 +242,15 @@ const Checkout = (): React.JSX.Element => {
           sparepart_id: item.sparepart_id,
           quantity: item.quantity,
         })),
+        language:
+          i18n.resolvedLanguage ||
+          i18n.language ||
+          "en",
       };
 
       if (paymentMethod === "paystack") {
-        requestBody.payment_method =
-          mobileMoneyMethod;
-
-        requestBody.phone_number =
-          mobileMoneyPhone.trim();
+        requestBody.payment_method = mobileMoneyMethod;
+        requestBody.phone_number = mobileMoneyPhone.trim();
       }
 
       const response = await authFetch(
@@ -279,7 +271,7 @@ const Checkout = (): React.JSX.Element => {
         toast.error(
           data.message ||
             data.error ||
-            "Unable to start payment"
+            t("checkout.errors.startPayment")
         );
 
         return;
@@ -288,22 +280,20 @@ const Checkout = (): React.JSX.Element => {
       if (paymentMethod === "stripe") {
         if (!data.checkout_url) {
           toast.error(
-            "Stripe checkout URL was not returned"
+            t("checkout.errors.stripeUrl")
           );
 
           return;
         }
 
-        window.location.href =
-          data.checkout_url;
-
+        window.location.href = data.checkout_url;
         return;
       }
 
       if (paymentMethod === "paypal") {
         if (!data.approval_url) {
           toast.error(
-            "PayPal approval URL was not returned"
+            t("checkout.errors.paypalUrl")
           );
 
           return;
@@ -323,9 +313,7 @@ const Checkout = (): React.JSX.Element => {
           );
         }
 
-        window.location.href =
-          data.approval_url;
-
+        window.location.href = data.approval_url;
         return;
       }
 
@@ -336,7 +324,7 @@ const Checkout = (): React.JSX.Element => {
       ) {
         toast.error(
           data.message ||
-            "The mobile money payment could not be started."
+            t("checkout.errors.mobileMoneyFailed")
         );
 
         return;
@@ -344,7 +332,7 @@ const Checkout = (): React.JSX.Element => {
 
       if (!data.reference) {
         toast.error(
-          "Paystack payment reference was not returned"
+          t("checkout.errors.paystackReference")
         );
 
         return;
@@ -355,18 +343,13 @@ const Checkout = (): React.JSX.Element => {
       );
 
       if (verified) {
-        navigate(
-          "/payment-success?method=paystack"
-        );
+        navigate("/payment-success?method=paystack");
       }
     } catch (error) {
-      console.error(
-        "Checkout error:",
-        error
-      );
+      console.error("Checkout error:", error);
 
       toast.error(
-        "Something went wrong while processing your payment."
+        t("checkout.errors.processingPayment")
       );
     } finally {
       setLoading(false);
@@ -399,7 +382,7 @@ const Checkout = (): React.JSX.Element => {
               max-[480px]:text-[1.5rem]
             "
           >
-            Checkout
+            {t("checkout.title")}
           </h2>
 
           <h3
@@ -410,12 +393,12 @@ const Checkout = (): React.JSX.Element => {
               mb-4
             "
           >
-            Shipping Address
+            {t("checkout.shippingAddress.title")}
           </h3>
 
           {addressLoading ? (
             <p className="text-center text-gray-600 mb-6">
-              Loading saved address...
+              {t("checkout.shippingAddress.loading")}
             </p>
           ) : (
             <div
@@ -436,37 +419,35 @@ const Checkout = (): React.JSX.Element => {
                 <div className="space-y-2">
                   <p>
                     <span className="font-semibold">
-                      Street:
+                      {t("checkout.shippingAddress.street")}
                     </span>{" "}
                     {address.street || "—"}
                   </p>
 
                   <p>
                     <span className="font-semibold">
-                      City:
+                      {t("checkout.shippingAddress.city")}
                     </span>{" "}
                     {address.city || "—"}
                   </p>
 
                   <p>
                     <span className="font-semibold">
-                      Postal Code:
+                      {t("checkout.shippingAddress.postalCode")}
                     </span>{" "}
                     {address.postal_code || "—"}
                   </p>
 
                   <p>
                     <span className="font-semibold">
-                      Country:
+                      {t("checkout.shippingAddress.country")}
                     </span>{" "}
                     {address.country || "—"}
                   </p>
                 </div>
               ) : (
                 <p className="text-red-600">
-                  No saved shipping address was found.
-                  Please set up your address before
-                  checking out.
+                  {t("checkout.shippingAddress.notFound")}
                 </p>
               )}
             </div>
@@ -485,11 +466,7 @@ const Checkout = (): React.JSX.Element => {
             "
           >
             <p>
-              Please make sure your profile is fully set
-              up before checking out. Your name, phone
-              number, and ID details are taken from your
-              saved profile, while your shipping address
-              is taken from your saved address.
+              {t("checkout.profileNotice")}
             </p>
           </div>
 
@@ -501,7 +478,7 @@ const Checkout = (): React.JSX.Element => {
               mb-4
             "
           >
-            Payment Method
+            {t("checkout.paymentMethod.title")}
           </h3>
 
           <div
@@ -517,9 +494,7 @@ const Checkout = (): React.JSX.Element => {
           >
             <button
               type="button"
-              onClick={() =>
-                setPaymentMethod("stripe")
-              }
+              onClick={() => setPaymentMethod("stripe")}
               className={`
                 flex
                 items-center
@@ -540,14 +515,12 @@ const Checkout = (): React.JSX.Element => {
               `}
             >
               <CreditCard size={22} />
-              <span>Card</span>
+              <span>{t("checkout.paymentMethod.card")}</span>
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                setPaymentMethod("paystack")
-              }
+              onClick={() => setPaymentMethod("paystack")}
               className={`
                 flex
                 items-center
@@ -568,14 +541,14 @@ const Checkout = (): React.JSX.Element => {
               `}
             >
               <Smartphone size={22} />
-              <span>Mobile Money</span>
+              <span>
+                {t("checkout.paymentMethod.mobileMoney")}
+              </span>
             </button>
 
             <button
               type="button"
-              onClick={() =>
-                setPaymentMethod("paypal")
-              }
+              onClick={() => setPaymentMethod("paypal")}
               className={`
                 flex
                 items-center
@@ -616,9 +589,7 @@ const Checkout = (): React.JSX.Element => {
               >
                 <button
                   type="button"
-                  onClick={() =>
-                    setMobileMoneyMethod("mpesa")
-                  }
+                  onClick={() => setMobileMoneyMethod("mpesa")}
                   className={`
                     flex
                     items-center
@@ -651,9 +622,7 @@ const Checkout = (): React.JSX.Element => {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    setMobileMoneyMethod("airtel")
-                  }
+                  onClick={() => setMobileMoneyMethod("airtel")}
                   className={`
                     flex
                     items-center
@@ -702,8 +671,8 @@ const Checkout = (): React.JSX.Element => {
                   "
                 >
                   {mobileMoneyMethod === "mpesa"
-                    ? "M-PESA Phone Number"
-                    : "Airtel Money Phone Number"}
+                    ? t("checkout.mobileMoney.mpesaPhone")
+                    : t("checkout.mobileMoney.airtelPhone")}
                 </label>
 
                 <input
@@ -711,11 +680,9 @@ const Checkout = (): React.JSX.Element => {
                   type="tel"
                   value={mobileMoneyPhone}
                   onChange={(e) =>
-                    setMobileMoneyPhone(
-                      e.target.value
-                    )
+                    setMobileMoneyPhone(e.target.value)
                   }
-                  placeholder="Enter mobile money number"
+                  placeholder={t("checkout.mobileMoney.phonePlaceholder")}
                   autoComplete="tel"
                   className="
                     w-full
@@ -748,12 +715,11 @@ const Checkout = (): React.JSX.Element => {
                 "
               >
                 <p className="mb-2">
-                  Enter the phone number registered for
-                  your selected mobile money service.
+                  {t("checkout.mobileMoney.instructions")}
                 </p>
 
                 <p className="font-semibold text-red-600">
-                  Mobile money payments cannot exceed KES 250,000.
+                  {t("checkout.mobileMoney.limit")}
                 </p>
               </div>
             </div>
@@ -772,8 +738,7 @@ const Checkout = (): React.JSX.Element => {
                 text-sm
               "
             >
-              You will be redirected to PayPal to
-              complete your payment securely.
+              {t("checkout.paypalNotice")}
             </div>
           )}
 
@@ -806,8 +771,8 @@ const Checkout = (): React.JSX.Element => {
             "
           >
             {loading
-              ? "Processing..."
-              : "Proceed to Payment"}
+              ? t("checkout.buttons.processing")
+              : t("checkout.buttons.proceedToPayment")}
           </button>
         </form>
       </div>

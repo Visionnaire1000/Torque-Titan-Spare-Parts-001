@@ -1,9 +1,11 @@
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
 }
 
-.navbar {
+/* ---------- NAVBAR (DEFAULT = LAPTOP) ---------- */
+.navbar.admin-navbar {
   width: 100vw;
   position: fixed;
   top: 0;
@@ -18,17 +20,19 @@ html, body {
   box-sizing: border-box;
 }
 
-.logo img {
+.admin-navbar .logo img {
   width: 20%;
   height: auto;
 }
 
-.dashboard-dropdown {
+/* ---------- DASHBOARD DROPDOWN ---------- */
+.admin-navbar .dashboard-dropdown {
   position: relative;
   display: inline-block;
+  margin-right: -320px;
 }
 
-.dashboard-button {
+.admin-navbar .dashboard-button {
   background: transparent;
   color: white;
   border: none;
@@ -39,12 +43,12 @@ html, body {
   justify-content: center;
 }
 
-.dashboard-button svg {
+.admin-navbar .dashboard-button svg {
   width: 22px;
   height: 22px;
 }
 
-.dropdown-menu {
+.admin-navbar .dropdown-menu {
   position: absolute;
   margin-top: 20px;
   margin-left: 68px;
@@ -72,7 +76,8 @@ html, body {
   }
 }
 
-.tab {
+/* ---------- DROPDOWN TABS ---------- */
+.admin-navbar .tab {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -84,25 +89,26 @@ html, body {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.tab:hover {
+.admin-navbar .tab:hover {
   background: #f3f4f6;
 }
 
-.active-tab {
+.admin-navbar .active-tab {
   background: #eef2ff;
   color: rgb(0, 64, 128);
   font-weight: 600;
   border-left: 4px solid rgb(0,64,128);
 }
 
-.tab svg,
-.tab .icon {
+.admin-navbar .tab svg,
+.admin-navbar .tab .icon {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
 }
 
-.dropdown-menu button {
+/* ---------- DROPDOWN BUTTON ---------- */
+.admin-navbar .dropdown-menu button {
   background: none;
   border: none;
   padding: 12px 20px;
@@ -114,23 +120,23 @@ html, body {
   align-items: center;
 }
 
-.dropdown-menu button:hover {
+.admin-navbar .dropdown-menu button:hover {
   background: #fee2e2;
 }
 
-.icon-wrapper {
+/* ---------- NOTIFICATION BADGES ---------- */
+.admin-navbar .icon-wrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
   margin-right: 2px;
- 
 }
 
-.notification-badge {
+.admin-navbar .notification-badge {
   position: absolute;
   top: -10px;
   right: -8px;
-  background-color: #e03e2d; 
+  background-color: #e03e2d;
   color: white;
   font-size: 10px;
   font-weight: bold;
@@ -146,16 +152,16 @@ html, body {
   transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.notification-badge.animate {
+.admin-navbar .notification-badge.animate {
   transform: scale(1.2);
   opacity: 0.9;
 }
 
-.notification-badge::after {
+.admin-navbar .notification-badge::after {
   content: attr(data-count);
 }
 
-.orders-tabs .notification-badge {
+.admin-navbar .orders-tabs .notification-badge {
   top: 0;
   right: 0;
   transform: translate(50%, -50%);
@@ -165,28 +171,82 @@ html, body {
   padding: 0 4px;
 }
 
-/* ----------------- RESPONSIVE BREAKPOINTS ----------------- */
-@media (max-width: 480px) {
-.logo img {
-  width: 40%;
-  height: auto;
-}
-
-.dropdown-menu {
-  position: absolute;
-  margin-top: 30px;
-  margin-left: 98px;
-  justify-content: right;
-  transform: translateX(-100%);
-  min-width: 230px;
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 8px 0;
-  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+/* ---------- RIGHT SECTION ---------- */
+.admin-navbar .right-section {
   display: flex;
-  flex-direction: column;
-  z-index: 999;
-  animation: slideInLeft 0.25s ease forwards;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
+.admin-navbar .language-selector {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.admin-navbar {
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+
+
+/* ---------- MOBILE ---------- */
+@media (max-width: 480px) {
+  .navbar.admin-navbar {
+    padding: 0.7rem 0.8rem;
+    gap: 8px;
+  }
+
+  .admin-navbar .logo img {
+    width: 100%;
+    max-width: 90px;
+  }
+
+  .admin-navbar .right-section {
+    gap: 8px;
+  }
+
+  .admin-navbar .login,
+  .admin-navbar .register {
+    font-size: 12px;
+  }
+
+  .admin-navbar .dashboard-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-right: -500px;
+  }
+}
+
+
+/* ---------- TABLETS ---------- */
+@media (min-width: 600px) and (max-width: 1200px) {
+  .admin-navbar .dashboard-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-right: -170px;
+    margin-top: 20px;
+  }
+}
+
+
+/* ---------- MINI TABLETS ---------- */
+@media (min-width: 600px) and (max-width: 800px) {
+  .admin-navbar .dashboard-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-top: 20px;
+    margin-right: -60px;
+  }
+
+  /* ---------- PREVENT HORIZONTAL PAGE OVERFLOW ---------- */
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
 }

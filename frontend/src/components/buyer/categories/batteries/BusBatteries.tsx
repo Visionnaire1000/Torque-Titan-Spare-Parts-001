@@ -2,7 +2,10 @@ import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from 
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
+import { useTranslation } from "react-i18next";
 import config from "../../../../config";
+
+
 
 /* ---------------- Types ---------------- */
 interface SparePart {
@@ -81,46 +84,81 @@ const SkeletonCard = (): ReactElement => (
 /* ---------------- Error ---------------- */
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-3 text-2xl font-semibold">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 text-gray-600">
-      Unable to load spare parts. Please check your connection and try again.
-    </p>
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-3 text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      type="button"
-      onClick={() => void onRetry()}
-      className="
-        inline-flex
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111]
-        px-5
-        py-2.5
-        text-white
-        transition-opacity
-        duration-200
-        hover:opacity-85
-      "
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300"
-      />
+      <p className="mb-5 text-gray-600">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
 
-      Retry
-    </button>
-  </div>
-);
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        className="
+          inline-flex
+          items-center
+          gap-2
+          rounded-md
+          bg-[#111]
+          px-5
+          py-2.5
+          text-white
+          transition-opacity
+          duration-200
+          hover:opacity-85
+        "
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-300"
+        />
 
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
+
+/* ---------------- Component ---------------- */
 const BusBatteries = (): ReactElement => {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const translateCategory = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    tyre: "tyre",
+    tyres: "tyre",
+    rim: "rim",
+    rims: "rim",
+    battery: "battery",
+    batteries: "battery",
+    filter: "filter",
+    filters: "filter",
+    "oil filter": "filter",
+    "oil filters": "filter",
+    sedan: "sedan",
+    saloon: "sedan",
+    suv: "suv",
+    truck: "truck",
+    lorry: "truck",
+    bus: "bus",
+  };
+
+  const key = aliases[normalized] ?? normalized;
+  const translationKey = `productCategories.${key}`;
+  const translated = t(translationKey);
+
+  return translated === translationKey ? value : translated;
+ };
 
   const restoreState =
     location.state as RestoreState | null;
@@ -209,6 +247,9 @@ const BusBatteries = (): ReactElement => {
     "white",
     "blue",
   ];
+
+  const getColourLabel = (value: string): string =>
+    t(`categoriesCommon.colours.${value}`);
 
   /* ---------------- Restore Listing State ---------------- */
   useEffect(() => {
@@ -584,7 +625,7 @@ const BusBatteries = (): ReactElement => {
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
          inline-flex
          items-center
@@ -598,11 +639,10 @@ const BusBatteries = (): ReactElement => {
          cursor-pointer
          hover:bg-[#eaf2f8]
       "
-    >
-      Home
-    </Link>
-    
-      {/* Top Left Back Arrow */}
+      >
+        {t("buyerNavbar.home")}
+      </Link>
+
       {!error &&
         (brand !== "" ||
           colour !== "" ||
@@ -618,7 +658,7 @@ const BusBatteries = (): ReactElement => {
             <button
               type="button"
               onClick={handleBackToAvailableParts}
-              aria-label="Back to available parts"
+              aria-label={t("categoriesCommon.backToAvailableParts")}
               className="
                 inline-flex
                 items-center
@@ -636,7 +676,6 @@ const BusBatteries = (): ReactElement => {
           </div>
         )}
 
-      {/* ---------------- Filters ---------------- */}
       {!error && (
         <div
           className="
@@ -701,7 +740,7 @@ const BusBatteries = (): ReactElement => {
                 "
               >
                 <span className="truncate">
-                  {brand || "All Brands"}
+                  {brand || t("categoriesCommon.allBrands")}
                 </span>
 
                 {brandOpen ? (
@@ -770,7 +809,7 @@ const BusBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Brands
+                    {t("categoriesCommon.allBrands")}
                   </button>
 
                   {availableBrands.map(
@@ -798,8 +837,7 @@ const BusBatteries = (): ReactElement => {
                           max-[480px]:py-2
                           max-[480px]:text-xs
                           ${
-                            brand ===
-                            itemBrand
+                            brand === itemBrand
                               ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
                               : "text-[#333]"
                           }
@@ -856,11 +894,8 @@ const BusBatteries = (): ReactElement => {
               >
                 <span className="truncate">
                   {colour === ""
-                    ? "All Colours"
-                    : colour
-                        .charAt(0)
-                        .toUpperCase() +
-                      colour.slice(1)}
+                    ? t("categoriesCommon.allColours")
+                    : getColourLabel(colour)}
                 </span>
 
                 {colourOpen ? (
@@ -929,7 +964,7 @@ const BusBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Colours
+                    {t("categoriesCommon.allColours")}
                   </button>
 
                   {availableColours.map(
@@ -957,17 +992,13 @@ const BusBatteries = (): ReactElement => {
                           max-[480px]:py-2
                           max-[480px]:text-xs
                           ${
-                            colour ===
-                            itemColour
+                            colour === itemColour
                               ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
                               : "text-[#333]"
                           }
                         `}
                       >
-                        {itemColour
-                          .charAt(0)
-                          .toUpperCase() +
-                          itemColour.slice(1)}
+                        {getColourLabel(itemColour)}
                       </button>
                     )
                   )}
@@ -1018,12 +1049,12 @@ const BusBatteries = (): ReactElement => {
               >
                 <span className="truncate">
                   {price === ""
-                    ? "All Prices"
+                    ? t("categoriesCommon.allPrices")
                     : price === "low"
-                      ? "Low (< 35k)"
+                      ? t("categoriesCommon.priceLow", { threshold: "35k" })
                       : price === "medium"
-                        ? "Medium (35k–40k)"
-                        : "High (> 40k)"}
+                        ? t("categoriesCommon.priceMedium", { range: "35k–40k" })
+                        : t("categoriesCommon.priceHigh", { threshold: "40k" })}
                 </span>
 
                 {priceOpen ? (
@@ -1092,7 +1123,7 @@ const BusBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Prices
+                    {t("categoriesCommon.allPrices")}
                   </button>
 
                   <button
@@ -1121,7 +1152,7 @@ const BusBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    Low (&lt; 35k)
+                    {t("categoriesCommon.priceLow", { threshold: "35k" })}
                   </button>
 
                   <button
@@ -1150,7 +1181,7 @@ const BusBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    Medium (35k–40k)
+                    {t("categoriesCommon.priceMedium", { range: "35k–40k" })}
                   </button>
 
                   <button
@@ -1179,7 +1210,7 @@ const BusBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    High (&gt; 40k)
+                    {t("categoriesCommon.priceHigh", { threshold: "40k" })}
                   </button>
                 </div>
               )}
@@ -1272,8 +1303,9 @@ const BusBatteries = (): ReactElement => {
                       "
                     >
                       {item.brand}{" "}
-                      {item.category} for{" "}
-                      {item.vehicle_type}
+                      {translateCategory(item.category)}{" "}
+                      {t("common.for")}{" "}
+                      {translateCategory(item.vehicle_type)}
                     </h4>
 
                     <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
@@ -1314,7 +1346,7 @@ const BusBatteries = (): ReactElement => {
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
@@ -1329,7 +1361,7 @@ const BusBatteries = (): ReactElement => {
                   text-[#7f0d0d]
                 "
               >
-                No bus batteries found.
+                {t("busBatteries.noItemsFound")}
               </p>
             )}
           </div>
@@ -1400,7 +1432,7 @@ const BusBatteries = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
@@ -1498,7 +1530,7 @@ const BusBatteries = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )

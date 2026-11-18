@@ -49,7 +49,6 @@ class Command(BaseCommand):
             role="super_admin",
             email_verified=True,
             is_active=True,
-            is_staff=True,
             initial_password_changed=True,
             initial_password_expires=None,
         )
@@ -60,10 +59,12 @@ class Command(BaseCommand):
 
         super_admin.save()
 
-        send_admin_credentials_email_task.delay(
-            super_admin.email,
-            password,
-            super_admin.role,
+        transaction.on_commit(
+            lambda: send_admin_credentials_email_task.delay(
+                super_admin.email,
+                password,
+                super_admin.role,
+            )
         )
 
         self.stdout.write(
@@ -106,7 +107,6 @@ class Command(BaseCommand):
             role="buyer",
             email_verified=True,
             is_active=True,
-            is_staff=False,
         )
 
         buyer.set_password(

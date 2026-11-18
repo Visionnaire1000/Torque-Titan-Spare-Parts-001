@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const PaymentCancel = () => {
+  const { t } = useTranslation();
   const hasRun = useRef<boolean>(false);
 
   useEffect(() => {
@@ -10,10 +12,10 @@ const PaymentCancel = () => {
 
     hasRun.current = true;
 
-    toast.error("Payment cancelled. No charges were made.", {
+    toast.error(t("paymentCancel.toastMessage"), {
       autoClose: 3000,
     });
-  }, []);
+  }, [t]);
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-5">
@@ -29,11 +31,11 @@ const PaymentCancel = () => {
         "
       >
         <h1 className="mb-3 text-3xl font-bold text-red-600">
-          Payment Cancelled
+          {t("paymentCancel.title")}
         </h1>
 
         <p className="text-gray-500 leading-relaxed">
-          Your payment was cancelled. No charges were made.
+          {t("paymentCancel.description")}
         </p>
       </div>
     </div>

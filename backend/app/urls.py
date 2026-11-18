@@ -6,7 +6,7 @@ from app.views.authViews import (
     VerifyAccountView,
     ResendOTPView,
     LoginView,
-    GoogleLoginView,
+    GoogleOauth,
     ForgotPasswordView,
     ChangePasswordView,
     DeleteAccountView,
@@ -19,6 +19,7 @@ from app.views.buyerViews import (
     SparePartsListView,
     ReviewsView,
     ReviewEditView,
+    ReviewTranslationView,
     ReviewReactionsView,
     MyReviewsView,
     BuyerAddressView,
@@ -88,7 +89,7 @@ urlpatterns = [
 
     path(
         "auth/google/",
-        GoogleLoginView.as_view(),
+        GoogleOauth.as_view(),
         name="google-login",
     ),
 
@@ -149,25 +150,26 @@ urlpatterns = [
         ReviewsView.as_view(),
         name="reviews",
     ),
-
-    path(
-        "reviews/<str:review_id>/react/",
-        ReviewReactionsView.as_view(),
-        name="review-reaction",
-    ),
-
     path(
         "reviews/<str:review_id>/edit/",
         ReviewEditView.as_view(),
         name="review-edit",
     ),
-
+    path(
+        "reviews/<str:review_id>/translate/",
+        ReviewTranslationView.as_view(),
+        name="review-translate",
+    ),
+    path(
+        "reviews/<str:review_id>/react/",
+        ReviewReactionsView.as_view(),
+        name="review-reaction",
+    ),
     path(
         "reviews/<str:review_id>/delete/",
         ReviewEditView.as_view(),
         name="review-delete",
     ),
-
     path(
         "buyer-reviews/",
         MyReviewsView.as_view(),

@@ -3,7 +3,9 @@ import uuid
 from urllib.parse import unquote, urlparse
 
 import boto3
+from botocore.config import Config
 from django.conf import settings
+
 
 
 # ------------------------------ CLOUDFLARE R2 ------------------------------------------
@@ -14,6 +16,14 @@ def get_r2_client():
         aws_access_key_id=settings.R2_ACCESS_KEY_ID,
         aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
         region_name="auto",
+        config=Config(
+            connect_timeout=5,
+            read_timeout=30,
+            retries={
+                "max_attempts": 3,
+                "mode": "standard",
+            },
+        ),
     )
 
 

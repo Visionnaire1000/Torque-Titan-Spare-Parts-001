@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
+
 
 /* ---------------- Types ---------------- */
 interface SparePart {
@@ -40,163 +42,161 @@ const SkeletonCard = (): ReactElement => (
   <div
     className="
       relative
-      overflow-hidden
       flex
+      h-full
       flex-col
       items-center
-      h-full
+      overflow-hidden
       rounded-xl
-      bg-white
+      bg-[#f6f7f8]
       p-3
-      shadow-[0_4px_10px_rgba(0,0,0,0.1)]
+      before:absolute
+      before:left-[-150%]
+      before:top-0
+      before:h-full
+      before:w-[150%]
+      before:animate-[shimmer_1.4s_infinite]
+      before:bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.6),transparent)]
+      before:content-['']
     "
   >
-    <div className="absolute inset-0 overflow-hidden">
-      <div
-        className="
-          absolute
-          top-0
-          -left-[150%]
-          h-full
-          w-[150%]
-          animate-[shimmer_1.4s_infinite]
-          bg-gradient-to-r
-          from-transparent
-          via-white/60
-          to-transparent
-        "
-      />
-    </div>
-
-    <div className="mb-3 h-[140px] w-full rounded-[10px] bg-gray-200" />
-
-    <div className="my-2 h-3 w-4/5 rounded bg-gray-200" />
-
-    <div className="my-2 h-3 w-3/5 rounded bg-gray-200" />
-
-    <div className="my-2 h-3 w-2/5 rounded bg-gray-200" />
-
-    <div className="mt-3 h-8 w-full rounded-lg bg-gray-200" />
+    <div className="mb-[10px] h-[140px] w-full rounded-[10px] bg-[#e0e0e0]" />
+    <div className="my-2 h-3 w-4/5 rounded-md bg-[#e0e0e0]" />
+    <div className="my-2 h-3 w-3/5 rounded-md bg-[#e0e0e0]" />
+    <div className="my-2 h-3 w-2/5 rounded-md bg-[#e0e0e0]" />
+    <div className="mt-[10px] h-8 w-full rounded-lg bg-[#e0e0e0]" />
   </div>
 );
 
 /* ---------------- Error State ---------------- */
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-3 text-2xl font-semibold">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 text-gray-600">
-      Unable to load spare parts. Please check your connection and try again.
-    </p>
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-[10px] text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      onClick={() => void onRetry()}
-      className="
-        inline-flex
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111111]
-        px-5
-        py-2.5
-        text-white
-        transition-opacity
-        duration-200
-        hover:opacity-85
-      "
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300"
-      />
+      <p className="mb-5 text-[#666]">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
 
-      Retry
-    </button>
-  </div>
-);
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        className="
+          mb-[30px]
+          inline-flex
+          items-center
+          gap-2
+          rounded-md
+          bg-[#111]
+          px-5
+          py-2.5
+          text-white
+          transition-opacity
+          hover:opacity-85
+        "
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-500"
+        />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const SedanBatteries = (): ReactElement => {
+  const { t } = useTranslation();
+
   const location = useLocation();
   const navigate = useNavigate();
+  
+  const translateCategory = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
 
-  const restoreState =
-    location.state as RestoreState | null;
+  const aliases: Record<string, string> = {
+    tyre: "tyre",
+    tyres: "tyre",
+    rim: "rim",
+    rims: "rim",
+    battery: "battery",
+    batteries: "battery",
+    filter: "filter",
+    filters: "filter",
+    "oil filter": "filter",
+    "oil filters": "filter",
+    sedan: "sedan",
+    saloon: "sedan",
+    suv: "suv",
+    truck: "truck",
+    lorry: "truck",
+    bus: "bus",
+  };
 
-  const hasRestoreState =
-    Boolean(restoreState?.restoreFilters) ||
-    typeof restoreState?.restoreScrollY === "number";
+  const key = aliases[normalized] ?? normalized;
+  const translationKey = `productCategories.${key}`;
+  const translated = t(translationKey);
 
-  const [items, setItems] =
-    useState<SparePart[]>([]);
+  return translated === translationKey ? value : translated;
+ };
+
+  const restoreState = location.state as RestoreState | null;
+
+  const hasRestoreState = Boolean(
+    restoreState?.restoreFilters
+  ) || typeof restoreState?.restoreScrollY === "number";
+
+  const [items, setItems] = useState<SparePart[]>([]);
 
   const [brand, setBrand] = useState<string>(
     restoreState?.restoreFilters?.brand ?? ""
   );
 
-  const [colour, setColour] =
-    useState<string>(
-      restoreState?.restoreFilters?.colour ?? ""
-    );
+  const [colour, setColour] = useState<string>(
+    restoreState?.restoreFilters?.colour ?? ""
+  );
 
-  const [price, setPrice] =
-    useState<string>(
-      restoreState?.restoreFilters?.price ?? ""
-    );
+  const [price, setPrice] = useState<string>(
+    restoreState?.restoreFilters?.price ?? ""
+  );
 
   /* ---------------- Dropdown State ---------------- */
-  const [brandOpen, setBrandOpen] =
-    useState<boolean>(false);
-
-  const [colourOpen, setColourOpen] =
-    useState<boolean>(false);
-
-  const [priceOpen, setPriceOpen] =
-    useState<boolean>(false);
+  const [brandOpen, setBrandOpen] = useState<boolean>(false);
+  const [colourOpen, setColourOpen] = useState<boolean>(false);
+  const [priceOpen, setPriceOpen] = useState<boolean>(false);
 
   /* ---------------- Dropdown Refs ---------------- */
-  const brandDropdownRef =
-    useRef<HTMLDivElement>(null);
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const colourDropdownRef = useRef<HTMLDivElement>(null);
+  const priceDropdownRef = useRef<HTMLDivElement>(null);
 
-  const colourDropdownRef =
-    useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState<number>(
+    restoreState?.restoreFilters?.currentPage ?? 1
+  );
 
-  const priceDropdownRef =
-    useRef<HTMLDivElement>(null);
-
-  const [currentPage, setCurrentPage] =
-    useState<number>(
-      restoreState?.restoreFilters?.currentPage ?? 1
-    );
-
-  const [totalPages, setTotalPages] =
-    useState<number>(1);
-
-  const [loading, setLoading] =
-    useState<boolean>(false);
-
-  const [error, setError] =
-    useState<boolean>(false);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<boolean>(false);
 
   const { addItem } = useCart();
 
   /* ---------------- Restore Refs ---------------- */
-  const isRestoringRef =
-    useRef<boolean>(hasRestoreState);
+  const isRestoringRef = useRef<boolean>(hasRestoreState);
 
-  const restoreScrollYRef =
-    useRef<number | null>(
-      typeof restoreState?.restoreScrollY === "number"
-        ? restoreState.restoreScrollY
-        : null
-    );
+  const restoreScrollYRef = useRef<number | null>(
+    typeof restoreState?.restoreScrollY === "number"
+      ? restoreState.restoreScrollY
+      : null
+  );
 
-  const initialRestoreRef =
-    useRef<boolean>(hasRestoreState);
+  const initialRestoreRef = useRef<boolean>(hasRestoreState);
 
   /* ---------------- Filters ---------------- */
   const availableBrands: string[] = [
@@ -215,21 +215,18 @@ const SedanBatteries = (): ReactElement => {
     "blue",
   ];
 
+  const getColourLabel = (value: string): string =>
+    t(`categoriesCommon.colours.${value}`);
+
   /* ---------------- Restore Listing State ---------------- */
   useEffect(() => {
-    if (!hasRestoreState) return;
+    if (!hasRestoreState) {
+      return;
+    }
 
-    setBrand(
-      restoreState?.restoreFilters?.brand ?? ""
-    );
-
-    setColour(
-      restoreState?.restoreFilters?.colour ?? ""
-    );
-
-    setPrice(
-      restoreState?.restoreFilters?.price ?? ""
-    );
+    setBrand(restoreState?.restoreFilters?.brand ?? "");
+    setColour(restoreState?.restoreFilters?.colour ?? "");
+    setPrice(restoreState?.restoreFilters?.price ?? "");
 
     setCurrentPage(
       restoreState?.restoreFilters?.currentPage ?? 1
@@ -245,45 +242,47 @@ const SedanBatteries = (): ReactElement => {
         : 0;
   }, []);
 
-  /* ---------------- Fetch ---------------- */
-  const fetchBatteries =
-    async (): Promise<void> => {
-      setLoading(true);
-      setError(false);
+  /* ---------------- Fetch Batteries ---------------- */
+  const fetchBatteries = async (): Promise<void> => {
+    setLoading(true);
+    setError(false);
 
-      const params = new URLSearchParams({
-        category: "battery",
-        vehicle_type: "sedan",
-        ...(brand && { brand }),
-        ...(colour && { colour }),
-        ...(price && { price }),
-        page: currentPage.toString(),
-        per_page: "16",
-      });
+    const params = new URLSearchParams({
+      category: "battery",
+      vehicle_type: "sedan",
+      ...(brand && { brand }),
+      ...(colour && { colour }),
+      ...(price && { price }),
+      page: currentPage.toString(),
+      per_page: "16",
+    });
 
-      try {
-        const response = await fetch(
-          `${config.API_BASE_URL}/spareparts/?${params.toString()}`
-        );
+    try {
+      const response = await fetch(
+        `${config.API_BASE_URL}/spareparts/?${params.toString()}`
+      );
 
-        if (!response.ok) {
-          throw new Error("Failed");
-        }
-
-        const data: SparePartsResponse =
-          await response.json();
-
-        setItems(data.items ?? []);
-        setTotalPages(data.pages ?? 1);
-      } catch (err) {
-        console.error(err);
-
-        setItems([]);
-        setError(true);
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error("Failed");
       }
-    };
+
+      const data: SparePartsResponse = await response.json();
+
+      setItems(data.items ?? []);
+      setTotalPages(data.pages ?? 1);
+    } catch (err) {
+      console.error(err);
+      setItems([]);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ---------------- Fetch Effect ---------------- */
+  useEffect(() => {
+    void fetchBatteries();
+  }, [brand, colour, price, currentPage]);
 
   /* ---------------- Restore Scroll Position ---------------- */
   useEffect(() => {
@@ -301,7 +300,9 @@ const SedanBatteries = (): ReactElement => {
     let cancelled = false;
 
     const restoreScroll = (): void => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
 
       window.scrollTo({
         top: scrollY,
@@ -310,7 +311,9 @@ const SedanBatteries = (): ReactElement => {
       });
 
       requestAnimationFrame(() => {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         window.scrollTo({
           top: scrollY,
@@ -319,7 +322,9 @@ const SedanBatteries = (): ReactElement => {
         });
 
         requestAnimationFrame(() => {
-          if (cancelled) return;
+          if (cancelled) {
+            return;
+          }
 
           window.scrollTo({
             top: scrollY,
@@ -328,7 +333,9 @@ const SedanBatteries = (): ReactElement => {
           });
 
           requestAnimationFrame(() => {
-            if (cancelled) return;
+            if (cancelled) {
+              return;
+            }
 
             window.scrollTo({
               top: scrollY,
@@ -343,9 +350,7 @@ const SedanBatteries = (): ReactElement => {
       });
     };
 
-    const images = Array.from(
-      document.images
-    );
+    const images = Array.from(document.images);
 
     const pendingImages = images.filter(
       (image) => !image.complete
@@ -354,8 +359,7 @@ const SedanBatteries = (): ReactElement => {
     if (pendingImages.length === 0) {
       restoreScroll();
     } else {
-      let remaining =
-        pendingImages.length;
+      let remaining = pendingImages.length;
 
       const handleImageLoad = (): void => {
         remaining -= 1;
@@ -366,41 +370,27 @@ const SedanBatteries = (): ReactElement => {
       };
 
       pendingImages.forEach((image) => {
-        image.addEventListener(
-          "load",
-          handleImageLoad,
-          { once: true }
-        );
+        image.addEventListener("load", handleImageLoad, {
+          once: true,
+        });
 
-        image.addEventListener(
-          "error",
-          handleImageLoad,
-          { once: true }
-        );
+        image.addEventListener("error", handleImageLoad, {
+          once: true,
+        });
       });
 
-      const fallbackTimer =
-        window.setTimeout(() => {
-          restoreScroll();
-        }, 1500);
+      const fallbackTimer = window.setTimeout(() => {
+        restoreScroll();
+      }, 1500);
 
       return () => {
         cancelled = true;
 
-        window.clearTimeout(
-          fallbackTimer
-        );
+        window.clearTimeout(fallbackTimer);
 
         pendingImages.forEach((image) => {
-          image.removeEventListener(
-            "load",
-            handleImageLoad
-          );
-
-          image.removeEventListener(
-            "error",
-            handleImageLoad
-          );
+          image.removeEventListener("load", handleImageLoad);
+          image.removeEventListener("error", handleImageLoad);
         });
       };
     }
@@ -426,17 +416,7 @@ const SedanBatteries = (): ReactElement => {
     });
   }, [currentPage]);
 
-  /* ---------------- Fetch Effect ---------------- */
-  useEffect(() => {
-    void fetchBatteries();
-  }, [
-    brand,
-    colour,
-    price,
-    currentPage,
-  ]);
-
-  /* ---------------- Reset Page On Filter Change ---------------- */
+  /* ---------------- Reset Page After Filter Change ---------------- */
   useEffect(() => {
     if (initialRestoreRef.current) {
       initialRestoreRef.current = false;
@@ -444,11 +424,7 @@ const SedanBatteries = (): ReactElement => {
     }
 
     setCurrentPage(1);
-  }, [
-    brand,
-    colour,
-    price,
-  ]);
+  }, [brand, colour, price]);
 
   /* ---------------- Back To Available Parts ---------------- */
   const handleBackToAvailableParts = (): void => {
@@ -526,10 +502,7 @@ const SedanBatteries = (): ReactElement => {
       }
     };
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
       document.removeEventListener(
@@ -540,40 +513,42 @@ const SedanBatteries = (): ReactElement => {
   }, []);
 
   /* ---------------- Pagination ---------------- */
-  const getVisiblePages =
-    (): number[] => {
-      const pages: number[] = [];
+  const getVisiblePages = (): number[] => {
+    const pages: number[] = [];
+    const maxVisible = 5;
 
-      const maxVisible = 5;
+    let start = Math.max(currentPage - 2, 1);
 
-      let start = Math.max(
-        currentPage - 2,
-        1
-      );
+    let end = Math.min(
+      start + maxVisible - 1,
+      totalPages
+    );
 
-      let end = Math.min(
-        start + maxVisible - 1,
-        totalPages
-      );
+    start = Math.max(end - maxVisible + 1, 1);
 
-      start = Math.max(
-        end - maxVisible + 1,
-        1
-      );
+    for (let i = start; i <= end; i += 1) {
+      pages.push(i);
+    }
 
-      for (
-        let i = start;
-        i <= end;
-        i++
-      ) {
-        pages.push(i);
-      }
+    return pages;
+  };
 
-      return pages;
-    };
+  const visiblePages = getVisiblePages();
 
-  const visiblePages =
-    getVisiblePages();
+  const lowPriceLabel = t(
+    "categoriesCommon.priceLow",
+    { threshold: "20k" }
+  );
+
+  const mediumPriceLabel = t(
+    "categoriesCommon.priceMedium",
+    { range: "20k–30k" }
+  );
+
+  const highPriceLabel = t(
+    "categoriesCommon.priceHigh",
+    { threshold: "30k" }
+  );
 
   /* ---------------- Render ---------------- */
   return (
@@ -589,41 +564,34 @@ const SedanBatteries = (): ReactElement => {
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
-         inline-flex
-         items-center
-         justify-center
-         rounded-md
-         p-2
-         text-[rgb(0,64,128)]
-         text-lg
-         font-bold
-         transition-colors
-         cursor-pointer
-         hover:bg-[#eaf2f8]
-      "
-    >
-      Home
-    </Link>
-    
+          inline-flex
+          items-center
+          justify-center
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          text-lg
+          font-bold
+          transition-colors
+          cursor-pointer
+          hover:bg-[#eaf2f8]
+        "
+      >
+        {t("buyerNavbar.home")}
+      </Link>
+
       {/* Top Left Back Arrow */}
       {!error &&
-        (brand !== "" ||
-          colour !== "" ||
-          price !== "") && (
-          <div
-            className="
-              mb-[10px]
-              flex
-              w-full
-              justify-start
-            "
-          >
+        (brand !== "" || colour !== "" || price !== "") && (
+          <div className="mb-[10px] flex w-full justify-start">
             <button
               type="button"
               onClick={handleBackToAvailableParts}
-              aria-label="Back to available parts"
+              aria-label={t(
+                "categoriesCommon.backToAvailableParts"
+              )}
               className="
                 inline-flex
                 items-center
@@ -641,17 +609,9 @@ const SedanBatteries = (): ReactElement => {
           </div>
         )}
 
-      {/* ---------------- Filters ---------------- */}
+      {/* Filters */}
       {!error && (
-        <div
-          className="
-            mt-5
-            mb-[25px]
-            flex
-            w-full
-            justify-center
-          "
-        >
+        <div className="mt-5 mb-[25px] flex w-full justify-center">
           <div
             className="
               flex
@@ -664,21 +624,15 @@ const SedanBatteries = (): ReactElement => {
               max-[480px]:items-center
             "
           >
-            {/* ---------------- Brand Dropdown ---------------- */}
+            {/* Brand Dropdown */}
             <div
               ref={brandDropdownRef}
-              className="
-                relative
-                w-[180px]
-                max-[480px]:w-[110px]
-              "
+              className="relative w-[180px] max-[480px]:w-[110px]"
             >
               <button
                 type="button"
                 onClick={() => {
-                  setBrandOpen(
-                    (open) => !open
-                  );
+                  setBrandOpen((open) => !open);
                   setColourOpen(false);
                   setPriceOpen(false);
                 }}
@@ -706,30 +660,18 @@ const SedanBatteries = (): ReactElement => {
                 "
               >
                 <span className="truncate">
-                  {brand || "All Brands"}
+                  {brand || t("categoriesCommon.allBrands")}
                 </span>
 
                 {brandOpen ? (
                   <ChevronUp
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                      max-[480px]:h-4
-                      max-[480px]:w-4
-                    "
+                    className="ml-2 shrink-0 text-gray-600 max-[480px]:h-4 max-[480px]:w-4"
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                      max-[480px]:h-4
-                      max-[480px]:w-4
-                    "
+                    className="ml-2 shrink-0 text-gray-600 max-[480px]:h-4 max-[480px]:w-4"
                   />
                 )}
               </button>
@@ -775,63 +717,53 @@ const SedanBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Brands
+                    {t("categoriesCommon.allBrands")}
                   </button>
 
-                  {availableBrands.map(
-                    (itemBrand) => (
-                      <button
-                        key={itemBrand}
-                        type="button"
-                        onClick={() => {
-                          setBrand(
-                            itemBrand
-                          );
-                          setBrandOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          cursor-pointer
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:px-2
-                          max-[480px]:py-2
-                          max-[480px]:text-xs
-                          ${
-                            brand === itemBrand
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemBrand}
-                      </button>
-                    )
-                  )}
+                  {availableBrands.map((itemBrand) => (
+                    <button
+                      key={itemBrand}
+                      type="button"
+                      onClick={() => {
+                        setBrand(itemBrand);
+                        setBrandOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        cursor-pointer
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:px-2
+                        max-[480px]:py-2
+                        max-[480px]:text-xs
+                        ${
+                          brand === itemBrand
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {itemBrand}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* ---------------- Colour Dropdown ---------------- */}
+            {/* Colour Dropdown */}
             <div
               ref={colourDropdownRef}
-              className="
-                relative
-                w-[180px]
-                max-[480px]:w-[110px]
-              "
+              className="relative w-[180px] max-[480px]:w-[110px]"
             >
               <button
                 type="button"
                 onClick={() => {
-                  setColourOpen(
-                    (open) => !open
-                  );
+                  setColourOpen((open) => !open);
                   setBrandOpen(false);
                   setPriceOpen(false);
                 }}
@@ -860,34 +792,19 @@ const SedanBatteries = (): ReactElement => {
               >
                 <span className="truncate">
                   {colour === ""
-                    ? "All Colours"
-                    : colour
-                        .charAt(0)
-                        .toUpperCase() +
-                      colour.slice(1)}
+                    ? t("categoriesCommon.allColours")
+                    : getColourLabel(colour)}
                 </span>
 
                 {colourOpen ? (
                   <ChevronUp
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                      max-[480px]:h-4
-                      max-[480px]:w-4
-                    "
+                    className="ml-2 shrink-0 text-gray-600 max-[480px]:h-4 max-[480px]:w-4"
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                      max-[480px]:h-4
-                      max-[480px]:w-4
-                    "
+                    className="ml-2 shrink-0 text-gray-600 max-[480px]:h-4 max-[480px]:w-4"
                   />
                 )}
               </button>
@@ -933,67 +850,53 @@ const SedanBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Colours
+                    {t("categoriesCommon.allColours")}
                   </button>
 
-                  {availableColours.map(
-                    (itemColour) => (
-                      <button
-                        key={itemColour}
-                        type="button"
-                        onClick={() => {
-                          setColour(
-                            itemColour
-                          );
-                          setColourOpen(false);
-                        }}
-                        className={`
-                          block
-                          w-full
-                          px-3
-                          py-2
-                          text-left
-                          text-[14px]
-                          transition-colors
-                          cursor-pointer
-                          hover:bg-[#f0f6ff]
-                          max-[480px]:px-2
-                          max-[480px]:py-2
-                          max-[480px]:text-xs
-                          ${
-                            colour ===
-                            itemColour
-                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                              : "text-[#333]"
-                          }
-                        `}
-                      >
-                        {itemColour
-                          .charAt(0)
-                          .toUpperCase() +
-                          itemColour.slice(1)}
-                      </button>
-                    )
-                  )}
+                  {availableColours.map((itemColour) => (
+                    <button
+                      key={itemColour}
+                      type="button"
+                      onClick={() => {
+                        setColour(itemColour);
+                        setColourOpen(false);
+                      }}
+                      className={`
+                        block
+                        w-full
+                        px-3
+                        py-2
+                        text-left
+                        text-[14px]
+                        transition-colors
+                        cursor-pointer
+                        hover:bg-[#f0f6ff]
+                        max-[480px]:px-2
+                        max-[480px]:py-2
+                        max-[480px]:text-xs
+                        ${
+                          colour === itemColour
+                            ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                            : "text-[#333]"
+                        }
+                      `}
+                    >
+                      {getColourLabel(itemColour)}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* ---------------- Price Dropdown ---------------- */}
+            {/* Price Dropdown */}
             <div
               ref={priceDropdownRef}
-              className="
-                relative
-                w-[180px]
-                max-[480px]:w-[110px]
-              "
+              className="relative w-[180px] max-[480px]:w-[110px]"
             >
               <button
                 type="button"
                 onClick={() => {
-                  setPriceOpen(
-                    (open) => !open
-                  );
+                  setPriceOpen((open) => !open);
                   setBrandOpen(false);
                   setColourOpen(false);
                 }}
@@ -1022,35 +925,23 @@ const SedanBatteries = (): ReactElement => {
               >
                 <span className="truncate">
                   {price === ""
-                    ? "All Prices"
+                    ? t("categoriesCommon.allPrices")
                     : price === "low"
-                      ? "Low (< 20k)"
+                      ? lowPriceLabel
                       : price === "medium"
-                        ? "Medium (20k–30k)"
-                        : "High (> 30k)"}
+                        ? mediumPriceLabel
+                        : highPriceLabel}
                 </span>
 
                 {priceOpen ? (
                   <ChevronUp
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                      max-[480px]:h-4
-                      max-[480px]:w-4
-                    "
+                    className="ml-2 shrink-0 text-gray-600 max-[480px]:h-4 max-[480px]:w-4"
                   />
                 ) : (
                   <ChevronDown
                     size={18}
-                    className="
-                      ml-2
-                      shrink-0
-                      text-gray-600
-                      max-[480px]:h-4
-                      max-[480px]:w-4
-                    "
+                    className="ml-2 shrink-0 text-gray-600 max-[480px]:h-4 max-[480px]:w-4"
                   />
                 )}
               </button>
@@ -1096,7 +987,7 @@ const SedanBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    All Prices
+                    {t("categoriesCommon.allPrices")}
                   </button>
 
                   <button
@@ -1125,7 +1016,7 @@ const SedanBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    Low (&lt; 20k)
+                    {lowPriceLabel}
                   </button>
 
                   <button
@@ -1154,7 +1045,7 @@ const SedanBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    Medium (20k–30k)
+                    {mediumPriceLabel}
                   </button>
 
                   <button
@@ -1183,7 +1074,7 @@ const SedanBatteries = (): ReactElement => {
                       }
                     `}
                   >
-                    High (&gt; 30k)
+                    {highPriceLabel}
                   </button>
                 </div>
               )}
@@ -1192,14 +1083,12 @@ const SedanBatteries = (): ReactElement => {
         </div>
       )}
 
-      {/* ---------------- Error ---------------- */}
+      {/* Error State */}
       {error ? (
-        <ErrorState
-          onRetry={fetchBatteries}
-        />
+        <ErrorState onRetry={fetchBatteries} />
       ) : (
         <>
-          {/* ---------------- Products Grid ---------------- */}
+          {/* Products Grid */}
           <div
             className="
               grid
@@ -1209,12 +1098,10 @@ const SedanBatteries = (): ReactElement => {
             "
           >
             {loading ? (
-              Array.from({ length: 8 }).map(
-                (_, index) => (
-                  <SkeletonCard key={index} />
-                )
-              )
-            ) : items.length ? (
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
+            ) : items.length > 0 ? (
               items.map((item) => (
                 <div
                   key={item.id}
@@ -1236,10 +1123,7 @@ const SedanBatteries = (): ReactElement => {
                   <Link
                     to={`/items/${item.id}`}
                     onClick={(event) =>
-                      handleItemClick(
-                        event,
-                        item.id
-                      )
+                      handleItemClick(event, item.id)
                     }
                     className="
                       flex
@@ -1274,32 +1158,39 @@ const SedanBatteries = (): ReactElement => {
                       "
                     >
                       {item.brand}{" "}
-                      {item.category} for{" "}
-                      {item.vehicle_type}
+                      {translateCategory(item.category)}{" "}
+                      {t("common.for")}{" "}
+                      {translateCategory(item.vehicle_type)}
                     </h4>
 
-                    <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
+                    <p
+                      className="
+                        mb-[10px]
+                        text-lg
+                        font-bold
+                        text-[#FF0000]
+                      "
+                    >
                       KES{" "}
-                      {item.buying_price.toLocaleString()}
+                      {item.buying_price.toLocaleString("en-US")}
 
-                      {item.discount_percentage >
-                        0 && (
-                        <span className="ml-[5px] text-xs text-[rgba(228, 26, 19, 0.67)]">
-                          (-
-                          {item.discount_percentage.toFixed(
-                            0
-                          )}
-                          %)
+                      {item.discount_percentage > 0 && (
+                        <span
+                          className="
+                            ml-[5px]
+                            font-normal
+                            text-[#d9534f]
+                          "
+                        >
+                          (-{item.discount_percentage.toFixed(0)}%)
                         </span>
                       )}
                     </p>
 
                     <button
+                      type="button"
                       onClick={(event) =>
-                        handleAddToCart(
-                          item,
-                          event
-                        )
+                        handleAddToCart(item, event)
                       }
                       className="
                         rounded-md
@@ -1315,7 +1206,7 @@ const SedanBatteries = (): ReactElement => {
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
@@ -1330,35 +1221,20 @@ const SedanBatteries = (): ReactElement => {
                   text-[#7f0d0d]
                 "
               >
-                No sedan batteries found.
+                {t("sedanBatteries.noItemsFound")}
               </p>
             )}
           </div>
 
-          {/* ---------------- Pagination ---------------- */}
+          {/* Pagination */}
           {loading ? (
-            <div
-              className="
-                mt-4
-                flex
-                justify-center
-                gap-2
-              "
-            >
-              {[1, 2, 3, 4].map(
-                (item) => (
-                  <div
-                    key={item}
-                    className="
-                      h-8
-                      w-10
-                      animate-pulse
-                      rounded-md
-                      bg-gray-200
-                    "
-                  />
-                )
-              )}
+            <div className="mt-4 flex justify-center gap-2">
+              {[1, 2, 3, 4].map((item) => (
+                <div
+                  key={item}
+                  className="h-8 w-10 animate-pulse rounded-md bg-[#e0e0e0]"
+                />
+              ))}
             </div>
           ) : (
             totalPages > 1 && (
@@ -1373,130 +1249,92 @@ const SedanBatteries = (): ReactElement => {
                 "
               >
                 <button
-                  disabled={
-                    currentPage === 1
-                  }
+                  type="button"
+                  disabled={currentPage === 1}
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.max(
-                        page - 1,
-                        1
-                      )
+                      Math.max(page - 1, 1)
                     )
                   }
                   className="
                     rounded
                     border
-                    border-gray-300
+                    border-[#ddd]
                     bg-white
                     px-3
-                    py-1.5
+                    py-[6px]
                     text-sm
                     transition-colors
                     cursor-pointer
-                    hover:bg-gray-100
+                    hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
-                  <span
-                    className="
-                      select-none
-                      px-1.5
-                      text-base
-                    "
-                  >
+                  <span className="select-none px-[6px] text-base">
                     …
                   </span>
                 )}
 
-                {visiblePages.map(
-                  (page) => (
-                    <button
-                      key={page}
-                      onClick={() =>
-                        setCurrentPage(
-                          page
-                        )
-                      }
-                      className={
+                {visiblePages.map((page) => (
+                  <button
+                    type="button"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`
+                      rounded
+                      border
+                      px-3
+                      py-[6px]
+                      text-sm
+                      transition-colors
+                      ${
                         page === currentPage
-                          ? `
-                            rounded
-                            border
-                            border-[#004080]
-                            bg-[#004080]
-                            px-3
-                            py-1.5
-                            text-sm
-                            font-semibold
-                            text-white
-                          `
-                          : `
-                            rounded
-                            border
-                            border-gray-300
-                            bg-white
-                            px-3
-                            py-1.5
-                            text-sm
-                            transition-colors
-                            hover:bg-gray-100
-                          `
+                          ? "border-[rgb(0,64,128)] bg-[rgb(0,64,128)] font-semibold text-white"
+                          : "border-[#ddd] bg-white hover:bg-[#f0f0f0]"
                       }
-                    >
-                      {page}
-                    </button>
-                  )
-                )}
+                    `}
+                  >
+                    {page}
+                  </button>
+                ))}
 
                 {visiblePages[
                   visiblePages.length - 1
                 ] < totalPages && (
-                  <span
-                    className="
-                      select-none
-                      px-1.5
-                      text-base
-                    "
-                  >
+                  <span className="select-none px-[6px] text-base">
                     …
                   </span>
                 )}
 
                 <button
-                  disabled={
-                    currentPage ===
-                    totalPages
-                  }
+                  type="button"
+                  disabled={currentPage === totalPages}
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.min(
-                        page + 1,
-                        totalPages
-                      )
+                      Math.min(page + 1, totalPages)
                     )
                   }
                   className="
                     rounded
                     border
-                    border-gray-300
+                    border-[#ddd]
                     bg-white
                     px-3
-                    py-1.5
+                    py-[6px]
                     text-sm
                     transition-colors
                     cursor-pointer
-                    hover:bg-gray-100
+                    hover:bg-[#f0f0f0]
                     disabled:cursor-not-allowed
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )

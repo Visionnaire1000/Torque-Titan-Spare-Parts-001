@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
+
 
 
 /* ---------------- Types ---------------- */
@@ -62,45 +64,80 @@ const SkeletonCard = (): ReactElement => (
 /* ---------------- Error UI ---------------- */
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-[10px] text-2xl font-semibold">
-      Something went wrong
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <p className="mb-5 text-[#666]">
-      Unable to load spare parts. Please check your connection and try again.
-    </p>
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-[10px] text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-    <button
-      className="
-        mb-[30px]
-        inline-flex
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111]
-        px-5
-        py-[10px]
-        text-white
-        transition-opacity
-        hover:opacity-85
-      "
-      onClick={() => void onRetry()}
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300"
-      />
-      Retry
-    </button>
-  </div>
-);
+      <p className="mb-5 text-[#666]">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
+
+      <button
+        className="
+          mb-[30px]
+          inline-flex
+          items-center
+          gap-2
+          rounded-md
+          bg-[#111]
+          px-5
+          py-[10px]
+          text-white
+          transition-opacity
+          hover:opacity-85
+        "
+        onClick={() => void onRetry()}
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-300"
+        />
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const SedanRims = (): ReactElement => {
+  const { t } = useTranslation();
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  const translateCategory = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    tyre: "tyre",
+    tyres: "tyre",
+    rim: "rim",
+    rims: "rim",
+    battery: "battery",
+    batteries: "battery",
+    filter: "filter",
+    filters: "filter",
+    "oil filter": "filter",
+    "oil filters": "filter",
+    sedan: "sedan",
+    saloon: "sedan",
+    suv: "suv",
+    truck: "truck",
+    lorry: "truck",
+    bus: "bus",
+  };
+
+  const key = aliases[normalized] ?? normalized;
+  const translationKey = `productCategories.${key}`;
+  const translated = t(translationKey);
+
+  return translated === translationKey ? value : translated;
+ };
 
   const restoreState =
     location.state as RestoreState | null;
@@ -190,6 +227,31 @@ const SedanRims = (): ReactElement => {
     "black",
     "gold",
   ];
+
+  const getColourLabel = (value: string): string =>
+    t(`categoriesCommon.colours.${value}`);
+
+  const getPriceLabel = (value: string): string => {
+    if (value === "low") {
+      return t("categoriesCommon.priceLow", {
+        threshold: "20k",
+      });
+    }
+
+    if (value === "medium") {
+      return t("categoriesCommon.priceMedium", {
+        range: "20k–30k",
+      });
+    }
+
+    if (value === "high") {
+      return t("categoriesCommon.priceHigh", {
+        threshold: "30k",
+      });
+    }
+
+    return t("categoriesCommon.allPrices");
+  };
 
   /* ---------------- Restore Listing State ---------------- */
   useEffect(() => {
@@ -576,22 +638,22 @@ const SedanRims = (): ReactElement => {
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
-         inline-flex
-         items-center
-         justify-center
-         rounded-md
-         p-2
-         text-[rgb(0,64,128)]
-         text-lg
-         font-bold
-         transition-colors
-         cursor-pointer
-         hover:bg-[#eaf2f8]
-      "
-    >
-        Home
+          inline-flex
+          items-center
+          justify-center
+          rounded-md
+          p-2
+          text-[rgb(0,64,128)]
+          text-lg
+          font-bold
+          transition-colors
+          cursor-pointer
+          hover:bg-[#eaf2f8]
+        "
+      >
+        {t("buyerNavbar.home")}
       </Link>
 
       {/* Filters */}
@@ -605,7 +667,7 @@ const SedanRims = (): ReactElement => {
               <button
                 type="button"
                 onClick={handleBackToAvailableParts}
-                aria-label="Back to available parts"
+                aria-label={t("categoriesCommon.backToAvailableParts")}
                 className="
                   mt-4
                   inline-flex
@@ -657,9 +719,7 @@ const SedanRims = (): ReactElement => {
                 <button
                   type="button"
                   onClick={() => {
-                    setBrandOpen(
-                      (open) => !open
-                    );
+                    setBrandOpen((open) => !open);
                     setColourOpen(false);
                     setPriceOpen(false);
                   }}
@@ -687,26 +747,18 @@ const SedanRims = (): ReactElement => {
                   "
                 >
                   <span className="truncate">
-                    {brand || "All Brands"}
+                    {brand || t("categoriesCommon.allBrands")}
                   </span>
 
                   {brandOpen ? (
                     <ChevronUp
                       size={18}
-                      className="
-                        ml-2
-                        shrink-0
-                        text-gray-600
-                      "
+                      className="ml-2 shrink-0 text-gray-600"
                     />
                   ) : (
                     <ChevronDown
                       size={18}
-                      className="
-                        ml-2
-                        shrink-0
-                        text-gray-600
-                      "
+                      className="ml-2 shrink-0 text-gray-600"
                     />
                   )}
                 </button>
@@ -750,42 +802,38 @@ const SedanRims = (): ReactElement => {
                         }
                       `}
                     >
-                      All Brands
+                      {t("categoriesCommon.allBrands")}
                     </button>
 
-                    {availableBrands.map(
-                      (itemBrand) => (
-                        <button
-                          key={itemBrand}
-                          type="button"
-                          onClick={() => {
-                            setBrand(
-                              itemBrand
-                            );
-                            setBrandOpen(false);
-                          }}
-                          className={`
-                            block
-                            w-full
-                            px-3
-                            py-2
-                            text-left
-                            text-[14px]
-                            transition-colors
-                            cursor-pointer
-                            hover:bg-[#f0f6ff]
-                            max-[480px]:text-base
-                            ${
-                              brand === itemBrand
-                                ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                                : "text-[#333]"
-                            }
-                          `}
-                        >
-                          {itemBrand}
-                        </button>
-                      )
-                    )}
+                    {availableBrands.map((itemBrand) => (
+                      <button
+                        key={itemBrand}
+                        type="button"
+                        onClick={() => {
+                          setBrand(itemBrand);
+                          setBrandOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          cursor-pointer
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            brand === itemBrand
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {itemBrand}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -802,9 +850,7 @@ const SedanRims = (): ReactElement => {
                 <button
                   type="button"
                   onClick={() => {
-                    setColourOpen(
-                      (open) => !open
-                    );
+                    setColourOpen((open) => !open);
                     setBrandOpen(false);
                     setPriceOpen(false);
                   }}
@@ -833,28 +879,19 @@ const SedanRims = (): ReactElement => {
                 >
                   <span className="truncate">
                     {colour === ""
-                      ? "All Colours"
-                      : colour.charAt(0).toUpperCase() +
-                        colour.slice(1)}
+                      ? t("categoriesCommon.allColours")
+                      : getColourLabel(colour)}
                   </span>
 
                   {colourOpen ? (
                     <ChevronUp
                       size={18}
-                      className="
-                        ml-2
-                        shrink-0
-                        text-gray-600
-                      "
+                      className="ml-2 shrink-0 text-gray-600"
                     />
                   ) : (
                     <ChevronDown
                       size={18}
-                      className="
-                        ml-2
-                        shrink-0
-                        text-gray-600
-                      "
+                      className="ml-2 shrink-0 text-gray-600"
                     />
                   )}
                 </button>
@@ -898,45 +935,38 @@ const SedanRims = (): ReactElement => {
                         }
                       `}
                     >
-                      All Colours
+                      {t("categoriesCommon.allColours")}
                     </button>
 
-                    {availableColours.map(
-                      (itemColour) => (
-                        <button
-                          key={itemColour}
-                          type="button"
-                          onClick={() => {
-                            setColour(
-                              itemColour
-                            );
-                            setColourOpen(false);
-                          }}
-                          className={`
-                            block
-                            w-full
-                            px-3
-                            py-2
-                            text-left
-                            text-[14px]
-                            transition-colors
-                            cursor-pointer
-                            hover:bg-[#f0f6ff]
-                            max-[480px]:text-base
-                            ${
-                              colour === itemColour
-                                ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
-                                : "text-[#333]"
-                            }
-                          `}
-                        >
-                          {itemColour
-                            .charAt(0)
-                            .toUpperCase() +
-                            itemColour.slice(1)}
-                        </button>
-                      )
-                    )}
+                    {availableColours.map((itemColour) => (
+                      <button
+                        key={itemColour}
+                        type="button"
+                        onClick={() => {
+                          setColour(itemColour);
+                          setColourOpen(false);
+                        }}
+                        className={`
+                          block
+                          w-full
+                          px-3
+                          py-2
+                          text-left
+                          text-[14px]
+                          transition-colors
+                          cursor-pointer
+                          hover:bg-[#f0f6ff]
+                          max-[480px]:text-base
+                          ${
+                            colour === itemColour
+                              ? "bg-[#f0f6ff] font-semibold text-[rgb(0,64,128)]"
+                              : "text-[#333]"
+                          }
+                        `}
+                      >
+                        {getColourLabel(itemColour)}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
@@ -953,9 +983,7 @@ const SedanRims = (): ReactElement => {
                 <button
                   type="button"
                   onClick={() => {
-                    setPriceOpen(
-                      (open) => !open
-                    );
+                    setPriceOpen((open) => !open);
                     setBrandOpen(false);
                     setColourOpen(false);
                   }}
@@ -983,32 +1011,18 @@ const SedanRims = (): ReactElement => {
                   "
                 >
                   <span className="truncate">
-                    {price === ""
-                      ? "All Prices"
-                      : price === "low"
-                        ? "Low (< 20k)"
-                        : price === "medium"
-                          ? "Medium (20k–30k)"
-                          : "High (> 30k)"}
+                    {getPriceLabel(price)}
                   </span>
 
                   {priceOpen ? (
                     <ChevronUp
                       size={18}
-                      className="
-                        ml-2
-                        shrink-0
-                        text-gray-600
-                      "
+                      className="ml-2 shrink-0 text-gray-600"
                     />
                   ) : (
                     <ChevronDown
                       size={18}
-                      className="
-                        ml-2
-                        shrink-0
-                        text-gray-600
-                      "
+                      className="ml-2 shrink-0 text-gray-600"
                     />
                   )}
                 </button>
@@ -1052,7 +1066,7 @@ const SedanRims = (): ReactElement => {
                         }
                       `}
                     >
-                      All Prices
+                      {t("categoriesCommon.allPrices")}
                     </button>
 
                     <button
@@ -1079,7 +1093,7 @@ const SedanRims = (): ReactElement => {
                         }
                       `}
                     >
-                      Low (&lt; 20k)
+                      {getPriceLabel("low")}
                     </button>
 
                     <button
@@ -1106,7 +1120,7 @@ const SedanRims = (): ReactElement => {
                         }
                       `}
                     >
-                      Medium (20k–30k)
+                      {getPriceLabel("medium")}
                     </button>
 
                     <button
@@ -1133,7 +1147,7 @@ const SedanRims = (): ReactElement => {
                         }
                       `}
                     >
-                      High (&gt; 30k)
+                      {getPriceLabel("high")}
                     </button>
                   </div>
                 )}
@@ -1158,11 +1172,9 @@ const SedanRims = (): ReactElement => {
             "
           >
             {loading ? (
-              Array.from({ length: 8 }).map(
-                (_, index) => (
-                  <SkeletonCard key={index} />
-                )
-              )
+              Array.from({ length: 8 }).map((_, index) => (
+                <SkeletonCard key={index} />
+              ))
             ) : items.length > 0 ? (
               items.map((item) => (
                 <div
@@ -1188,10 +1200,7 @@ const SedanRims = (): ReactElement => {
                   <Link
                     to={`/items/${item.id}`}
                     onClick={(event) =>
-                      handleItemClick(
-                        event,
-                        item.id
-                      )
+                      handleItemClick(event, item.id)
                     }
                     className="
                       flex
@@ -1217,7 +1226,7 @@ const SedanRims = (): ReactElement => {
                         max-[480px]:object-cover
                       "
                     />
-
+                    
                     <h4
                       className="
                         my-[5px]
@@ -1227,8 +1236,10 @@ const SedanRims = (): ReactElement => {
                         text-[#333]
                       "
                     >
-                      {item.brand} {item.category} for{" "}
-                      {item.vehicle_type}
+                      {item.brand}{" "}
+                      {translateCategory(item.category)}{" "}
+                      {t("common.for")}{" "}
+                      {translateCategory(item.vehicle_type)}
                     </h4>
 
                     <p
@@ -1257,10 +1268,7 @@ const SedanRims = (): ReactElement => {
 
                     <button
                       onClick={(event) =>
-                        handleAddToCart(
-                          item,
-                          event
-                        )
+                        handleAddToCart(item, event)
                       }
                       className="
                         rounded-md
@@ -1274,7 +1282,7 @@ const SedanRims = (): ReactElement => {
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
@@ -1289,7 +1297,7 @@ const SedanRims = (): ReactElement => {
                   text-[#7f0d0d]
                 "
               >
-                No Sedan rims found.
+                {t("sedanRims.noItemsFound")}
               </p>
             )}
           </div>
@@ -1325,10 +1333,7 @@ const SedanRims = (): ReactElement => {
                   disabled={currentPage === 1}
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.max(
-                        page - 1,
-                        1
-                      )
+                      Math.max(page - 1, 1)
                     )
                   }
                   className="
@@ -1346,7 +1351,7 @@ const SedanRims = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
@@ -1364,9 +1369,7 @@ const SedanRims = (): ReactElement => {
                 {visiblePages.map((page) => (
                   <button
                     key={page}
-                    onClick={() =>
-                      setCurrentPage(page)
-                    }
+                    onClick={() => setCurrentPage(page)}
                     className={`
                       rounded
                       border
@@ -1400,15 +1403,10 @@ const SedanRims = (): ReactElement => {
                 )}
 
                 <button
-                  disabled={
-                    currentPage === totalPages
-                  }
+                  disabled={currentPage === totalPages}
                   onClick={() =>
                     setCurrentPage((page) =>
-                      Math.min(
-                        page + 1,
-                        totalPages
-                      )
+                      Math.min(page + 1, totalPages)
                     )
                   }
                   className="
@@ -1426,7 +1424,7 @@ const SedanRims = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )

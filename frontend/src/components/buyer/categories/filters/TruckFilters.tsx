@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, type MouseEvent, type ReactElement } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { RefreshCw, ChevronUp, ChevronDown, ArrowLeft } from "lucide-react";
 import { useCart } from "../../../../contexts/CartContext";
 import config from "../../../../config";
+
 
 /* ---------------- Types ---------------- */
 interface SparePart {
@@ -81,43 +83,82 @@ const SkeletonCard = (): ReactElement => (
 /* ---------------- Error ---------------- */
 const ErrorState = ({
   onRetry,
-}: ErrorStateProps): ReactElement => (
-  <div className="px-5 py-10 text-center">
-    <h2 className="mb-3 text-2xl font-semibold">
-      Failed to load SUV filters
-    </h2>
+}: ErrorStateProps): ReactElement => {
+  const { t } = useTranslation();
 
-    <button
-      type="button"
-      onClick={() => void onRetry()}
-      className="
-        inline-flex
-        items-center
-        gap-2
-        rounded-md
-        bg-[#111]
-        px-5
-        py-2.5
-        text-white
-        transition-opacity
-        duration-200
-        hover:opacity-85
-      "
-    >
-      <RefreshCw
-        size={18}
-        className="transition-transform duration-300"
-      />
+  return (
+    <div className="px-5 py-10 text-center">
+      <h2 className="mb-3 text-2xl font-semibold">
+        {t("common.somethingWentWrong")}
+      </h2>
 
-      Retry
-    </button>
-  </div>
-);
+      <p className="mb-5 text-gray-600">
+        {t("buyerHomepage.loadSparePartsError")}
+      </p>
+
+      <button
+        type="button"
+        onClick={() => void onRetry()}
+        className="
+          inline-flex
+          items-center
+          gap-2
+          rounded-md
+          bg-[#111]
+          px-5
+          py-2.5
+          text-white
+          transition-opacity
+          duration-200
+          hover:opacity-85
+        "
+      >
+        <RefreshCw
+          size={18}
+          className="transition-transform duration-300"
+        />
+
+        {t("common.retry")}
+      </button>
+    </div>
+  );
+};
 
 /* ---------------- Component ---------------- */
 const TruckFilters = (): ReactElement => {
+  const { t } = useTranslation();
+
   const location = useLocation();
   const navigate = useNavigate();
+
+  const translateCategory = (value: string): string => {
+  const normalized = value.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    tyre: "tyre",
+    tyres: "tyre",
+    rim: "rim",
+    rims: "rim",
+    battery: "battery",
+    batteries: "battery",
+    filter: "filter",
+    filters: "filter",
+    "oil filter": "filter",
+    "oil filters": "filter",
+    sedan: "sedan",
+    saloon: "sedan",
+    suv: "suv",
+    truck: "truck",
+    lorry: "truck",
+    bus: "bus",
+  };
+
+  const key = aliases[normalized] ?? normalized;
+  const translationKey = `productCategories.${key}`;
+  const translated = t(translationKey);
+
+  return translated === translationKey ? value : translated;
+ };
 
   const restoreState =
     location.state as RestoreState | null;
@@ -195,6 +236,9 @@ const TruckFilters = (): ReactElement => {
     "silver",
     "gold",
   ];
+
+  const getColourLabel = (value: string): string =>
+    t(`categoriesCommon.colours.${value}`);
 
   /* ---------------- Restore State ---------------- */
   useEffect(() => {
@@ -389,7 +433,6 @@ const TruckFilters = (): ReactElement => {
     };
   }, [loading, currentPage]);
 
-
   /* ---------------- Normal Page Scroll ---------------- */
   useEffect(() => {
     if (
@@ -567,7 +610,7 @@ const TruckFilters = (): ReactElement => {
     >
       <Link
         to="/"
-        aria-label="Back to home"
+        aria-label={t("categoriesCommon.backToHome")}
         className="
           inline-flex
           items-center
@@ -581,10 +624,10 @@ const TruckFilters = (): ReactElement => {
           cursor-pointer
           hover:bg-[#eaf2f8]
         "
-          >
-           Home
-        </Link>
-      
+      >
+        {t("buyerNavbar.home")}
+      </Link>
+
       {/* Top Left Back Arrow */}
       {!error &&
         (brand !== "" ||
@@ -601,7 +644,7 @@ const TruckFilters = (): ReactElement => {
             <button
               type="button"
               onClick={handleBackToAvailableParts}
-              aria-label="Back to available parts"
+              aria-label={t("categoriesCommon.backToAvailableParts")}
               className="
                 inline-flex
                 items-center
@@ -618,7 +661,7 @@ const TruckFilters = (): ReactElement => {
             </button>
           </div>
         )}
-      
+
       {/* ---------------- Filters ---------------- */}
       {!error && (
         <div
@@ -682,7 +725,7 @@ const TruckFilters = (): ReactElement => {
                 "
               >
                 <span className="truncate">
-                  {brand || "All Brands"}
+                  {brand || t("categoriesCommon.allBrands")}
                 </span>
 
                 {brandOpen ? (
@@ -751,7 +794,7 @@ const TruckFilters = (): ReactElement => {
                       }
                     `}
                   >
-                    All Brands
+                    {t("categoriesCommon.allBrands")}
                   </button>
 
                   {availableBrands.map((itemBrand) => (
@@ -829,9 +872,8 @@ const TruckFilters = (): ReactElement => {
               >
                 <span className="truncate">
                   {colour === ""
-                    ? "All Colours"
-                    : colour.charAt(0).toUpperCase() +
-                      colour.slice(1)}
+                    ? t("categoriesCommon.allColours")
+                    : getColourLabel(colour)}
                 </span>
 
                 {colourOpen ? (
@@ -900,7 +942,7 @@ const TruckFilters = (): ReactElement => {
                       }
                     `}
                   >
-                    All Colours
+                    {t("categoriesCommon.allColours")}
                   </button>
 
                   {availableColours.map((itemColour) => (
@@ -931,8 +973,7 @@ const TruckFilters = (): ReactElement => {
                         }
                       `}
                     >
-                      {itemColour.charAt(0).toUpperCase() +
-                        itemColour.slice(1)}
+                      {getColourLabel(itemColour)}
                     </button>
                   ))}
                 </div>
@@ -980,12 +1021,12 @@ const TruckFilters = (): ReactElement => {
               >
                 <span className="truncate">
                   {price === ""
-                    ? "All Prices"
+                    ? t("categoriesCommon.allPrices")
                     : price === "low"
-                      ? "Low (< 7500k)"
+                      ? t("categoriesCommon.priceLow", { threshold: "7500k" })
                       : price === "medium"
-                        ? "Medium (7500k–8500k)"
-                        : "High (> 8500k)"}
+                        ? t("categoriesCommon.priceMedium", { range: "7500k–8500k" })
+                        : t("categoriesCommon.priceHigh", { threshold: "8500k" })}
                 </span>
 
                 {priceOpen ? (
@@ -1054,7 +1095,7 @@ const TruckFilters = (): ReactElement => {
                       }
                     `}
                   >
-                    All Prices
+                    {t("categoriesCommon.allPrices")}
                   </button>
 
                   <button
@@ -1083,7 +1124,7 @@ const TruckFilters = (): ReactElement => {
                       }
                     `}
                   >
-                    Low (&lt; 7500k)
+                    {t("categoriesCommon.priceLow", { threshold: "7500k" })}
                   </button>
 
                   <button
@@ -1112,7 +1153,7 @@ const TruckFilters = (): ReactElement => {
                       }
                     `}
                   >
-                    Medium (7500k–8500k)
+                    {t("categoriesCommon.priceMedium", { range: "7500k–8500k" })}
                   </button>
 
                   <button
@@ -1141,7 +1182,7 @@ const TruckFilters = (): ReactElement => {
                       }
                     `}
                   >
-                    High (&gt; 8500k)
+                    {t("categoriesCommon.priceHigh", { threshold: "8500k" })}
                   </button>
                 </div>
               )}
@@ -1227,8 +1268,10 @@ const TruckFilters = (): ReactElement => {
                         text-[#333]
                       "
                     >
-                      {item.brand} {item.category} for{" "}
-                      {item.vehicle_type}
+                      {item.brand}{" "}
+                      {translateCategory(item.category)}{" "}
+                      {t("common.for")}{" "}
+                      {translateCategory(item.vehicle_type)}
                     </h4>
 
                     <p className="mb-[10px] text-base font-bold text-[rgb(255,0,0)] sm:text-lg">
@@ -1260,7 +1303,7 @@ const TruckFilters = (): ReactElement => {
                         hover:bg-[rgb(4,37,71)]
                       "
                     >
-                      Add To Cart
+                      {t("common.addToCart")}
                     </button>
                   </Link>
                 </div>
@@ -1275,7 +1318,7 @@ const TruckFilters = (): ReactElement => {
                   text-[#7f0d0d]
                 "
               >
-                No Truck filters found.
+                {t("truckFilters.noItemsFound")}
               </p>
             )}
           </div>
@@ -1338,7 +1381,7 @@ const TruckFilters = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Prev
+                  {t("categoriesCommon.previous")}
                 </button>
 
                 {visiblePages[0] > 1 && (
@@ -1432,7 +1475,7 @@ const TruckFilters = (): ReactElement => {
                     disabled:opacity-50
                   "
                 >
-                  Next
+                  {t("categoriesCommon.next")}
                 </button>
               </div>
             )
