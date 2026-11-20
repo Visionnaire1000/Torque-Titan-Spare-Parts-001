@@ -5,7 +5,7 @@ body {
 }
 
 /* ---------- NAVBAR (DEFAULT = LAPTOP) ---------- */
-.navbar.admin-navbar {
+.admin-navbar {
   width: 100vw;
   position: fixed;
   top: 0;
@@ -195,7 +195,7 @@ body {
 
 /* ---------- MOBILE ---------- */
 @media (max-width: 480px) {
-  .navbar.admin-navbar {
+  .admin-navbar {
     padding: 0.7rem 0.8rem;
     gap: 8px;
   }
@@ -205,44 +205,91 @@ body {
     max-width: 90px;
   }
 
-  .admin-navbar .right-section {
-    gap: 8px;
-  }
-
-  .admin-navbar .login,
-  .admin-navbar .register {
-    font-size: 12px;
-  }
-
   .admin-navbar .dashboard-dropdown {
     position: relative;
-    display: inline-block;
-    margin-right: -500px;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .admin-navbar .dashboard-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    visibility: visible;
+    opacity: 1;
+  }
+
+  .admin-navbar .right-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: -220px;
+    flex-shrink: 0;
+  }
+
+  .admin-navbar .dropdown-menu {
+    position: absolute;
+    top: 36px;
+    margin-right: -250px;
+    right: 0;
+    left: auto;
+    transform: none;
+    min-width: 230px;
+  }
+  
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
   }
 }
-
 
 /* ---------- TABLETS ---------- */
-@media (min-width: 600px) and (max-width: 1200px) {
+@media (min-width: 481px) and (max-width: 1200px) {
   .admin-navbar .dashboard-dropdown {
     position: relative;
-    display: inline-block;
-    margin-right: -170px;
-    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    flex-shrink: 0;
+  }
+
+  .admin-navbar .right-section {
+    display: flex;
+    align-items: center;
+    margin-right: 30px;
+  }
+
+  .admin-navbar .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: auto;
+    margin-top: 22px;
+    margin-right: -390px;
+    transform: none;
+    min-width: 230px;
   }
 }
-
 
 /* ---------- MINI TABLETS ---------- */
 @media (min-width: 600px) and (max-width: 800px) {
   .admin-navbar .dashboard-dropdown {
-    position: relative;
-    display: inline-block;
-    margin-top: 20px;
-    margin-right: -60px;
+    margin: 0;
   }
 
-  /* ---------- PREVENT HORIZONTAL PAGE OVERFLOW ---------- */
+  .admin-navbar .right-section {
+    margin-right: 15px;
+  }
+  
+  .admin-navbar .dropdown-menu {
+    margin-right: -320px;
+  }
+
   html,
   body {
     width: 100%;

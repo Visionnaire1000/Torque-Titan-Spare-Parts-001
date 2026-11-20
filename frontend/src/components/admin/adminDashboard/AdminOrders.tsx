@@ -715,7 +715,7 @@ const AdminOrders = (): ReactElement => {
               <button
                 type="button"
                 onClick={() => setConfirmation(null)}
-                className="rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-300"
+                className="rounded-md bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 cursor-pointer shadow-sm transition hover:bg-gray-300"
               >
                 {t("common.cancel")}
               </button>
@@ -723,9 +723,11 @@ const AdminOrders = (): ReactElement => {
               <button
                 type="button"
                 onClick={confirmUpdateOrderStatus}
-                className="rounded-md bg-[#004080] px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-[#003366] hover:shadow-md"
+                className="rounded-md bg-[#004080] px-4 py-2 text-sm font-semibold cursor-pointer text-white transition-all duration-200 hover:bg-[#003366] hover:shadow-md"
               >
-                {t("common.confirm")}
+                {confirmation.newStatus === "shipped"
+                  ? t("adminOrders.confirmShipped")
+                  : t("adminOrders.confirmDelivered")}
               </button>
             </div>
           </div>

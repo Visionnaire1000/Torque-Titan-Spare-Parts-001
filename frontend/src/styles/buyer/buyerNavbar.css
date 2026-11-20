@@ -4,7 +4,7 @@ html, body {
 }
 
 /* ---------- NAVBAR (DEFAULT = LAPTOP)---------- */
-.navbar {
+.buyer-navbar {
   width: 100vw;
   position: fixed;
   background-color: rgb(0,64,128);
@@ -140,8 +140,8 @@ html, body {
   margin-right: 10px;
 }
 
-.navbar.logged-out .logo img,
-.navbar.logged-in .logo img {
+.buyer-navbar.logged-out .logo img,
+.buyer-navbar.logged-in .logo img {
   width: 60%;
   height: 30%;
   margin-right: -300px;
@@ -168,8 +168,8 @@ html, body {
   height: 22px;
 }
 
-.navbar.logged-in .dropdown-menu,
-.navbar.logged-out .dropdown-menu {
+.buyer-navbar.logged-in .dropdown-menu,
+.buyer-navbar.logged-out .dropdown-menu {
   position: absolute;
   transform: translateX(-100%);
   min-width: 230px;
@@ -183,14 +183,41 @@ html, body {
   animation: slideInLeft 0.25s ease forwards;
 }
 
-.navbar.logged-in .dropdown-menu {
+.buyer-navbar.logged-in .dropdown-menu {
   margin-top: 24px;
   margin-left: -38px;
 }
 
-.navbar.logged-out .dropdown-menu {
+.buyer-navbar.logged-out .dropdown-menu {
   margin-top: 24px;
-  margin-left: 7px;
+  margin-left: -8px;
+}
+
+/* ---------- LOGOUT BUTTON VISIBILITY ---------- */
+.buyer-navbar .dropdown-menu > button {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 0;
+  background: #ffffff !important;
+  color: red !important;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+
+.buyer-navbar .dropdown-menu > button:hover {
+  background: #f3f4f6 !important;
 }
 
 @keyframes slideInLeft {
@@ -237,7 +264,7 @@ html, body {
 }
 
 .navbar-search-icon:hover {
-  background-color: rgba(255,255,255,0.15);
+  background-color: rgba(185, 145, 145, 0.15);
 }
 
 .input-container input {
@@ -246,7 +273,7 @@ html, body {
   border-radius: 6px;
 }
 
-.orders-icon-wrapper {
+.reviews-icon-wrapper, .orders-icon-wrapper {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -257,6 +284,7 @@ html, body {
 .notification-badge {
   top: -6px;
   right: -6px;
+  position: absolute;
   background-color: #e03e2d; 
   color: white;
   font-size: 10px;
@@ -283,7 +311,6 @@ html, body {
 }
 
 .orders-badge {
-  position: absolute;
   top: 60px;
   right: 90px;
   background-color: #ff3b30;
@@ -302,7 +329,7 @@ html, body {
 /*-------------------------------- RESPONSIVE BREAKPOINT -------------------------------------------*/
 /* ---------- MOBILE ---------- */
 @media (max-width: 480px) {
-  .navbar {
+  .buyer-navbar {
     position: fixed;
     top: 0;
     left: 0;
@@ -322,8 +349,19 @@ html, body {
   }
 
   /* ---------- LOGO ---------- */
-  .navbar.logged-in .logo,
-  .navbar.logged-out .logo {
+  .buyer-navbar.logged-in .logo,
+  .buyer-navbar.logged-out .logo {
+    order: 1;
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-width: 0;
+    margin: 0 4px 0 0;
+    margin-left: -8px;
+    margin-right: 5px;
+  }
+
+  .buyer-navbar.logged-out .logo {
     order: 1;
     display: flex;
     flex: 0 0 auto;
@@ -334,19 +372,8 @@ html, body {
     margin-right: 5px;
   }
 
-  .navbar.logged-out .logo {
-    order: 1;
-    display: flex;
-    flex: 0 0 auto;
-    align-items: center;
-    min-width: 0;
-    margin: 0 4px 0 0;
-    margin-left: -30px;
-    margin-right: 5px;
-  }
-
-  .navbar.logged-in .logo img,
-  .navbar.logged-out .logo img {
+  .buyer-navbar.logged-in .logo img,
+  .buyer-navbar.logged-out .logo img {
     display: block;
     width: 100px;
     max-width: 100%;
@@ -375,13 +402,13 @@ html, body {
     white-space: nowrap;
   }
 
-  .navbar.logged-in .dashboard-button,
-  .navbar.logged-out .dashboard-button {
+  .buyer-navbar.logged-in .dashboard-button,
+  .buyer-navbar.logged-out .dashboard-button {
     margin: 0;
     margin-right: 8px; 
   }
 
-  .navbar.logged-in .dashboard-button {
+  .buyer-navbar.logged-in .dashboard-button {
     margin-right: 50px;
   }
 
@@ -391,8 +418,8 @@ html, body {
   }
 
   /* ---------- DASHBOARD DROPDOWN MENU ---------- */
-  .navbar.logged-in .dropdown-menu,
-  .navbar.logged-out .dropdown-menu {
+  .buyer-navbar.logged-in .dropdown-menu,
+  .buyer-navbar.logged-out .dropdown-menu {
     position: absolute;
     transform: translateX(-100%);
     min-width: 174px;
@@ -408,14 +435,14 @@ html, body {
     animation: slideInLeft 0.25s ease forwards;
   }
 
-  .navbar.logged-in .dropdown-menu {
-    margin-top: 61px;
-    margin-left: 70px;
+  .buyer-navbar.logged-in .dropdown-menu {
+    top: 70px;
+    margin-left: 67px;
   }
 
-  .navbar.logged-out .dropdown-menu {
-    margin-top: 61px;
-    margin-left: 64px;
+  .buyer-navbar.logged-out .dropdown-menu {
+    top: 67px;
+    margin-left: 84px;
   }
 
   .tab {
@@ -468,7 +495,7 @@ html, body {
     min-width: max-content;
     padding: 0 4px;
     margin: 0;
-    margin-left: -7px;
+    margin-left: 20px;
   }
 
   .category-dropdown {
@@ -493,8 +520,8 @@ html, body {
     cursor: pointer;
   }
 
-  .navbar.logged-in .category-button,
-  .navbar.logged-out .category-button {
+  .buyer-navbar.logged-in .category-button,
+  .buyer-navbar.logged-out .category-button {
     min-width: 95px;
     margin: 0;
     padding: 6px 7px;
@@ -512,8 +539,8 @@ html, body {
     z-index: 999999;
   }
 
-  .navbar.logged-in .category-menu,
-  .navbar.logged-out .category-menu {
+  .buyer-navbar.logged-in .category-menu,
+  .buyer-navbar.logged-out .category-menu {
     position: absolute;
   }
 
@@ -566,7 +593,7 @@ html, body {
 
 
   /* ---------- RIGHT SECTION: CART, LOGIN, REGISTER, LANGUAGE ---------- */
-  .navbar .right-section {
+  .buyer-navbar .right-section {
     order: 4;
     display: flex;
     flex: 0 1 auto;
@@ -576,14 +603,19 @@ html, body {
     min-width: 0;
     max-width: 100%;
     margin: 0;
+    margin-right: 20px;
     padding: 0;
     position: relative;
     white-space: nowrap;
     box-sizing: border-box;
   }
 
+   .buyer-navbar.buyer-navbar.logged-in .right-section {
+    margin-right: 2px;
+  }
+
   /* ---------- CART ---------- */
-  .navbar .right-section .cart {
+  .buyer-navbar .right-section .cart {
     order: 1;
     position: relative;
     display: inline-flex;
@@ -595,13 +627,13 @@ html, body {
     padding: 3px;
    }
 
-  .navbar .right-section .cart-count {
+  .buyer-navbar .right-section .cart-count {
     top: -3px;
     right: -2px;
   }
 
   /* ---------- LOGIN ---------- */
-  .navbar .right-section .login {
+  .buyer-navbar .right-section .login {
     order: 2;
     display: inline-flex;
     flex: 0 1 auto;
@@ -619,7 +651,7 @@ html, body {
   }
 
   /* ---------- REGISTER ---------- */
-  .navbar .right-section .register {
+  .buyer-navbar .right-section .register {
     order: 3;
     display: inline-flex;
     flex: 0 1 auto;
@@ -635,7 +667,7 @@ html, body {
   }
 
   /* ---------- LANGUAGE SELECTOR ---------- */
-  .navbar .right-section > :last-child {
+  .buyer-navbar .right-section > :last-child {
     order: 4;
     display: flex;
     flex: 0 0 auto;
@@ -647,34 +679,34 @@ html, body {
     box-sizing: border-box;
   }
 
-  .navbar .right-section {
+  .buyer-navbar .right-section {
     flex: 1 1 0;
     gap: 2px;
     justify-content: flex-end;
     overflow: visible;
   }
 
-  .navbar.logged-in .right-section .cart {
+  .buyer-navbar.logged-in .right-section .cart {
     margin-right: 20px;
    
   }
   
-  .navbar.logged-out .right-section .cart {
+  .buyer-navbar.logged-out .right-section .cart {
     margin-right: 2px;
   }
 
-  .navbar.logged-out .right-section .login,
-  .navbar.logged-out .right-section .register {
+  .buyer-navbar.logged-out .right-section .login,
+  .buyer-navbar.logged-out .right-section .register {
     font-size: clamp(9px, 2.8vw, 12px);
     padding: 4px 1px;
   }
 
-  .navbar .right-section > :last-child {
+  .buyer-navbar .right-section > :last-child {
     flex-shrink: 0;
     margin-left: 2px;
   }
   
-  .navbar.logged-out .right-section > :last-child {
+  .buyer-navbar.logged-out .right-section > :last-child {
     flex-shrink: 0;
     margin-left: 2px;
     margin-right: -22px;
@@ -693,7 +725,7 @@ html, body {
 /*-------------------------------- RESPONSIVE BREAKPOINT -------------------------------------------*/
 /* ---------- TABLETS ---------- */
 @media (min-width: 600px) and (max-width: 1200px) {
-  .navbar {
+  .buyer-navbar {
     position: fixed;
     top: 0;
     left: 0;
@@ -709,17 +741,17 @@ html, body {
     align-items: center;
   }
 
-  .navbar.logged-in .logo,
-  .navbar.logged-out .logo {
+  .buyer-navbar.logged-in .logo,
+  .buyer-navbar.logged-out .logo {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     min-width: 0;
-    margin-left: -44px;
+    margin-left: -10px;
   }
 
-  .navbar.logged-in .logo img,
-  .navbar.logged-out .logo img {
+  .buyer-navbar.logged-in .logo img,
+  .buyer-navbar.logged-out .logo img {
     display: block;
     width: 100px;
     height: auto;
@@ -734,8 +766,8 @@ html, body {
   }
 
   /* ---------- DASHBOARD DROPDOWN MENU ---------- */
-  .navbar.logged-in .dropdown-menu,
-  .navbar.logged-out .dropdown-menu {
+  .buyer-navbar.logged-in .dropdown-menu,
+  .buyer-navbar.logged-out .dropdown-menu {
     position: absolute;
     transform: translateX(-100%);
     min-width: 174px;
@@ -751,14 +783,14 @@ html, body {
     animation: slideInLeft 0.25s ease forwards;
   }
 
-  .navbar.logged-in .dropdown-menu {
-    margin-top: 30px;
-    margin-left: 40px;
+  .buyer-navbar.logged-in .dropdown-menu {
+    margin-top: 24px;
+    margin-left: 30px;
   }
 
-  .navbar.logged-out .dropdown-menu {
+  .buyer-navbar.logged-out .dropdown-menu {
     margin-top: 25px;
-    margin-left: 74px;
+    margin-left: 55px;
   }
 
   .navbar-search-icon {
@@ -777,8 +809,8 @@ html, body {
   }
 
   .right-section,
-  .navbar.logged-in .right-section,
-  .navbar.logged-out .right-section {
+  .buyer-navbar.logged-in .right-section,
+  .buyer-navbar.logged-out .right-section {
     display: flex;
     flex: 0 0 auto;
     align-items: center;
@@ -787,9 +819,10 @@ html, body {
     min-width: 0;
     margin: 0;
     margin-left: -15px; 
+    margin-right: 20px;
   }
 
-  .navbar.logged-out .right-section .cart {
+  .buyer-navbar.logged-out .right-section .cart {
     order: 1;
     position: relative;
     display: inline-flex;
@@ -800,7 +833,7 @@ html, body {
     padding: 4px;
   }
 
-  .navbar.logged-out .right-section .cart-count {
+  .buyer-navbar.logged-out .right-section .cart-count {
     top: -3px;
     right: -2px;
   }
@@ -853,7 +886,7 @@ html, body {
 /*-------------------------------- RESPONSIVE BREAKPOINT -------------------------------------------*/
 /* ---------- MINI TABLETS ---------- */
 @media (min-width: 600px) and (max-width: 800px) {
-  .navbar {
+  .buyer-navbar {
     position: fixed;
     top: 0;
     left: 0;
@@ -873,31 +906,34 @@ html, body {
   }
 
   /* ---------- LOGO ---------- */
-  .navbar.logged-in .logo,
-  .navbar.logged-out .logo {
+  .buyer-navbar.logged-in .logo,
+  .buyer-navbar.logged-out .logo {
     order: 1;
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     min-width: 0;
     margin: 0 4px 0 0;
-    margin-left: -30px;
-    margin-right: 5px;
+  }
+  
+  .buyer-navbar.logged-in .logo {
+    margin-left: 6px;
+    margin-right: 120px;
   }
 
-  .navbar.logged-out .logo {
+  .buyer-navbar.logged-out .logo {
     order: 1;
     display: flex;
     flex: 0 0 auto;
     align-items: center;
     min-width: 0;
     margin: 0 4px 0 0;
-    margin-left: -30px;
-    margin-right: 5px;
+    margin-left: 10px;
+    margin-right: 10px;
   }
 
-  .navbar.logged-in .logo img,
-  .navbar.logged-out .logo img {
+  .buyer-navbar.logged-in .logo img,
+  .buyer-navbar.logged-out .logo img {
     display: block;
     width: 100px;
     max-width: 100%;
@@ -914,6 +950,7 @@ html, body {
     flex: 0 0 auto;
     align-items: center;
     min-width: 0;
+    margin-right: 80px;
     margin: 0 3px 0 0;
   }
 
@@ -926,10 +963,10 @@ html, body {
     white-space: nowrap;
   }
 
-  .navbar.logged-in .dashboard-button,
-  .navbar.logged-out .dashboard-button {
+  .buyer-navbar.logged-in .dashboard-button,
+  .buyer-navbar.logged-out .dashboard-button {
     margin: 0;
-    margin-right: 8px; 
+    margin-right: 270px; 
   }
 
   .dashboard-button svg {
@@ -938,8 +975,8 @@ html, body {
   }
 
   /* ---------- DASHBOARD DROPDOWN MENU ---------- */
-  .navbar.logged-in .dropdown-menu,
-  .navbar.logged-out .dropdown-menu {
+  .buyer-navbar.logged-in .dropdown-menu,
+  .buyer-navbar.logged-out .dropdown-menu {
     position: absolute;
     transform: translateX(-100%);
     min-width: 174px;
@@ -955,14 +992,14 @@ html, body {
     animation: slideInLeft 0.25s ease forwards;
   }
 
-  .navbar.logged-in .dropdown-menu {
-    margin-top: 61px;
-    margin-left: -71px;
+  .buyer-navbar.logged-in .dropdown-menu {
+    top: 68px;
+    margin-left: -32px;
   }
 
-  .navbar.logged-out .dropdown-menu {
-    margin-top: 61px;
-    margin-left: -20px;
+  .buyer-navbar.logged-out .dropdown-menu {
+    top: 68px;
+    margin-left: 76px;
   }
 
   .tab {
@@ -1016,7 +1053,7 @@ html, body {
     min-width: max-content;
     padding: 0 4px;
     margin: 0;
-    margin-left: -7px;
+    margin-left: 40px;
   }
 
   .category-dropdown {
@@ -1041,8 +1078,8 @@ html, body {
     cursor: pointer;
   }
 
-  .navbar.logged-in .category-button,
-  .navbar.logged-out .category-button {
+  .buyer-navbar.logged-in .category-button,
+  .buyer-navbar.logged-out .category-button {
     min-width: 95px;
     margin: 0;
     padding: 6px 7px;
@@ -1060,8 +1097,8 @@ html, body {
     z-index: 999999;
   }
 
-  .navbar.logged-in .category-menu,
-  .navbar.logged-out .category-menu {
+  .buyer-navbar.logged-in .category-menu,
+  .buyer-navbar.logged-out .category-menu {
     position: absolute;
   }
 
@@ -1114,8 +1151,8 @@ html, body {
 
   /* ---------- RIGHT SECTION: CART, LOGIN, REGISTER, LANGUAGE ---------- */
   .right-section,
-  .navbar.logged-in .right-section,
-  .navbar.logged-out .right-section {
+  .buyer-navbar.logged-in .right-section,
+  .buyer-navbar.logged-out .right-section {
     order: 4;
     display: flex;
     flex: 0 1 auto;
@@ -1124,6 +1161,7 @@ html, body {
     gap: 3px;
     min-width: 0;
     margin: 0;
+    margin-left: 10px;
     padding: 0;
     position: relative;
     white-space: nowrap;
@@ -1133,7 +1171,7 @@ html, body {
     display: none;
   }
 
-  .navbar.logged-in .right-section .cart {
+  .buyer-navbar.logged-in .right-section .cart {
     order: 1;
     position: relative;
     display: inline-flex;
@@ -1144,7 +1182,7 @@ html, body {
     padding: 4px;
   }
   
-  .navbar.logged-out .right-section .cart {
+  .buyer-navbar.logged-out .right-section .cart {
     order: 1;
     position: relative;
     display: inline-flex;
@@ -1155,12 +1193,12 @@ html, body {
     padding: 4px;
   }
   
-  .navbar.logged-in .right-section .cart-count {
+  .buyer-navbar.logged-in .right-section .cart-count {
     top: -3px;
     right: -2px;
   }
   
-  .navbar.logged-out .right-section .cart-count {
+  .buyer-navbar.logged-out .right-section .cart-count {
     top: -3px;
     right: -2px;
   }

@@ -382,7 +382,7 @@ const BuyerNavbar = () => {
   }, [user]);
 
   return (
-    <nav className={`navbar ${user ? "logged-in" : "logged-out"}`}>
+    <nav className={`buyer-navbar ${user ? "logged-in" : "logged-out"}`}>
       <div className="logo">
         <img
           src="https://i.imgur.com/wVCDyd7.png"
@@ -459,10 +459,10 @@ const BuyerNavbar = () => {
               }
               onClick={markReviewsAsSeen}
             >
-              <div className="icon-wrapper">
+              <div className="reviews-icon-wrapper">
                 <MessageSquare size={18} />
                 {newReviewsCount > 0 && (
-                  <span className="notification-badge">
+                 <span className="notification-badge">
                     {newReviewsCount > 9
                       ? "9+"
                       : newReviewsCount}
@@ -479,7 +479,8 @@ const BuyerNavbar = () => {
                   navigate("/login");
                 }}
               >
-                {t("buyerNavbar.logout")}
+                Logout
+          
               </button>
             )}
           </div>

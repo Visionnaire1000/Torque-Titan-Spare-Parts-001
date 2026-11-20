@@ -278,7 +278,7 @@ const AdminNavbar = () => {
   };
 
   return (
-    <nav className={`navbar admin-navbar ${user ? "logged-in" : "logged-out"}`}>
+    <nav className={`admin-navbar ${user ? "logged-in" : "logged-out"}`}>
       <div className="logo">
         <img
           src="https://i.imgur.com/wVCDyd7.png"
